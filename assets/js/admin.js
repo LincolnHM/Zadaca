@@ -835,16 +835,40 @@ async function cargarClientes() {
   try {
     const clientes = await obtenerClientesAdmin({ busqueda });
     tbody.innerHTML = clientes.length ? clientes.map((c) => `
-      <tr>
-        <td>${escapeHtml(c.nombres)} ${escapeHtml(c.apellidos)} ${c.rol === 'Admin' ? '<span class="status-tag">Admin</span>' : ''}</td>
+      <tr data-id="${c.id}">
+        <td>${escapeHtml(c.nombres)} ${escapeHtml(c.apellidos)}</td>
         <td>${escapeHtml(c.correo || '—')}</td>
         <td>${escapeHtml(c.dni_ce_ruc || '—')}</td>
         <td>${escapeHtml(c.telefono || '—')}</td>
         <td>${new Date(c.fecha_registro).toLocaleDateString('es-PE')}</td>
+        <td>
+          <span class="status-tag" style="${c.rol === 'Admin' ? '' : 'opacity:.5;'}">${escapeHtml(c.rol)}</span>
+          <button class="btn btn-ghost btn-sm btn-cambiar-rol" data-rol-actual="${c.rol}" ${c.id === PERFIL_ADMIN?.id ? 'disabled title="No puedes cambiar tu propio rol desde acá"' : ''}>
+            ${c.rol === 'Admin' ? 'Quitar Admin' : 'Hacer Admin'}
+          </button>
+        </td>
       </tr>
-    `).join('') : '<tr><td colspan="5" class="admin-empty">Sin clientes.</td></tr>';
+    `).join('') : '<tr><td colspan="6" class="admin-empty">Sin clientes.</td></tr>';
+
+    tbody.querySelectorAll('.btn-cambiar-rol').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const fila = btn.closest('tr');
+        const id = fila.dataset.id;
+        const rolActual = btn.dataset.rolActual;
+        const nuevoRol = rolActual === 'Admin' ? 'Cliente' : 'Admin';
+        const nombre = fila.querySelector('td').textContent.trim();
+        if (!confirm(`¿${nuevoRol === 'Admin' ? 'Dar permisos de Admin a' : 'Quitarle Admin a'} ${nombre}?`)) return;
+        try {
+          await cambiarRolCliente(id, nuevoRol);
+          mostrarToast('Rol actualizado');
+          cargarClientes();
+        } catch (err) {
+          mostrarToast(err.message, 'error');
+        }
+      });
+    });
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="admin-empty">${err.message}</td></tr>`;
   }
 }
 

@@ -28,7 +28,29 @@ async function iniciarLayout(activo) {
   renderHeaderEstatico(activo);
   renderFooter();
   renderWhatsappFloat();
+  activarRevelado();
   await actualizarEstadoSesionHeader();
+}
+
+// Aparición suave de secciones al hacer scroll (".reveal" en el HTML estático de cada
+// página). Si el usuario prefiere menos movimiento, se saltea el observer y se muestra todo
+// de una — la regla CSS que oculta ".reveal" ni siquiera aplica en ese caso (ver style.css).
+function activarRevelado() {
+  const elementos = document.querySelectorAll('.reveal');
+  if (!elementos.length) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    elementos.forEach((el) => el.classList.add('is-visible'));
+    return;
+  }
+  const observer = new IntersectionObserver((entradas) => {
+    entradas.forEach((entrada) => {
+      if (entrada.isIntersecting) {
+        entrada.target.classList.add('is-visible');
+        observer.unobserve(entrada.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+  elementos.forEach((el) => observer.observe(el));
 }
 
 function renderHeaderEstatico(activo) {

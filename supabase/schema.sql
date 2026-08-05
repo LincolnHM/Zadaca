@@ -705,6 +705,11 @@ create policy "resenas admin modera" on resenas for update using (is_admin());
 -- Perfiles: cada quien ve/edita el suyo, admin ve todos
 create policy "perfil propio" on perfiles for select using (id = auth.uid() or is_admin());
 create policy "perfil propio editar" on perfiles for update using (id = auth.uid());
+-- Necesaria para que un Admin pueda ascender/quitar Admin a otra cuenta desde el panel
+-- (Clientes → Hacer Admin). El trigger fn_bloquear_autoascenso_admin sigue siendo la
+-- barrera real contra que alguien se autoascienda: esta policy sola no lo permite, solo
+-- habilita que un Admin edite perfiles ajenos.
+create policy "perfil admin gestiona" on perfiles for update using (is_admin());
 
 -- Todo lo demás: cada cliente solo ve/gestiona lo suyo
 create policy "direcciones propias" on direcciones_cliente for all using (id_cliente = auth.uid() or is_admin()) with check (id_cliente = auth.uid());

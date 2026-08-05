@@ -106,6 +106,13 @@ h1, h2, h3, h4 {
 
 /* ---------- Header ---------- */
 .announce-bar { background: var(--color-gold); color: #14110c; text-align: center; font-size: 0.78rem; letter-spacing: 0.08em; padding: 9px 16px; font-weight: 600; }
+/* #site-header es el <div> donde main.js monta el header — sin "display: contents" ese div
+   (que mide justo lo que ocupa su contenido, ~100px) se vuelve el contenedor del sticky, y un
+   elemento sticky no puede quedarse fijo más allá de los límites de su contenedor: apenas se
+   hace scroll pasado esos ~100px, se le acaba el contenedor y se va con la página entera. Con
+   "contents" el div deja de generar su propia caja y el header queda efectivamente pegado a
+   <body>, que sí es lo bastante alto como para que el sticky funcione en toda la página. */
+#site-header { display: contents; }
 .site-header { position: sticky; top: 0; z-index: 100; background: rgba(10, 9, 8, 0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--color-border); }
 .header-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; gap: 24px; }
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -198,6 +205,38 @@ h1, h2, h3, h4 {
 }
 .whatsapp-float:hover { transform: scale(1.08); }
 .whatsapp-float svg { width: 28px; height: 28px; color: #06210f; }
+
+/* ---------- Animaciones de entrada ----------
+   Todo dentro de "no-preference": si el usuario tiene activado "reducir movimiento" en su
+   sistema, este bloque entero no aplica y los elementos quedan visibles de una, sin depender
+   de que el JS revierta nada. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero-copy .eyebrow, .hero-copy h1, .hero-copy p, .hero-copy .hero-actions {
+    opacity: 0;
+    animation: entrada-suave 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .hero-copy .eyebrow { animation-delay: 0.05s; }
+  .hero-copy h1 { animation-delay: 0.16s; }
+  .hero-copy p { animation-delay: 0.32s; }
+  .hero-copy .hero-actions { animation-delay: 0.44s; }
+  .hero-visual { opacity: 0; animation: entrada-suave-escala 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.22s forwards; }
+
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease-out, transform 0.7s ease-out; }
+  .reveal.is-visible { opacity: 1; transform: translateY(0); }
+  .reveal-grid.is-visible > * { animation: entrada-suave 0.6s ease-out backwards; }
+  .reveal-grid.is-visible > *:nth-child(1) { animation-delay: 0.05s; }
+  .reveal-grid.is-visible > *:nth-child(2) { animation-delay: 0.11s; }
+  .reveal-grid.is-visible > *:nth-child(3) { animation-delay: 0.17s; }
+  .reveal-grid.is-visible > *:nth-child(4) { animation-delay: 0.23s; }
+}
+@keyframes entrada-suave {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes entrada-suave-escala {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 /* ---------- Hero ---------- */
 .hero { position: relative; background: radial-gradient(ellipse at 30% 20%, #201a10 0%, var(--color-bg) 60%); border-bottom: 1px solid var(--color-border); overflow: hidden; }

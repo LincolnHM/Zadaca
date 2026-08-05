@@ -399,3 +399,12 @@ async function obtenerClientesAdmin({ busqueda } = {}) {
   }
   return clientes;
 }
+
+// Único lugar de la app donde se puede ascender/quitar Admin a otra cuenta (antes solo se
+// podía tocando la tabla "perfiles" directo en Supabase). Requiere que quien llama ya sea
+// Admin — lo exige la policy "perfil propio editar" combinada con el trigger
+// fn_bloquear_autoascenso_admin del esquema, no solo esta función.
+async function cambiarRolCliente(id, nuevoRol) {
+  const { error } = await supabaseClient.from('perfiles').update({ rol: nuevoRol }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
