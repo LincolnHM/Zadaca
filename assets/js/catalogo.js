@@ -80,13 +80,39 @@ async function cargarProductos() {
   }
 }
 
+// Con muchas páginas (el catálogo real tiene ~19), listarlas todas seguidas es ilegible.
+// Se muestra siempre la primera, la última, y una ventana alrededor de la actual, con "…"
+// en los saltos — el patrón estándar de paginación.
+function calcularRangoPaginas(actual, total) {
+  const distancia = 1;
+  const paginas = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= actual - distancia && i <= actual + distancia)) paginas.push(i);
+  }
+  const conElipsis = [];
+  let anterior = 0;
+  for (const p of paginas) {
+    if (anterior && p - anterior > 1) conElipsis.push('…');
+    conElipsis.push(p);
+    anterior = p;
+  }
+  return conElipsis;
+}
+
 function renderPaginacion(totalPaginas) {
   const mount = document.getElementById('paginacion');
   if (totalPaginas <= 1) { mount.innerHTML = ''; return; }
-  let html = '';
-  for (let i = 1; i <= totalPaginas; i++) html += `<button class="${i === paginaActual ? 'active' : ''}" data-pagina="${i}">${i}</button>`;
+
+  const botonNav = (destino, simbolo, etiqueta) => `<button class="pg-nav" data-pagina="${destino}" ${destino < 1 || destino > totalPaginas ? 'disabled' : ''} aria-label="${etiqueta}">${simbolo}</button>`;
+
+  let html = botonNav(paginaActual - 1, '‹', 'Página anterior');
+  html += calcularRangoPaginas(paginaActual, totalPaginas)
+    .map((p) => p === '…' ? '<span class="pg-ellipsis">…</span>' : `<button class="${p === paginaActual ? 'active' : ''}" data-pagina="${p}">${p}</button>`)
+    .join('');
+  html += botonNav(paginaActual + 1, '›', 'Página siguiente');
+
   mount.innerHTML = html;
-  mount.querySelectorAll('button').forEach((btn) => {
+  mount.querySelectorAll('button[data-pagina]:not(:disabled)').forEach((btn) => {
     btn.addEventListener('click', () => {
       paginaActual = Number(btn.dataset.pagina);
       cargarProductos();

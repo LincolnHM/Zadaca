@@ -260,7 +260,7 @@ h1, h2, h3, h4 {
   position: relative; aspect-ratio: 3 / 4; display: flex; align-items: center; justify-content: center;
   overflow: hidden; background: radial-gradient(circle at 50% 40%, var(--color-media-bg) 0%, #ddd2b5 100%);
 }
-.product-media img { max-width: 78%; max-height: 82%; object-fit: contain; }
+.product-media img { max-width: 84%; max-height: 88%; object-fit: contain; object-position: center; }
 .product-media .fallback-icon { width: 42%; color: rgba(20, 17, 12, 0.35); }
 .product-badges { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
 .badge { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 9px; border-radius: 20px; font-weight: 700; }
@@ -388,7 +388,15 @@ h1, h2, h3, h4 {
 .text-center { text-align: center; }
 .mt-40 { margin-top: 40px; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; }
-.pagination { display: flex; justify-content: center; gap: 8px; margin-top: 40px; }
-.pagination button { width: 38px; height: 38px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); border-radius: var(--radius); }
-.pagination button.active { background: var(--color-gold); color: #14110c; border-color: var(--color-gold); }
-.pagination button:disabled { opacity: 0.4; cursor: default; }
+.pagination { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 48px; }
+.pagination button {
+  min-width: 38px; height: 38px; padding: 0 4px; border: 1px solid var(--color-border);
+  background: transparent; color: var(--color-text-muted); border-radius: 50%;
+  font-size: 0.82rem; transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.pagination button:hover:not(:disabled):not(.active) { border-color: var(--color-gold-dim); color: var(--color-text); }
+.pagination button.active { background: var(--color-gold); color: #14110c; border-color: var(--color-gold); font-weight: 700; }
+.pagination button:disabled { opacity: 0.35; cursor: default; }
+.pagination .pg-nav { border-color: transparent; font-size: 1rem; color: var(--color-text); }
+.pagination .pg-nav:hover:not(:disabled) { color: var(--color-gold); }
+.pagination .pg-ellipsis { width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; color: var(--color-text-faint); }

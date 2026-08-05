@@ -260,9 +260,21 @@ function tonoPorGenero(genero) {
   return 'tone-unisex';
 }
 
+// Si la imagen no carga, se reemplaza por el ícono de caja genérico. Antes esto se armaba
+// como un atributo onerror="..." con el SVG completo metido adentro como texto — el SVG
+// trae sus propias comillas dobles (viewBox="...", stroke="...") que cortaban el atributo
+// HTML a la mitad, y el resto del string quedaba como texto suelto encima de la foto. Con
+// una función global no hay strings anidados que escapar.
+function manejarErrorImagenProducto(img) {
+  const contenedor = document.createElement('span');
+  contenedor.className = 'fallback-icon';
+  contenedor.innerHTML = ICONS.box;
+  img.replaceWith(contenedor);
+}
+
 function imagenProducto(p, claseExtra = '') {
   if (p.imagen_url) {
-    return `<img src="${p.imagen_url}" alt="${escapeHtml(p.marca)} ${escapeHtml(p.nombre)}" loading="lazy" class="${claseExtra}" onerror="this.replaceWith(Object.assign(document.createElement('div'), {innerHTML: '${ICONS.box.replace(/'/g, "\\'")}', className: 'fallback-icon'}).firstChild)" />`;
+    return `<img src="${p.imagen_url}" alt="${escapeHtml(p.marca)} ${escapeHtml(p.nombre)}" loading="lazy" class="${claseExtra}" onerror="manejarErrorImagenProducto(this)" />`;
   }
   return `<span class="fallback-icon">${ICONS.box}</span>`;
 }

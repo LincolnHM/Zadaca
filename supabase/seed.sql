@@ -243,6 +243,27 @@ insert into perfumes (slug, nombre, marca, genero, concentracion, mililitros, pr
 ('xerjoff-xerjoff-torino-21-unisex-edp-100ml', 'Xerjoff Torino 21 Unisex EDP', 'Xerjoff', 'Unisex', 'Eau de Parfum', 100, 766.0, 766.0, 766.0, 213.0, false, null),
 ('yves-saint-laurent-yves-saint-laurent-myslf-le-parfum-de-100ml', 'Yves Saint Laurent Myslf Le Parfum De', 'Yves Saint Laurent', 'Unisex', 'Parfum', 100, 437.0, 437.0, 437.0, 117.0, false, null);
 
+-- Marca algunos perfumes reconocibles como Nuevo / Best Seller para que "Nuevos Ingresos" y
+-- "Best Sellers" del home no salgan vacíos apenas se instala (con las 217 filas del import
+-- real, ningún producto trae es_nuevo/es_bestseller en true todavía). Ajusta esto libremente
+-- desde el panel admin más adelante — es solo para no arrancar con la portada sin vida.
+update perfumes set es_nuevo = true where slug in (
+    'dior-dior-sauvage-christian-edp-spray-100ml',
+    'jean-paul-gaultier-le-male-elixir-125ml',
+    'valentino-valentino-garavani-uomo-born-in-roma-extradosis-100ml',
+    'yves-saint-laurent-yves-saint-laurent-myslf-le-parfum-de-100ml',
+    'carolina-herrera-212-vip-black-ch-tester-100ml',
+    'giorgio-armani-acqua-di-gio-profundo-eau-de-parfum-100ml'
+);
+update perfumes set es_bestseller = true where slug in (
+    'versace-eros-flame-200ml',
+    'paco-rabanne-pacco-rabanne-one-million-lucky-100ml',
+    'lattafa-khamrah-dukhan-100ml',
+    'rasasi-hawas-elixir-100ml',
+    'xerjoff-erba-pura-xerjof-eau-parfum-100ml',
+    'emporio-armani-emporio-armani-stronger-with-you-intensely-100ml'
+);
+
 update perfumes set descripcion = 'Fragancia importada original, disponible en presentación de ' || mililitros || ' ml.' where descripcion is null;
 
 -- Stock inicial: variado por producto (8 a 27 unidades), coherente con
