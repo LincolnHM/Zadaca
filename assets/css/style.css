@@ -9,9 +9,9 @@
   --color-bg-alt: #131110;
   --color-bg-card: #16130f;
   --color-border: #2a241c;
-  --color-gold: #c9a86a;
-  --color-gold-light: #e8d29e;
-  --color-gold-dim: #8a6f3f;
+  --color-gold: #d9b054;
+  --color-gold-light: #f6dd97;
+  --color-gold-dim: #a67c34;
   --color-text: #f3efe6;
   --color-text-muted: #a89f8d;
   --color-text-faint: #6f6858;
@@ -83,9 +83,16 @@ h1, h2, h3, h4 {
   letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid transparent;
   transition: all 0.2s ease; white-space: nowrap;
 }
-.btn-primary { background: var(--color-gold); color: #14110c; }
-.btn-primary:hover { background: var(--color-gold-light); }
-.btn-primary:disabled { background: var(--color-text-faint); cursor: not-allowed; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold) 45%, var(--color-gold-dim) 100%);
+  color: #14110c;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold-light) 45%, var(--color-gold) 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 6px 22px rgba(217, 176, 84, 0.35);
+}
+.btn-primary:disabled { background: var(--color-text-faint); box-shadow: none; cursor: not-allowed; }
 .btn-outline { background: transparent; color: var(--color-gold); border-color: var(--color-gold); }
 .btn-outline:hover { background: var(--color-gold); color: #14110c; }
 .btn-ghost { background: transparent; color: var(--color-text); border-color: var(--color-border); }
@@ -105,7 +112,28 @@ h1, h2, h3, h4 {
 .brand-icon { width: 26px; height: 18px; color: var(--color-gold); }
 .brand-text { display: flex; flex-direction: column; line-height: 1; }
 .brand-name { font-family: var(--font-heading); font-size: 1.35rem; letter-spacing: 0.03em; color: var(--color-text); }
-.brand-name span { color: var(--color-gold); }
+/* Brillo metálico: dorado con reflejo, reservado a los dos momentos de marca más
+   protagonistas (wordmark del logo y la palabra destacada del titular). El resto de la
+   interfaz usa el --color-gold plano para no saturar la página de brillo. */
+.brand-name span,
+.hero-copy h1 em {
+  background: linear-gradient(100deg,
+    var(--color-gold-dim) 0%, var(--color-gold) 20%, var(--color-gold-light) 40%,
+    var(--color-gold) 60%, var(--color-gold-dim) 80%, var(--color-gold) 100%);
+  background-size: 250% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: brillo-dorado 7s ease-in-out infinite;
+}
+@keyframes brillo-dorado {
+  0%, 100% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-name span, .hero-copy h1 em { animation: none; background-position: 30% center; }
+}
 .brand-tagline { font-size: 0.55rem; letter-spacing: 0.28em; color: var(--color-text-faint); margin-top: 3px; }
 .main-nav { display: flex; gap: 32px; }
 .main-nav a { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); transition: color 0.2s; position: relative; }
@@ -176,7 +204,7 @@ h1, h2, h3, h4 {
 .hero-inner { display: grid; grid-template-columns: 1fr 1fr; align-items: center; min-height: 560px; gap: 40px; }
 .hero-copy .eyebrow { margin-bottom: 18px; display: block; }
 .hero-copy h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); margin-bottom: 20px; }
-.hero-copy h1 em { color: var(--color-gold); font-style: normal; }
+.hero-copy h1 em { font-style: normal; }
 .hero-copy p { color: var(--color-text-muted); max-width: 440px; margin-bottom: 32px; font-size: 1.02rem; }
 .hero-visual { display: flex; align-items: center; justify-content: center; height: 100%; min-height: 420px; position: relative; }
 .hero-bottle-frame {
