@@ -3,8 +3,8 @@
 // Reemplaza estos dos valores con los de tu propio proyecto:
 // Panel de Supabase -> Project Settings -> API
 // ==========================================================
-const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-const SUPABASE_ANON_KEY = 'TU-ANON-KEY-AQUI';
+const SUPABASE_URL = 'https://ivptrgwvncsjaibebxxp.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_SwGSLD7RF4PMIbarKA3y2A_kqXHCny3';
 
 const SUPABASE_CONFIGURADO = !SUPABASE_URL.includes('TU-PROYECTO') && !SUPABASE_ANON_KEY.includes('TU-ANON-KEY');
 
