@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="page-title">Producto — Maison Zadaca</title>
+  <meta name="description" id="page-description" content="Perfumes originales importados — Maison Zadaca." />
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+  <meta property="og:type" content="product" />
+  <meta property="og:site_name" content="Maison Zadaca" />
+  <meta property="og:title" id="og-title" content="Maison Zadaca" />
+  <meta property="og:description" id="og-description" content="Perfumes originales importados — Maison Zadaca." />
+  <meta property="og:image" id="og-image" content="" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <style>
+    .product-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
+    @media (max-width: 860px) { .product-detail { grid-template-columns: 1fr; gap: 32px; } }
+    .pd-media { aspect-ratio: 3/4; border-radius: var(--radius); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, var(--color-media-bg) 0%, #ddd2b5 100%); }
+    .pd-media img { max-width: 78%; max-height: 82%; object-fit: contain; }
+    .pd-brand { color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.8rem; }
+    .pd-name { font-size: 2rem; margin: 6px 0 10px; }
+    .pd-rating { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+    .pd-price { display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px; }
+    .pd-price .price-current { font-size: 1.7rem; }
+    .pd-consolidado-note { font-size: 0.82rem; color: var(--color-text-muted); margin-bottom: 22px; }
+    .pd-consolidado-note strong { color: var(--color-gold); }
+    .pd-meta-row { display: flex; gap: 24px; margin: 20px 0; font-size: 0.82rem; color: var(--color-text-muted); flex-wrap: wrap; }
+    .pd-meta-row strong { color: var(--color-text); display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .qty-selector { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius); width: fit-content; }
+    .qty-selector button { background: none; border: none; color: var(--color-text); width: 38px; height: 42px; }
+    .qty-selector input { width: 44px; text-align: center; background: none; border: none; color: var(--color-text); font-size: 0.95rem; }
+    .pd-actions { display: flex; align-items: center; gap: 14px; margin: 26px 0; flex-wrap: wrap; }
+    .pd-tabs-content { border-top: 1px solid var(--color-border); padding-top: 24px; margin-top: 24px; }
+    .pd-tabs-content h4 { font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-gold); margin-bottom: 10px; }
+    .pd-tabs-content p { color: var(--color-text-muted); font-size: 0.92rem; margin-bottom: 20px; }
+    .review-item { border-bottom: 1px solid var(--color-border); padding: 18px 0; }
+    .review-item:last-child { border-bottom: none; }
+    .review-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .review-name { font-size: 0.85rem; font-weight: 600; }
+    .review-date { font-size: 0.72rem; color: var(--color-text-faint); }
+    .star-input { display: flex; gap: 6px; margin-bottom: 16px; }
+    .star-input button { background: none; border: none; font-size: 1.4rem; color: var(--color-border); }
+    .star-input button.active { color: var(--color-gold); }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Inicio</a> / <a href="catalogo.html">Catálogo</a> / <span id="crumb-nombre">Producto</span></div>
+      </div>
+    </div>
+
+    <section class="section" id="detalle-mount">
+      <div class="container"><div class="loading-state">Cargando producto…</div></div>
+    </section>
+
+    <section class="section" style="padding-top:0; display:none;" id="relacionados-section">
+      <div class="container">
+        <div class="section-header"><h2>También te puede interesar</h2></div>
+        <div class="product-grid" id="grid-relacionados"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/producto.js"></script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catálogo de Perfumes — Maison Zadaca</title>
+  <meta name="description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
+  <link rel="canonical" href="/catalogo.html" />
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Maison Zadaca" />
+  <meta property="og:title" content="Catálogo de Perfumes — Maison Zadaca" />
+  <meta property="og:description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <style>
+    .catalog-layout { display: grid; grid-template-columns: 240px 1fr; gap: 40px; align-items: start; }
+    .filters-panel { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 24px; position: sticky; top: 100px; }
+    .filter-block { margin-bottom: 26px; }
+    .filter-block h4 { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 12px; }
+    .filter-option { display: flex; align-items: center; gap: 9px; font-size: 0.85rem; margin-bottom: 9px; color: var(--color-text-muted); cursor: pointer; }
+    .filter-option:hover { color: var(--color-text); }
+    .filter-option input { accent-color: var(--color-gold); }
+    .catalog-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+    .catalog-toolbar select { background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text); padding: 10px 14px; border-radius: var(--radius); font-size: 0.82rem; }
+    @media (max-width: 860px) { .catalog-layout { grid-template-columns: 1fr; } .filters-panel { position: static; } }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Inicio</a> / Catálogo</div>
+        <h1>Catálogo de Perfumes</h1>
+      </div>
+    </div>
+
+    <section class="section-tight">
+      <div class="container">
+        <div class="pill-row" id="pill-generos">
+          <button class="pill active" data-genero="">Todos</button>
+          <button class="pill" data-genero="Hombre">Hombre</button>
+          <button class="pill" data-genero="Mujer">Mujer</button>
+          <button class="pill" data-genero="Unisex">Unisex</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container catalog-layout">
+        <aside class="filters-panel">
+          <form id="filter-form">
+            <div class="filter-block">
+              <h4>Buscar</h4>
+              <input type="text" name="busqueda" placeholder="Nombre o marca..." style="width:100%; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:10px 12px; border-radius:3px;" />
+            </div>
+            <div class="filter-block">
+              <h4>Marca</h4>
+              <div id="filtro-marcas"></div>
+            </div>
+            <div class="filter-block">
+              <h4>Familia Olfativa</h4>
+              <div id="filtro-familias"></div>
+            </div>
+            <button type="submit" class="btn btn-outline btn-block btn-sm">Aplicar Filtros</button>
+          </form>
+        </aside>
+
+        <div>
+          <div class="catalog-toolbar">
+            <span id="resultado-conteo" style="font-size:0.82rem; color:var(--color-text-faint);"></span>
+            <select id="orden-select">
+              <option value="recientes">Más recientes</option>
+              <option value="precio_asc">Precio: menor a mayor</option>
+              <option value="precio_desc">Precio: mayor a menor</option>
+              <option value="nombre">Nombre A-Z</option>
+            </select>
+          </div>
+          <div class="product-grid" id="grid-catalogo"><div class="loading-state">Cargando productos…</div></div>
+          <div class="pagination" id="paginacion"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/catalogo.js"></script>
+</body>
+</html>

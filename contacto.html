@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contacto y Cotizaciones — Maison Zadaca</title>
+  <meta name="description" content="Escríbenos por WhatsApp o cotiza un perfume que no esté en el catálogo. Envíos a todo el Perú." />
+  <link rel="canonical" href="/contacto.html" />
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Maison Zadaca" />
+  <meta property="og:title" content="Contacto y Cotizaciones — Maison Zadaca" />
+  <meta property="og:description" content="Escríbenos por WhatsApp o cotiza un perfume que no esté en el catálogo. Envíos a todo el Perú." />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <style>
+    .contact-layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 56px; }
+    @media (max-width: 860px) { .contact-layout { grid-template-columns: 1fr; } }
+    .info-item { display: flex; gap: 14px; margin-bottom: 24px; }
+    .info-item svg { width: 22px; height: 22px; color: var(--color-gold); flex-shrink: 0; }
+    .info-item h4 { font-size: 0.9rem; margin: 0 0 4px; }
+    .info-item p { font-size: 0.85rem; color: var(--color-text-muted); margin: 0; }
+    .steps { counter-reset: step; margin: 28px 0; }
+    .steps li { list-style: none; position: relative; padding-left: 40px; margin-bottom: 18px; font-size: 0.88rem; color: var(--color-text-muted); }
+    .steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border: 1px solid var(--color-gold); color: var(--color-gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Inicio</a> / Contacto</div>
+        <h1>Contacto &amp; Cotizaciones</h1>
+      </div>
+    </div>
+    <section class="section">
+      <div class="container contact-layout">
+        <div>
+          <span class="eyebrow">Hablemos</span>
+          <h2>Estamos para ayudarte</h2>
+          <div class="mt-40">
+            <div class="info-item"><span id="icon-mail"></span><div><h4>Correo</h4><p>contacto@maisonzadaca.com</p></div></div>
+            <div class="info-item"><span id="icon-whatsapp"></span><div><h4>WhatsApp</h4><p id="texto-whatsapp"></p></div></div>
+            <div class="info-item"><span id="icon-envios"></span><div><h4>Envíos</h4><p>A todo el Perú vía Shalom / Olva, o recojo en tienda.</p></div></div>
+          </div>
+          <h3 style="margin-top:40px; font-size:1.1rem;">¿Cómo funciona un consolidado?</h3>
+          <ol class="steps">
+            <li>Eliges tu perfume y lo reservas al precio consolidado en una campaña activa.</li>
+            <li>Cuando la campaña alcanza el mínimo de unidades, cerramos la compra e importamos.</li>
+            <li>Sigues el estado de tu pedido: en tránsito, en aduanas, en almacén.</li>
+            <li>Recibes tu perfume en la dirección o agencia que elegiste.</li>
+          </ol>
+        </div>
+        <div>
+          <div class="form-card" style="max-width:100%;">
+            <h3 style="margin-bottom:6px; font-size:1.15rem;">Solicitar Cotización</h3>
+            <p style="font-size:0.85rem; color:var(--color-text-faint); margin-bottom:22px;">¿No encuentras el perfume que buscas en el catálogo? Cuéntanos cuál es y te cotizamos.</p>
+            <div id="cotizacion-mount"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/contacto.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carrito — Maison Zadaca</title>
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <style>
+    .cart-layout { display: grid; grid-template-columns: 1fr 380px; gap: 40px; align-items: start; }
+    @media (max-width: 900px) { .cart-layout { grid-template-columns: 1fr; } }
+    .cart-row { display: grid; grid-template-columns: 90px 1fr auto auto; gap: 18px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--color-border); }
+    .cart-row .cr-media { width: 90px; height: 110px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, var(--color-media-bg) 0%, #ddd2b5 100%); }
+    .cart-row .cr-media img { max-width: 80%; max-height: 84%; object-fit: contain; }
+    .cart-row .cr-name { font-family: var(--font-heading); font-size: 1.02rem; margin: 0 0 4px; }
+    .cart-row .cr-meta { font-size: 0.75rem; color: var(--color-text-faint); }
+    .cart-row .cr-qty { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius); width: fit-content; }
+    .cart-row .cr-qty button { background: none; border: none; color: var(--color-text); width: 30px; height: 32px; }
+    .cart-row .cr-qty input { width: 34px; text-align: center; background: none; border: none; color: var(--color-text); }
+    .cart-row .cr-remove { background: none; border: none; color: var(--color-text-faint); }
+    .cart-row .cr-remove:hover { color: var(--color-danger); }
+    .summary-panel { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 26px; position: sticky; top: 100px; }
+    .summary-line { display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--color-text-muted); margin-bottom: 12px; }
+    .summary-total { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; padding-top: 14px; border-top: 1px solid var(--color-border); margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Inicio</a> / Carrito</div>
+        <h1>Tu Carrito</h1>
+      </div>
+    </div>
+    <section class="section" id="cart-mount">
+      <div class="container"><div class="loading-state">Cargando carrito…</div></div>
+    </section>
+  </main>
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/carrito.js"></script>
+</body>
+</html>

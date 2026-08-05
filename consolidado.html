@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="page-title">Consolidado — Maison Zadaca</title>
+  <meta name="robots" content="noindex, follow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Maison Zadaca" />
+  <meta property="og:title" id="og-title" content="Consolidado — Maison Zadaca" />
+  <meta property="og:description" id="og-description" content="Compra grupal de perfumes importados a precio preferencial." />
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <style>
+    .consolidado-layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 48px; align-items: start; }
+    @media (max-width: 900px) { .consolidado-layout { grid-template-columns: 1fr; } }
+    .timeline { border-left: 2px solid var(--color-border); padding-left: 22px; }
+    .timeline-item { position: relative; padding-bottom: 26px; }
+    .timeline-item::before { content: ''; position: absolute; left: -28px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--color-gold); }
+    .timeline-item .t-estado { font-weight: 600; font-size: 0.88rem; }
+    .timeline-item .t-fecha { font-size: 0.72rem; color: var(--color-text-faint); margin-bottom: 4px; }
+    .timeline-item p { font-size: 0.85rem; color: var(--color-text-muted); margin: 4px 0 0; }
+    .reserva-panel { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px; position: sticky; top: 100px; }
+    .participante-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; }
+    .participante-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Inicio</a> / <a href="consolidados.html">Consolidados</a> / <span id="crumb-codigo">Detalle</span></div>
+      </div>
+    </div>
+    <section class="section" id="detalle-mount">
+      <div class="container"><div class="loading-state">Cargando consolidado…</div></div>
+    </section>
+  </main>
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/consolidado.js"></script>
+</body>
+</html>

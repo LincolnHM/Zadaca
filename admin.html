@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Panel Administrador — Maison Zadaca</title>
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/admin.css" />
+</head>
+<body class="admin-body">
+
+  <!-- ── Login ─────────────────────────────────────────────── -->
+  <div class="admin-login-screen" id="admin-login-screen">
+    <div class="form-card">
+      <div style="text-align:center; margin-bottom:24px;">
+        <span class="brand-name" style="font-size:1.4rem;">Maison <span>Zadaca</span></span>
+        <p style="font-size:0.75rem; letter-spacing:0.2em; color:var(--color-text-faint); margin-top:6px;">PANEL ADMINISTRADOR</p>
+      </div>
+      <div id="admin-login-alert"></div>
+      <form id="admin-login-form">
+        <div class="form-group"><label>Correo</label><input type="email" name="correo" required /></div>
+        <div class="form-group"><label>Contraseña</label><input type="password" name="contrasena" required /></div>
+        <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+      </form>
+      <p style="text-align:center; margin-top:18px;"><a href="index.html" class="link-arrow">&larr; Volver a la tienda</a></p>
+    </div>
+  </div>
+
+  <!-- ── Shell ─────────────────────────────────────────────── -->
+  <div class="admin-shell" id="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="brand-name">Maison <span>Zadaca</span></span>
+        <div class="brand-tagline">PANEL ADMINISTRADOR</div>
+      </div>
+      <nav class="admin-nav" id="admin-nav">
+        <span class="admin-nav-label">Principal</span>
+        <button class="admin-nav-btn active" data-section="dashboard">Dashboard</button>
+        <button class="admin-nav-btn" data-section="productos">Productos</button>
+        <button class="admin-nav-btn" data-section="margenes">Calculadora de Márgenes <span class="admin-nav-badge" id="badge-margenes" hidden>0</span></button>
+
+        <span class="admin-nav-label">Pedidos</span>
+        <button class="admin-nav-btn" data-section="pedidos">Tienda Directa</button>
+        <button class="admin-nav-btn" data-section="consolidados">Consolidados</button>
+        <button class="admin-nav-btn" data-section="reservas">Todas las Reservas</button>
+        <button class="admin-nav-btn" data-section="contabilidad">Contabilidad</button>
+
+        <span class="admin-nav-label">Clientes</span>
+        <button class="admin-nav-btn" data-section="clientes">Clientes</button>
+        <button class="admin-nav-btn" data-section="resenas">Reseñas <span class="admin-nav-badge" id="badge-resenas" hidden>0</span></button>
+        <button class="admin-nav-btn" data-section="cotizaciones">Cotizaciones <span class="admin-nav-badge" id="badge-cotizaciones" hidden>0</span></button>
+      </nav>
+      <div class="admin-nav-footer">
+        <a href="index.html" class="admin-nav-btn" style="text-decoration:none;">Ver tienda</a>
+        <button class="admin-nav-btn" id="admin-logout-btn" style="color:var(--color-danger);">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <!-- Dashboard -->
+      <section class="admin-section active" id="section-dashboard">
+        <div class="admin-page-header"><div><h1>Dashboard</h1><div class="sub">Resumen general del negocio</div></div></div>
+        <div class="stat-grid" id="dashboard-stats"><div class="admin-empty">Cargando…</div></div>
+      </section>
+
+      <!-- Productos -->
+      <section class="admin-section" id="section-productos">
+        <div class="admin-page-header">
+          <div><h1>Productos</h1><div class="sub">Catálogo de perfumes</div></div>
+          <button class="btn btn-primary btn-sm" id="btn-nuevo-producto">+ Agregar Perfume</button>
+        </div>
+        <div class="admin-toolbar">
+          <input type="text" id="productos-busqueda" placeholder="Buscar por nombre o marca..." />
+        </div>
+        <div class="admin-card-grid" id="productos-grid"><div class="admin-empty">Cargando…</div></div>
+      </section>
+
+      <!-- Calculadora de Márgenes -->
+      <section class="admin-section" id="section-margenes">
+        <div class="admin-page-header"><div><h1>Calculadora de Márgenes</h1><div class="sub">Precio de venta = costo de importación + margen. Aplícalo a todo el catálogo de una vez o ajusta fila por fila.</div></div></div>
+
+        <div class="form-card" style="margin-bottom:24px;">
+          <h3 style="font-size:1rem; margin-bottom:14px;">Aplicar margen masivo</h3>
+          <div class="form-row">
+            <div class="form-group"><label>Margen Consolidado (%)</label><input type="number" id="margen-masivo-consolidado" min="0" step="1" value="20" /></div>
+            <div class="form-group"><label>Margen Tienda Regular (%)</label><input type="number" id="margen-masivo-tienda" min="0" step="1" value="40" /></div>
+          </div>
+          <label class="filter-option" style="margin-bottom:14px;"><input type="checkbox" id="margen-masivo-solo-pendientes" checked /> Aplicar solo a productos que aún no tienen margen (no pisa tus ajustes manuales)</label>
+          <div id="margen-masivo-preview" style="font-size:0.82rem; color:var(--color-text-muted); margin-bottom:14px;"></div>
+          <button class="btn btn-primary btn-sm" id="btn-aplicar-margen-masivo">Aplicar a todo el catálogo</button>
+        </div>
+
+        <div class="admin-toolbar">
+          <input type="text" id="margenes-busqueda" placeholder="Buscar por nombre o marca..." />
+          <select id="margenes-filtro">
+            <option value="">Todos</option>
+            <option value="pendientes">Solo sin margen aplicado</option>
+          </select>
+        </div>
+        <div class="admin-table-wrap"><table class="data-table">
+          <thead><tr><th>Perfume</th><th>Costo (S/)</th><th>Precio Consolidado</th><th>Ganancia</th><th>Precio Tienda</th><th>Ganancia</th><th>Estado</th></tr></thead>
+          <tbody id="margenes-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <!-- Pedidos tienda directa -->
+      <section class="admin-section" id="section-pedidos">
+        <div class="admin-page-header"><div><h1>Pedidos — Tienda Directa</h1><div class="sub">Compras normales (no consolidado)</div></div></div>
+        <div class="admin-toolbar">
+          <input type="text" id="pedidos-busqueda" placeholder="Buscar por cliente o N° pedido..." />
+          <select id="pedidos-filtro-estado">
+            <option value="">Todos los estados</option>
+            <option value="Pendiente">Pendiente</option>
+            <option value="Parcial">Parcial</option>
+            <option value="Completado">Completado</option>
+          </select>
+        </div>
+        <div class="admin-table-wrap"><table class="data-table">
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Pago</th><th>Envío</th><th></th></tr></thead>
+          <tbody id="pedidos-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <!-- Consolidados -->
+      <section class="admin-section" id="section-consolidados">
+        <div class="admin-page-header">
+          <div><h1>Consolidados</h1><div class="sub">Campañas de compra grupal</div></div>
+          <button class="btn btn-primary btn-sm" id="btn-nuevo-consolidado">+ Nueva Campaña</button>
+        </div>
+        <div id="consolidados-lista"><div class="admin-empty">Cargando…</div></div>
+      </section>
+
+      <!-- Contabilidad -->
+      <section class="admin-section" id="section-contabilidad">
+        <div class="admin-page-header"><div><h1>Contabilidad</h1><div class="sub">Cuánto pedir y cuánto cobrar por campaña de consolidado</div></div></div>
+        <div class="admin-toolbar">
+          <select id="contabilidad-select-consolidado" style="min-width:280px;"><option value="">Selecciona una campaña…</option></select>
+        </div>
+        <div id="contabilidad-contenido"><div class="admin-empty">Elige una campaña para ver su contabilidad.</div></div>
+      </section>
+
+      <!-- Todas las reservas -->
+      <section class="admin-section" id="section-reservas">
+        <div class="admin-page-header"><div><h1>Todas las Reservas</h1><div class="sub">Reservas de todos los consolidados, en un solo lugar</div></div></div>
+        <div class="admin-toolbar">
+          <input type="text" id="reservas-busqueda" placeholder="Buscar por cliente, campaña o producto..." />
+        </div>
+        <div class="admin-table-wrap"><table class="data-table">
+          <thead><tr><th>Cliente</th><th>Producto</th><th>Campaña</th><th>Cant.</th><th>Precio</th><th>Estado</th><th></th></tr></thead>
+          <tbody id="reservas-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <!-- Clientes -->
+      <section class="admin-section" id="section-clientes">
+        <div class="admin-page-header"><div><h1>Clientes</h1><div class="sub">Cuentas registradas</div></div></div>
+        <div class="admin-toolbar">
+          <input type="text" id="clientes-busqueda" placeholder="Buscar por nombre, correo o DNI..." />
+        </div>
+        <div class="admin-table-wrap"><table class="data-table">
+          <thead><tr><th>Nombre</th><th>Correo</th><th>DNI/CE/RUC</th><th>Teléfono</th><th>Registro</th></tr></thead>
+          <tbody id="clientes-tbody"><tr><td colspan="5" class="admin-empty">Cargando…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <!-- Reseñas -->
+      <section class="admin-section" id="section-resenas">
+        <div class="admin-page-header"><div><h1>Reseñas</h1><div class="sub">Modera lo que se publica en el sitio</div></div></div>
+        <div class="admin-tabs" id="resenas-tabs">
+          <button class="admin-tab active" data-filtro="pendientes">Pendientes</button>
+          <button class="admin-tab" data-filtro="todas">Todas</button>
+        </div>
+        <div id="resenas-lista"><div class="admin-empty">Cargando…</div></div>
+      </section>
+
+      <!-- Cotizaciones -->
+      <section class="admin-section" id="section-cotizaciones">
+        <div class="admin-page-header"><div><h1>Cotizaciones</h1><div class="sub">Solicitudes de perfumes fuera de catálogo</div></div></div>
+        <div class="admin-tabs" id="cotizaciones-tabs">
+          <button class="admin-tab active" data-filtro="Pendiente">Pendientes</button>
+          <button class="admin-tab" data-filtro="">Todas</button>
+        </div>
+        <div id="cotizaciones-lista"><div class="admin-empty">Cargando…</div></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ── Modal: Producto ───────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-producto">
+    <div class="modal-box">
+      <h3 id="modal-producto-titulo">Agregar Perfume</h3>
+      <form id="form-producto">
+        <input type="hidden" name="id" />
+        <div class="form-row">
+          <div class="form-group"><label>Nombre *</label><input type="text" name="nombre" required /></div>
+          <div class="form-group"><label>Marca *</label><input type="text" name="marca" required /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Género</label>
+            <select name="genero"><option value="Unisex">Unisex</option><option value="Hombre">Hombre</option><option value="Mujer">Mujer</option></select>
+          </div>
+          <div class="form-group"><label>Familia Olfativa</label><input type="text" name="familia_olfativa" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Concentración</label><input type="text" name="concentracion" placeholder="Eau de Parfum..." /></div>
+          <div class="form-group"><label>Mililitros *</label><input type="number" name="mililitros" required min="1" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Costo importación (S/)</label><input type="number" name="costo_importacion_pen" min="0" step="0.01" /></div>
+          <div class="form-group"><label>Costo importación (USD)</label><input type="number" name="costo_importacion_usd" min="0" step="0.01" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Precio Tienda (S/) *</label><input type="number" name="precio_tienda_regular" required min="0.01" step="0.01" /></div>
+          <div class="form-group"><label>Precio Consolidado (S/) *</label><input type="number" name="precio_consolidado_fijo" required min="0.01" step="0.01" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Descuento tienda (%)</label><input type="number" name="descuento_tienda_porcentaje" min="0" max="100" step="1" value="0" /></div>
+          <div class="form-group"><label>Estado</label>
+            <select name="estado"><option value="Disponible">Disponible</option><option value="Agotado">Agotado</option><option value="Bajo_Pedido">Bajo Pedido</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label>Imagen (ruta o URL)</label><input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" /></div>
+        <div class="form-group"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
+        <div class="form-group"><label>Notas Olfativas</label><textarea name="notas_olfativas" rows="2" placeholder="Salida: ... | Corazón: ... | Fondo: ..."></textarea></div>
+        <div class="form-row">
+          <label class="filter-option"><input type="checkbox" name="es_nuevo" /> Marcar como Nuevo</label>
+          <label class="filter-option"><input type="checkbox" name="es_bestseller" /> Marcar como Best Seller</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-producto">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Detalle Pedido ─────────────────────────────── -->
+  <div class="modal-overlay" id="modal-pedido">
+    <div class="modal-box" style="max-width:640px;">
+      <h3>Detalle del Pedido</h3>
+      <div id="modal-pedido-contenido"></div>
+      <div class="modal-actions"><button type="button" class="btn btn-ghost" id="btn-cerrar-pedido">Cerrar</button></div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Nuevo/Editar Consolidado ───────────────────── -->
+  <div class="modal-overlay" id="modal-consolidado">
+    <div class="modal-box">
+      <h3 id="modal-consolidado-titulo">Nueva Campaña de Consolidado</h3>
+      <form id="form-consolidado">
+        <input type="hidden" name="id" />
+        <div class="form-group"><label>Código de Campaña *</label><input type="text" name="codigo_campana" required placeholder="ZAD-2026-12" /></div>
+        <div class="form-row">
+          <div class="form-group"><label>Fecha de Apertura *</label><input type="date" name="fecha_apertura" required /></div>
+          <div class="form-group"><label>Fecha de Cierre Programada *</label><input type="date" name="fecha_cierre_programada" required /></div>
+        </div>
+        <div class="form-group"><label>Mínimo de Unidades *</label><input type="number" name="minimo_unidades" required min="4" value="10" /></div>
+        <div class="form-group"><label>Notas Internas</label><textarea name="notas_admin" rows="2"></textarea></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-consolidado">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Cotización ─────────────────────────────────── -->
+  <div class="modal-overlay" id="modal-cotizacion">
+    <div class="modal-box">
+      <h3>Responder Cotización</h3>
+      <form id="form-cotizacion">
+        <input type="hidden" name="id" />
+        <div id="modal-cotizacion-info" style="font-size:0.85rem; color:var(--color-text-muted); margin-bottom:18px;"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Precio Tienda (S/)</label><input type="number" name="precio_cotizado_tienda" min="0" step="0.01" /></div>
+          <div class="form-group"><label>Precio Consolidado (S/)</label><input type="number" name="precio_cotizado_consolidado" min="0" step="0.01" /></div>
+        </div>
+        <div class="form-group"><label>Estado</label>
+          <select name="estado">
+            <option value="Cotizado">Cotizado</option>
+            <option value="Aceptado">Aceptado</option>
+            <option value="Rechazado">Rechazado</option>
+            <option value="Convertido_A_Producto">Convertido a Producto</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-cotizacion">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="assets/js/supabase-config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/admin-api.js"></script>
+  <script src="assets/js/admin.js"></script>
+</body>
+</html>
