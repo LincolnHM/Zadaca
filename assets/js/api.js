@@ -352,14 +352,17 @@ async function obtenerConsolidadoPorId(id) {
 }
 
 // El precio se calcula del lado del servidor (ver reservar_en_consolidado en schema.sql):
-// el cliente nunca manda el precio, así no hay forma de manipular a cuánto se reserva.
-async function reservarEnConsolidado(idConsolidado, idProducto, cantidad) {
+// el cliente nunca manda el precio, así no hay forma de manipular a cuánto se reserva. La
+// función también valida ahí mismo que la campaña siga dentro de su fecha límite y que la
+// dirección sea del cliente que llama.
+async function reservarEnConsolidado(idConsolidado, idProducto, cantidad, idDireccion) {
   const session = await obtenerSesion();
   if (!session) throw new Error('Debes iniciar sesión');
   const { error } = await supabaseClient.rpc('reservar_en_consolidado', {
     p_id_consolidado: idConsolidado,
     p_id_producto: idProducto,
     p_cantidad: cantidad,
+    p_id_direccion: idDireccion,
   });
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
 }

@@ -262,6 +262,14 @@ async function actualizarEstadoReserva(idDetalle, nuevoEstado) {
   if (error) throw new Error(error.message);
 }
 
+// Antes la única forma de corregir la cantidad de una reserva era editar la fila a mano en
+// Supabase — esto le da al admin un camino normal para hacerlo (ej. el cliente pidió por
+// WhatsApp que le cambien de 3 a 2 unidades).
+async function actualizarCantidadReserva(idDetalle, cantidad) {
+  const { error } = await supabaseClient.from('detalle_consolidado').update({ cantidad }).eq('id', idDetalle);
+  if (error) throw new Error(error.message);
+}
+
 /* ================= CONTABILIDAD ================= */
 
 // Cuánto pedir al proveedor y cuánto se espera cobrar, a partir de las reservas vivas
@@ -349,6 +357,82 @@ async function obtenerFilasExportacionConsolidado(idConsolidado) {
     });
   });
   return filas;
+}
+
+// Para imprimir la lista de participantes de una campaña: Nombre, DNI, celular, su pedido y
+// si es recojo en tienda o envío por agencia (Shalom/Olva). Si la campaña ya generó pedidos
+// (el admin le dio "Generar Pedidos"), esa es la fuente oficial porque ya tiene montos y
+// dirección confirmados; mientras siga en fase de reservas, se arma directo desde
+// detalle_consolidado agrupando por cliente — así el admin puede imprimir la lista para
+// planificar incluso antes de cerrar la campaña.
+function formatearEntrega(dir) {
+  if (!dir) return 'Sin dirección registrada';
+  if (dir.tipo_despacho === 'Recojo_En_Tienda') return 'Recojo en tienda';
+  const tipo = (dir.tipo_despacho || '').replace(/_/g, ' ');
+  const partes = [tipo, dir.agencia_nombre, dir.direccion_detalle].filter(Boolean);
+  return partes.join(' — ');
+}
+
+async function obtenerFilasImpresionConsolidado(idConsolidado) {
+  const { count: pedidosCount } = await supabaseClient
+    .from('pedidos')
+    .select('id', { count: 'exact', head: true })
+    .eq('id_consolidado_asociado', idConsolidado)
+    .eq('tipo_pedido', 'Consolidado');
+
+  if (pedidosCount > 0) {
+    const { data, error } = await supabaseClient
+      .from('pedidos')
+      .select(`
+        id, monto_total,
+        perfiles(nombres, apellidos, dni_ce_ruc, telefono),
+        direcciones_cliente(tipo_despacho, agencia_nombre, direccion_detalle),
+        detalle_pedido(cantidad, perfumes(nombre, marca))
+      `)
+      .eq('id_consolidado_asociado', idConsolidado)
+      .eq('tipo_pedido', 'Consolidado')
+      .order('id');
+    if (error) throw new Error(error.message);
+    return (data || []).map((p) => ({
+      cliente: p.perfiles ? `${p.perfiles.nombres} ${p.perfiles.apellidos}` : '—',
+      dni: p.perfiles?.dni_ce_ruc || '—',
+      celular: p.perfiles?.telefono || '—',
+      entrega: formatearEntrega(p.direcciones_cliente),
+      items: (p.detalle_pedido || []).map((i) => `${i.perfumes?.marca || ''} — ${i.perfumes?.nombre || ''} x${i.cantidad}`),
+      total: Number(p.monto_total),
+    }));
+  }
+
+  const { data, error } = await supabaseClient
+    .from('detalle_consolidado')
+    .select(`
+      id_cliente, cantidad, precio_consolidado_aplicado,
+      perfiles(nombres, apellidos, dni_ce_ruc, telefono),
+      direcciones_cliente(tipo_despacho, agencia_nombre, direccion_detalle),
+      perfumes(nombre, marca)
+    `)
+    .eq('id_consolidado', idConsolidado)
+    .neq('estado_item', 'Cancelado')
+    .order('id_cliente');
+  if (error) throw new Error(error.message);
+
+  const porCliente = new Map();
+  (data || []).forEach((r) => {
+    if (!porCliente.has(r.id_cliente)) {
+      porCliente.set(r.id_cliente, {
+        cliente: r.perfiles ? `${r.perfiles.nombres} ${r.perfiles.apellidos}` : '—',
+        dni: r.perfiles?.dni_ce_ruc || '—',
+        celular: r.perfiles?.telefono || '—',
+        entrega: formatearEntrega(r.direcciones_cliente),
+        items: [],
+        total: 0,
+      });
+    }
+    const entry = porCliente.get(r.id_cliente);
+    entry.items.push(`${r.perfumes?.marca || ''} — ${r.perfumes?.nombre || ''} x${r.cantidad}`);
+    entry.total += r.cantidad * Number(r.precio_consolidado_aplicado);
+  });
+  return [...porCliente.values()];
 }
 
 /* ================= RESEÑAS ================= */

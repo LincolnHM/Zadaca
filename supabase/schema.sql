@@ -217,6 +217,9 @@ create table detalle_consolidado (
     id_producto bigint not null references perfumes(id),
     cantidad int not null check (cantidad > 0),
     precio_consolidado_aplicado numeric(10,2) not null check (precio_consolidado_aplicado > 0),
+    -- a qué dirección (o "Recojo en tienda") quiere el cliente que llegue este pedido — se
+    -- arrastra al pedido real cuando el admin cierra la campaña (generar_pedidos_de_consolidado)
+    id_direccion_entrega bigint references direcciones_cliente(id),
     fecha_reserva timestamp default now(),
     estado_item varchar(30) default 'Reservado' check (estado_item in ('Reservado', 'Confirmado', 'Cancelado', 'Convertido_A_Pedido'))
 );
@@ -429,8 +432,17 @@ end;
 $$ language plpgsql security definer set search_path = public;
 
 -- Reserva en un consolidado. El precio se calcula acá adentro (nunca se confía en un precio
--- que mande el cliente) y se valida que la campaña siga abierta antes de aceptar la reserva.
-create function reservar_en_consolidado(p_id_consolidado bigint, p_id_producto bigint, p_cantidad int) returns bigint as $$
+-- que mande el cliente) y se valida que la campaña siga abierta Y dentro de su fecha límite
+-- antes de aceptar la reserva (antes solo miraba el estado, así que si el admin se olvidaba
+-- de cerrarla el día programado, el sitio seguía aceptando reservas indefinidamente). También
+-- exige una dirección de entrega del cliente y, si ya tenía una reserva viva del mismo
+-- perfume en esta campaña, suma la cantidad a esa fila en vez de crear una fila aparte.
+create function reservar_en_consolidado(
+    p_id_consolidado bigint,
+    p_id_producto bigint,
+    p_cantidad int,
+    p_id_direccion bigint
+) returns bigint as $$
 declare
     v_id_detalle bigint;
     v_precio numeric(10,2);
@@ -438,8 +450,14 @@ begin
     if p_cantidad is null or p_cantidad <= 0 then
         raise exception 'La cantidad debe ser mayor a 0';
     end if;
-    if not exists (select 1 from consolidados where id = p_id_consolidado and estado = 'Abierto') then
-        raise exception 'Este consolidado ya no admite reservas';
+    if not exists (
+        select 1 from consolidados
+        where id = p_id_consolidado and estado = 'Abierto' and fecha_cierre_programada > now()
+    ) then
+        raise exception 'Este consolidado ya no admite reservas (la campaña cerró o venció su fecha límite)';
+    end if;
+    if not exists (select 1 from direcciones_cliente where id = p_id_direccion and id_cliente = auth.uid()) then
+        raise exception 'Selecciona una dirección de entrega válida';
     end if;
 
     select precio_consolidado_fijo into v_precio from perfumes where id = p_id_producto;
@@ -447,9 +465,20 @@ begin
         raise exception 'Producto no encontrado';
     end if;
 
-    insert into detalle_consolidado (id_consolidado, id_cliente, id_producto, cantidad, precio_consolidado_aplicado)
-    values (p_id_consolidado, auth.uid(), p_id_producto, p_cantidad, v_precio)
-    returning id into v_id_detalle;
+    select id into v_id_detalle
+    from detalle_consolidado
+    where id_consolidado = p_id_consolidado and id_cliente = auth.uid() and id_producto = p_id_producto
+      and estado_item = 'Reservado';
+
+    if v_id_detalle is not null then
+        update detalle_consolidado
+        set cantidad = cantidad + p_cantidad, id_direccion_entrega = p_id_direccion
+        where id = v_id_detalle;
+    else
+        insert into detalle_consolidado (id_consolidado, id_cliente, id_producto, cantidad, precio_consolidado_aplicado, id_direccion_entrega)
+        values (p_id_consolidado, auth.uid(), p_id_producto, p_cantidad, v_precio, p_id_direccion)
+        returning id into v_id_detalle;
+    end if;
 
     return v_id_detalle;
 end;
@@ -474,13 +503,15 @@ begin
     end if;
 
     for v_cliente in
-        select id_cliente, sum(cantidad * precio_consolidado_aplicado) as total
+        select id_cliente,
+               sum(cantidad * precio_consolidado_aplicado) as total,
+               max(id_direccion_entrega) as id_direccion_entrega
         from detalle_consolidado
         where id_consolidado = p_id_consolidado and estado_item = 'Reservado'
         group by id_cliente
     loop
-        insert into pedidos (id_cliente, tipo_pedido, id_consolidado_asociado, monto_total, monto_saldo_pendiente)
-        values (v_cliente.id_cliente, 'Consolidado', p_id_consolidado, v_cliente.total, v_cliente.total)
+        insert into pedidos (id_cliente, tipo_pedido, id_consolidado_asociado, id_direccion_entrega, monto_total, monto_saldo_pendiente)
+        values (v_cliente.id_cliente, 'Consolidado', p_id_consolidado, v_cliente.id_direccion_entrega, v_cliente.total, v_cliente.total)
         returning id into v_id_pedido;
 
         insert into detalle_pedido (id_pedido, id_producto, cantidad, precio_unitario_aplicado)

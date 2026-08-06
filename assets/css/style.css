@@ -27,7 +27,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 
 body {
   margin: 0;
@@ -36,6 +36,12 @@ body {
   font-family: var(--font-body);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  /* El menú móvil (.main-nav) se esconde con transform: translateX(100%), lo que lo deja
+     físicamente fuera del viewport en vez de invisible — en móvil eso se sumaba al ancho
+     scrolleable de toda la página (~300px de scroll horizontal "fantasma" en cualquier
+     pantalla, incluso sin abrir el menú). overflow-x:hidden recorta cualquier desborde así
+     en el borde de la pantalla sin tocar el layout normal de la página. */
+  overflow-x: hidden;
 }
 
 img { max-width: 100%; display: block; }

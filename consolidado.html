@@ -23,6 +23,25 @@
     .reserva-panel { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px; position: sticky; top: 100px; }
     .participante-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--color-border); font-size: 0.85rem; }
     .participante-row:last-child { border-bottom: none; }
+
+    /* ---------- Buscador de perfume (reemplaza el <select> de 48 opciones) ---------- */
+    .combo-perfume { position: relative; }
+    .combo-resultados {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; max-height: 260px; overflow-y: auto;
+      background: var(--color-bg); border: 1px solid var(--color-border); border-radius: var(--radius);
+      box-shadow: var(--shadow-card); z-index: 50;
+    }
+    .combo-resultados.open { display: block; }
+    .combo-opcion {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; text-align: left;
+      background: none; border: none; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);
+      padding: 10px 12px; font-size: 0.85rem;
+    }
+    .combo-opcion:last-child { border-bottom: none; }
+    .combo-opcion:hover { background: rgba(217, 176, 84, 0.08); color: var(--color-text); }
+    .combo-opcion strong { color: var(--color-text); }
+    .combo-precio { color: var(--color-gold); font-size: 0.8rem; flex-shrink: 0; }
+    .combo-vacio { padding: 12px; font-size: 0.82rem; color: var(--color-text-faint); }
   </style>
 </head>
 <body>

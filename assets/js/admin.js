@@ -646,7 +646,7 @@ function conectarEventosConsolidados(consolidados) {
                 <tr data-reserva-id="${r.id}">
                   <td>${escapeHtml(r.cliente)}<br><span style="font-size:0.7rem; color:var(--color-text-faint);">${escapeHtml(r.correo_cliente || '')}</span></td>
                   <td>${escapeHtml(r.marca)} — ${escapeHtml(r.nombre)}</td>
-                  <td>${r.cantidad}</td>
+                  <td><input type="number" min="1" class="input-cantidad-reserva" value="${r.cantidad}" style="width:56px; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 8px; border-radius:3px;" /></td>
                   <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
                   <td><select class="status-select select-estado-reserva">
                     ${ESTADOS_RESERVA.map((e) => `<option value="${e}" ${r.estado_item === e ? 'selected' : ''}>${e}</option>`).join('')}
@@ -666,6 +666,29 @@ function conectarEventosConsolidados(consolidados) {
               cargarConsolidados();
             } catch (err) {
               mostrarToast(err.message, 'error');
+            }
+          });
+        });
+
+        // Editar la cantidad acá evita que la única forma de corregir un pedido del cliente
+        // (ej. "en realidad quiero 2, no 3") sea entrar a Supabase a mano.
+        panel.querySelectorAll('.input-cantidad-reserva').forEach((input) => {
+          const valorOriginal = input.value;
+          input.addEventListener('change', async () => {
+            const idReserva = Number(input.closest('tr').dataset.reservaId);
+            const nuevaCantidad = Number(input.value);
+            if (!nuevaCantidad || nuevaCantidad < 1) {
+              mostrarToast('La cantidad debe ser mayor a 0', 'error');
+              input.value = valorOriginal;
+              return;
+            }
+            try {
+              await actualizarCantidadReserva(idReserva, nuevaCantidad);
+              mostrarToast('Cantidad actualizada');
+              cargarConsolidados();
+            } catch (err) {
+              mostrarToast(err.message, 'error');
+              input.value = valorOriginal;
             }
           });
         });
@@ -721,9 +744,10 @@ async function renderContabilidad() {
 
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
         <strong style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--color-gold);">Perfumes a pedir al proveedor</strong>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
           ${c.reservasSinConvertir > 0 ? `<button class="btn btn-primary btn-sm" id="btn-generar-pedidos">Generar Pedidos (${c.reservasSinConvertir} reservas sin convertir)</button>` : ''}
           ${c.pedidosGenerados > 0 ? `<button class="btn btn-outline btn-sm" id="btn-exportar-excel">Exportar a Excel</button>` : ''}
+          ${c.unidadesTotales > 0 ? `<button class="btn btn-outline btn-sm" id="btn-imprimir-lista">Imprimir Lista de Clientes</button>` : ''}
         </div>
       </div>
       <div class="admin-table-wrap"><table class="data-table">
@@ -766,9 +790,68 @@ async function renderContabilidad() {
         btn.disabled = false;
       }
     });
+
+    document.getElementById('btn-imprimir-lista')?.addEventListener('click', async (e) => {
+      const btn = e.target;
+      btn.disabled = true;
+      try {
+        const filas = await obtenerFilasImpresionConsolidado(CONTABILIDAD_CONSOLIDADO_ACTUAL);
+        const nombreCampana = document.getElementById('contabilidad-select-consolidado').selectedOptions[0]?.text.split(' — ')[0] || `consolidado-${CONTABILIDAD_CONSOLIDADO_ACTUAL}`;
+        imprimirListaConsolidado(filas, nombreCampana);
+      } catch (err) {
+        mostrarToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
   } catch (err) {
     mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
   }
+}
+
+// Abre una pestaña nueva con una tabla simple (blanco y negro, pensada para papel, no para
+// verse en pantalla) con Nombre, DNI, celular, su pedido y si es recojo en tienda o envío por
+// agencia — y dispara el diálogo de impresión del navegador apenas carga. Se arma en una
+// ventana aparte (no en un <div> oculto de esta página) para no arrastrar el tema oscuro del
+// panel admin ni su layout al papel.
+function imprimirListaConsolidado(filas, nombreCampana) {
+  if (!filas.length) { mostrarToast('No hay reservas ni pedidos para imprimir en esta campaña', 'error'); return; }
+  const ventana = window.open('', '_blank');
+  if (!ventana) { mostrarToast('El navegador bloqueó la ventana de impresión — permite pop-ups para este sitio', 'error'); return; }
+
+  const filasHtml = filas.map((f, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(f.cliente)}</td>
+      <td>${escapeHtml(f.dni)}</td>
+      <td>${escapeHtml(f.celular)}</td>
+      <td>${f.items.map(escapeHtml).join('<br>')}</td>
+      <td>${escapeHtml(f.entrega)}</td>
+      <td style="text-align:right;">${formatoMoneda(f.total)}</td>
+    </tr>
+  `).join('');
+
+  ventana.document.write(`<!doctype html><html lang="es"><head><meta charset="UTF-8" />
+    <title>${escapeHtml(nombreCampana)} — Lista de clientes</title>
+    <style>
+      body { font-family: Arial, Helvetica, sans-serif; padding: 28px; color: #111; }
+      h1 { font-size: 1.15rem; margin: 0 0 4px; }
+      .meta { font-size: 0.78rem; color: #555; margin-bottom: 22px; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+      th, td { border: 1px solid #bbb; padding: 7px 9px; text-align: left; vertical-align: top; }
+      th { background: #eee; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.03em; }
+      @media print { body { padding: 0; } }
+    </style>
+  </head><body>
+    <h1>${escapeHtml(nombreCampana)} — Lista de clientes</h1>
+    <div class="meta">Generado el ${new Date().toLocaleString('es-PE')} &middot; ${filas.length} cliente(s)</div>
+    <table>
+      <thead><tr><th>#</th><th>Cliente</th><th>DNI</th><th>Celular</th><th>Pedido</th><th>Entrega</th><th>Total</th></tr></thead>
+      <tbody>${filasHtml}</tbody>
+    </table>
+    <script>window.onload = function () { window.print(); };</script>
+  </body></html>`);
+  ventana.document.close();
 }
 
 async function exportarConsolidadoExcel(idConsolidado) {
