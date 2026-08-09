@@ -50,9 +50,15 @@ for each row execute function fn_crear_perfil_nuevo_usuario();
 -- FILA, pero por sí sola no impide que mande rol='Admin' en el mismo update y se autoascienda.
 -- Este trigger revierte cualquier cambio de rol que no venga de un admin, sin importar qué
 -- policy de UPDATE lo permita.
+-- "auth.uid() is not null" es a propósito: ese valor solo existe cuando la consulta pasa por
+-- PostgREST con el JWT de un usuario logueado (el camino que puede abusar un cliente). Un
+-- update corrido directo en el SQL Editor de Supabase (o con la service role) no trae JWT,
+-- así que auth.uid() da null — sin esta condición, is_admin() da false ahí también y el
+-- trigger revierte hasta el update legítimo del dueño del proyecto para crear el primer
+-- Admin, dejando el sistema sin forma de asignar ninguno.
 create function fn_bloquear_autoascenso_admin() returns trigger as $$
 begin
-    if new.rol is distinct from old.rol and not is_admin() then
+    if new.rol is distinct from old.rol and auth.uid() is not null and not is_admin() then
         new.rol := old.rol;
     end if;
     return new;
