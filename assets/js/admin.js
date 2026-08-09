@@ -93,26 +93,117 @@ function cerrarModal(id) { document.getElementById(id).classList.remove('open');
 
 /* ================= DASHBOARD ================= */
 
+const ICONO_KPI_PEDIDOS = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
+const ICONO_KPI_INGRESOS = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.2-2.2 2.5-2.2 1.6 0 2.5.9 2.5 2 0 2.6-5 1.8-5 4.4 0 1.1.9 2 2.5 2 1.3 0 2.5-.8 2.5-2.2"/></svg>';
+const ICONO_KPI_CONFIRMAR = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg>';
+const ICONO_KPI_STOCK = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 3 2 20h20L12 3Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>';
+
+function claseEstadoPago(estado) {
+  if (estado === 'Completado') return 'pago-completado';
+  if (estado === 'Parcial') return 'pago-parcial';
+  return 'pago-pendiente';
+}
+
+function fechaLargaEs(fecha) {
+  return fecha.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function irASeccion(nombre) {
+  document.querySelector(`.admin-nav-btn[data-section="${nombre}"]`)?.click();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-goto-section]').forEach((btn) => {
+    btn.addEventListener('click', () => irASeccion(btn.dataset.gotoSection));
+  });
+});
+
 async function cargarDashboard() {
-  const mount = document.getElementById('dashboard-stats');
+  document.getElementById('dashboard-fecha').textContent = fechaLargaEs(new Date());
+
+  const kpiMount = document.getElementById('dashboard-kpis');
+  const secundariasMount = document.getElementById('dashboard-stats-secundarias');
+  const pedidosMount = document.getElementById('dashboard-ultimos-pedidos');
+  const stockMount = document.getElementById('dashboard-stock-bajo');
+
   try {
     const s = await obtenerEstadisticasDashboard();
-    mount.innerHTML = `
+
+    kpiMount.innerHTML = `
+      <div class="kpi-card"><div class="kpi-icon gold">${ICONO_KPI_PEDIDOS}</div><div><div class="kpi-value">${s.pedidosHoy}</div><div class="kpi-label">Pedidos Hoy</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon success">${ICONO_KPI_INGRESOS}</div><div><div class="kpi-value">${formatoMoneda(s.ingresosSemana)}</div><div class="kpi-label">Ingresos Esta Semana</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon amber">${ICONO_KPI_CONFIRMAR}</div><div><div class="kpi-value">${s.pedidosPorConfirmar}</div><div class="kpi-label">Por Confirmar</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon danger">${ICONO_KPI_STOCK}</div><div><div class="kpi-value">${s.productosStockBajo}</div><div class="kpi-label">Stock Bajo</div></div></div>
+    `;
+
+    secundariasMount.innerHTML = `
       <div class="stat-card"><div class="stat-value">${s.totalPedidos}</div><div class="stat-label">Pedidos Tienda</div></div>
       <div class="stat-card"><div class="stat-value">${formatoMoneda(s.ingresos)}</div><div class="stat-label">Ingresos Cobrados</div></div>
       <div class="stat-card"><div class="stat-value">${s.consolidadosAbiertos}</div><div class="stat-label">Consolidados Abiertos</div></div>
       <div class="stat-card"><div class="stat-value">${s.reservasPendientes}</div><div class="stat-label">Reservas Pendientes</div></div>
       <div class="stat-card ${s.cotizacionesPendientes ? 'warn' : ''}"><div class="stat-value">${s.cotizacionesPendientes}</div><div class="stat-label">Cotizaciones Pendientes</div></div>
       <div class="stat-card ${s.resenasPendientes ? 'warn' : ''}"><div class="stat-value">${s.resenasPendientes}</div><div class="stat-label">Reseñas por Moderar</div></div>
-      <div class="stat-card ${s.productosStockBajo ? 'warn' : ''}"><div class="stat-value">${s.productosStockBajo}</div><div class="stat-label">Productos con Stock Bajo</div></div>
       <div class="stat-card ${s.productosSinMargen ? 'warn' : ''}"><div class="stat-value">${s.productosSinMargen}</div><div class="stat-label">Productos sin Margen Aplicado</div></div>
     `;
   } catch (err) {
-    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    kpiMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    secundariasMount.innerHTML = '';
+  }
+
+  try {
+    const pedidos = await obtenerUltimosPedidosDashboard(5);
+    pedidosMount.innerHTML = pedidos.length ? pedidos.map((p) => `
+      <div class="dashboard-row">
+        <div>
+          <div class="dashboard-row-main">Pedido #${p.id}</div>
+          <div class="dashboard-row-sub">${escapeHtml(p.cliente)}</div>
+        </div>
+        <div class="dashboard-row-value">
+          <div class="dashboard-row-amount">${formatoMoneda(p.monto_total)}</div>
+          <span class="status-tag ${claseEstadoPago(p.estado_pago)}">${escapeHtml(p.estado_pago)}</span>
+        </div>
+      </div>
+    `).join('') : '<div class="admin-empty">Sin pedidos todavía.</div>';
+  } catch (err) {
+    pedidosMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+  }
+
+  try {
+    const stockBajo = await obtenerStockBajoDashboard(5);
+    stockMount.innerHTML = stockBajo.length ? stockBajo.map((p) => `
+      <div class="dashboard-row">
+        <div>
+          <div class="dashboard-row-main">${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)}</div>
+          <div class="dashboard-row-sub">${p.stock} und. restantes</div>
+        </div>
+        <span class="dashboard-count-badge">${p.stock} und.</span>
+      </div>
+    `).join('') : '<div class="admin-empty">Todo el stock está por encima del mínimo.</div>';
+  } catch (err) {
+    stockMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
   }
 }
 
 /* ================= PRODUCTOS ================= */
+
+// admin.html no carga assets/js/main.js (esa página asume elementos del sitio público —
+// header, footer, notificaciones — que acá no existen), así que el helper de imagen del
+// producto vive acá aparte en vez de depender de la versión de main.js.
+const ICONO_PRODUCTO_FALLBACK = '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m21 8-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>';
+
+function manejarErrorImagenProductoAdmin(img) {
+  const span = document.createElement('span');
+  span.style.color = 'var(--color-text-faint)';
+  span.innerHTML = ICONO_PRODUCTO_FALLBACK;
+  img.replaceWith(span);
+}
+
+function imagenProductoAdmin(p) {
+  if (p.imagen_url) {
+    return `<img src="${p.imagen_url}" alt="${escapeHtml(p.marca)} ${escapeHtml(p.nombre)}" loading="lazy" onerror="manejarErrorImagenProductoAdmin(this)" />`;
+  }
+  return `<span style="color:var(--color-text-faint);">${ICONO_PRODUCTO_FALLBACK}</span>`;
+}
 
 let productosBusquedaTimeout;
 document.addEventListener('DOMContentLoaded', () => {
@@ -139,7 +230,7 @@ function tarjetaProductoAdmin(p) {
   return `
     <div class="admin-card" data-id="${p.id}">
       <div class="admin-card-top">
-        <div class="admin-card-thumb">${imagenProducto(p)}</div>
+        <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
         <div style="min-width:0;">
           <span class="admin-card-sub">${escapeHtml(p.marca)}</span>
           <h3 class="admin-card-title">${escapeHtml(p.nombre)}</h3>
@@ -246,6 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
     data.costo_importacion_usd = data.costo_importacion_usd ? Number(data.costo_importacion_usd) : null;
     data.es_nuevo = e.target.elements.es_nuevo.checked;
     data.es_bestseller = e.target.elements.es_bestseller.checked;
+    if (data.precio_consolidado_fijo > data.precio_tienda_regular) {
+      mostrarToast('El precio consolidado no puede ser mayor al precio tienda', 'error');
+      return;
+    }
     // un precio de venta puesto a mano por el admin cuenta como "margen aplicado" (evita que
     // la Calculadora de Márgenes lo pise después con el modo "solo sin margen")
     data.margen_aplicado = true;
@@ -405,7 +500,7 @@ function filaPedidoAdmin(p) {
       <td>${escapeHtml(p.cliente)}<br><span style="font-size:0.72rem; color:var(--color-text-faint);">${escapeHtml(p.correo_cliente || '')}</span></td>
       <td>${new Date(p.fecha_creacion).toLocaleDateString('es-PE')}</td>
       <td>${formatoMoneda(p.monto_total)}</td>
-      <td><span class="status-tag" title="Se calcula solo a partir de los pagos registrados">${escapeHtml(p.estado_pago)}</span></td>
+      <td><span class="status-tag ${claseEstadoPago(p.estado_pago)}" title="Se calcula solo a partir de los pagos registrados">${escapeHtml(p.estado_pago)}</span></td>
       <td>${escapeHtml(p.envio?.estado_envio || 'Preparando')}</td>
       <td><button class="btn btn-ghost btn-sm btn-ver-pedido">Ver</button></td>
     </tr>
@@ -606,6 +701,7 @@ function tarjetaConsolidadoAdmin(c) {
 
 function conectarEventosConsolidados(consolidados) {
   document.querySelectorAll('#consolidados-lista .select-estado-consolidado').forEach((sel) => {
+    const valorOriginal = sel.value;
     sel.addEventListener('change', async () => {
       const card = sel.closest('.campaign-detail-card');
       const id = Number(card.dataset.id);
@@ -616,6 +712,7 @@ function conectarEventosConsolidados(consolidados) {
         cargarConsolidados();
       } catch (err) {
         mostrarToast(err.message, 'error');
+        sel.value = valorOriginal;
       }
     });
   });
@@ -658,6 +755,7 @@ function conectarEventosConsolidados(consolidados) {
         ` : '<p class="admin-empty">Sin reservas en esta campaña.</p>';
 
         panel.querySelectorAll('.select-estado-reserva').forEach((sel) => {
+          const valorOriginal = sel.value;
           sel.addEventListener('change', async () => {
             const idReserva = Number(sel.closest('tr').dataset.reservaId);
             try {
@@ -666,6 +764,7 @@ function conectarEventosConsolidados(consolidados) {
               cargarConsolidados();
             } catch (err) {
               mostrarToast(err.message, 'error');
+              sel.value = valorOriginal;
             }
           });
         });
@@ -890,6 +989,7 @@ async function cargarTodasLasReservas() {
     `).join('') : '<tr><td colspan="7" class="admin-empty">Sin reservas.</td></tr>';
 
     tbody.querySelectorAll('.select-estado-reserva-global').forEach((sel) => {
+      const valorOriginal = sel.value;
       sel.addEventListener('change', async () => {
         const id = Number(sel.closest('tr').dataset.id);
         try {
@@ -897,6 +997,7 @@ async function cargarTodasLasReservas() {
           mostrarToast('Reserva actualizada');
         } catch (err) {
           mostrarToast(err.message, 'error');
+          sel.value = valorOriginal;
         }
       });
     });

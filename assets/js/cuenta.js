@@ -1,5 +1,6 @@
 const PARAMS = new URLSearchParams(window.location.search);
 const RETORNO = PARAMS.get('retorno');
+const PEDIDO_A_RESALTAR = PARAMS.get('pedido');
 let TAB_ACTIVA = PARAMS.get('tab') || 'pedidos';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -175,6 +176,13 @@ async function cargarPedidos() {
       </table>
     `;
     document.querySelectorAll('[data-ver-pedido]').forEach((btn) => btn.addEventListener('click', () => togglePedido(btn.dataset.verPedido)));
+
+    // Tras un checkout recién hecho, carrito.js redirige acá con ?pedido=ID — se abre su
+    // detalle solo, para que el cliente vea de una que su pedido se creó bien.
+    if (PEDIDO_A_RESALTAR && pedidos.some((p) => String(p.id) === PEDIDO_A_RESALTAR)) {
+      togglePedido(PEDIDO_A_RESALTAR);
+      document.querySelector(`[data-ver-pedido="${PEDIDO_A_RESALTAR}"]`)?.scrollIntoView({ block: 'center' });
+    }
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }

@@ -76,5 +76,8 @@ inyecta solo). Para `notify-email`, ver las instrucciones dentro de ese archivo.
 
 ## 5. Storage (comprobantes de pago)
 
-`schema.sql` ya crea el bucket `comprobantes` (privado) y sus políticas. No necesitas
-crearlo a mano en el dashboard — con correr `schema.sql` una vez alcanza.
+Este proyecto **no usa Supabase Storage**: el comprobante de pago (captura de Yape/Plin/
+transferencia) se resuelve por WhatsApp, y el admin registra el pago ya confirmado desde
+el panel (`assets/js/admin-api.js` → `registrarPago`). `schema.sql` no crea ningún bucket
+— si en algún momento se agrega upload de comprobantes al sitio, ese bucket y sus políticas
+(privado, solo el dueño del pedido y Admin) tendrían que crearse aparte.

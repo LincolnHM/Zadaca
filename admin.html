@@ -37,32 +37,55 @@
       </div>
       <nav class="admin-nav" id="admin-nav">
         <span class="admin-nav-label">Principal</span>
-        <button class="admin-nav-btn active" data-section="dashboard">Dashboard</button>
-        <button class="admin-nav-btn" data-section="productos">Productos</button>
-        <button class="admin-nav-btn" data-section="margenes">Calculadora de Márgenes <span class="admin-nav-badge" id="badge-margenes" hidden>0</span></button>
+        <button class="admin-nav-btn active" data-section="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
+        <button class="admin-nav-btn" data-section="productos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 2h6M10 2v3.5a2 2 0 0 1-.6 1.4L8 8.3A3 3 0 0 0 7 10.5V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.5a3 3 0 0 0-1-2.2l-1.4-1.4A2 2 0 0 1 14 5.5V2"/></svg>Productos</button>
+        <button class="admin-nav-btn" data-section="margenes"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.3"/><circle cx="17.5" cy="17.5" r="2.3"/></svg>Calculadora de Márgenes <span class="admin-nav-badge" id="badge-margenes" hidden>0</span></button>
 
         <span class="admin-nav-label">Pedidos</span>
-        <button class="admin-nav-btn" data-section="pedidos">Tienda Directa</button>
-        <button class="admin-nav-btn" data-section="consolidados">Consolidados</button>
-        <button class="admin-nav-btn" data-section="reservas">Todas las Reservas</button>
-        <button class="admin-nav-btn" data-section="contabilidad">Contabilidad</button>
+        <button class="admin-nav-btn" data-section="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Tienda Directa</button>
+        <button class="admin-nav-btn" data-section="consolidados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>Consolidados</button>
+        <button class="admin-nav-btn" data-section="reservas"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>Todas las Reservas</button>
+        <button class="admin-nav-btn" data-section="contabilidad"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1" fill="currentColor" stroke="none"/></svg>Contabilidad</button>
 
         <span class="admin-nav-label">Clientes</span>
-        <button class="admin-nav-btn" data-section="clientes">Clientes</button>
-        <button class="admin-nav-btn" data-section="resenas">Reseñas <span class="admin-nav-badge" id="badge-resenas" hidden>0</span></button>
-        <button class="admin-nav-btn" data-section="cotizaciones">Cotizaciones <span class="admin-nav-badge" id="badge-cotizaciones" hidden>0</span></button>
+        <button class="admin-nav-btn" data-section="clientes"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.7 14.3c2.4.4 4.3 2 4.3 5.7"/></svg>Clientes</button>
+        <button class="admin-nav-btn" data-section="resenas"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 3 2.6 5.6 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.3l6-.7L12 3Z"/></svg>Reseñas <span class="admin-nav-badge" id="badge-resenas" hidden>0</span></button>
+        <button class="admin-nav-btn" data-section="cotizaciones"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 5h16v11H8l-4 4V5Z"/></svg>Cotizaciones <span class="admin-nav-badge" id="badge-cotizaciones" hidden>0</span></button>
       </nav>
       <div class="admin-nav-footer">
-        <a href="index.html" class="admin-nav-btn" style="text-decoration:none;">Ver tienda</a>
-        <button class="admin-nav-btn" id="admin-logout-btn" style="color:var(--color-danger);">Cerrar sesión</button>
+        <a href="index.html" class="admin-nav-btn" style="text-decoration:none;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Ver tienda</a>
+        <button class="admin-nav-btn" id="admin-logout-btn" style="color:var(--color-danger);"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Cerrar sesión</button>
       </div>
     </aside>
 
     <main class="admin-main">
       <!-- Dashboard -->
       <section class="admin-section active" id="section-dashboard">
-        <div class="admin-page-header"><div><h1>Dashboard</h1><div class="sub">Resumen general del negocio</div></div></div>
-        <div class="stat-grid" id="dashboard-stats"><div class="admin-empty">Cargando…</div></div>
+        <div class="admin-page-header">
+          <div><h1>Dashboard</h1><div class="sub">Resumen general del negocio</div></div>
+          <div class="dashboard-date" id="dashboard-fecha"></div>
+        </div>
+
+        <div class="kpi-grid" id="dashboard-kpis"><div class="admin-empty">Cargando…</div></div>
+
+        <div class="dashboard-panels">
+          <div class="dashboard-panel">
+            <div class="dashboard-panel-head">
+              <h3>Últimos pedidos</h3>
+              <button type="button" class="link-arrow" data-goto-section="pedidos">Ver todos &rarr;</button>
+            </div>
+            <div id="dashboard-ultimos-pedidos"><div class="admin-empty">Cargando…</div></div>
+          </div>
+          <div class="dashboard-panel">
+            <div class="dashboard-panel-head">
+              <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;vertical-align:-2px;margin-right:4px;"><path d="M12 3 2 20h20L12 3Z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>Stock bajo</h3>
+              <button type="button" class="link-arrow" data-goto-section="productos">Ver perfumes &rarr;</button>
+            </div>
+            <div id="dashboard-stock-bajo"><div class="admin-empty">Cargando…</div></div>
+          </div>
+        </div>
+
+        <div class="stat-grid" id="dashboard-stats-secundarias"><div class="admin-empty">Cargando…</div></div>
       </section>
 
       <!-- Productos -->

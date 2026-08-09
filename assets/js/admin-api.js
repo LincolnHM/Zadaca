@@ -11,8 +11,19 @@ async function obtenerPerfilAdmin() {
 /* ================= DASHBOARD ================= */
 
 async function obtenerEstadisticasDashboard() {
-  const [pedidos, consolidados, reservasPendientes, cotizacionesPendientes, resenasPendientes, stockBajo, productosSinMargen] = await Promise.all([
-    supabaseClient.from('pedidos').select('monto_total, estado_pago', { count: 'exact' }),
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  const inicioSemana = new Date();
+  inicioSemana.setDate(inicioSemana.getDate() - 7);
+
+  // Estas cuentan solo pedidos de Tienda Directa (mismo alcance que la sección "Pedidos —
+  // Tienda Directa"): si sumaran también los de Consolidado, el número no cuadraría con lo
+  // que el admin ve al hacer clic en "Ver todos" desde acá.
+  const [pedidos, pedidosHoy, pagosSemana, pedidosPorConfirmar, consolidados, reservasPendientes, cotizacionesPendientes, resenasPendientes, stockBajo, productosSinMargen] = await Promise.all([
+    supabaseClient.from('pedidos').select('monto_total, estado_pago', { count: 'exact' }).eq('tipo_pedido', 'Directo_Tienda'),
+    supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').gte('fecha_creacion', inicioHoy.toISOString()),
+    supabaseClient.from('pagos').select('monto').eq('estado_pago', 'Aprobado').gte('fecha_pago', inicioSemana.toISOString()),
+    supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').in('estado_pago', ['Pendiente', 'Parcial']),
     supabaseClient.from('consolidados').select('id', { count: 'exact' }).eq('estado', 'Abierto'),
     supabaseClient.from('detalle_consolidado').select('id', { count: 'exact' }).eq('estado_item', 'Reservado'),
     supabaseClient.from('solicitudes_cotizacion').select('id', { count: 'exact' }).eq('estado', 'Pendiente'),
@@ -25,11 +36,16 @@ async function obtenerEstadisticasDashboard() {
     .filter((p) => p.estado_pago === 'Completado')
     .reduce((acc, p) => acc + Number(p.monto_total), 0);
 
+  const ingresosSemana = (pagosSemana.data || []).reduce((acc, p) => acc + Number(p.monto), 0);
+
   const productosStockBajo = (stockBajo.data || []).filter((i) => i.stock_fisico <= i.stock_minimo_alerta).length;
 
   return {
     totalPedidos: pedidos.count || 0,
     ingresos,
+    pedidosHoy: pedidosHoy.count || 0,
+    ingresosSemana,
+    pedidosPorConfirmar: pedidosPorConfirmar.count || 0,
     consolidadosAbiertos: consolidados.count || 0,
     reservasPendientes: reservasPendientes.count || 0,
     cotizacionesPendientes: cotizacionesPendientes.count || 0,
@@ -37,6 +53,29 @@ async function obtenerEstadisticasDashboard() {
     productosStockBajo,
     productosSinMargen: productosSinMargen.count || 0,
   };
+}
+
+async function obtenerUltimosPedidosDashboard(limite = 5) {
+  const { data, error } = await supabaseClient
+    .from('pedidos')
+    .select('id, monto_total, estado_pago, fecha_creacion, perfiles(nombres, apellidos)')
+    .eq('tipo_pedido', 'Directo_Tienda')
+    .order('fecha_creacion', { ascending: false })
+    .limit(limite);
+  if (error) throw new Error(error.message);
+  return data.map((p) => ({ ...p, cliente: p.perfiles ? `${p.perfiles.nombres} ${p.perfiles.apellidos}`.trim() : '—' }));
+}
+
+async function obtenerStockBajoDashboard(limite = 5) {
+  const { data, error } = await supabaseClient
+    .from('inventario')
+    .select('stock_fisico, stock_minimo_alerta, perfumes(id, nombre, marca)')
+    .order('stock_fisico', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data
+    .filter((i) => i.perfumes && i.stock_fisico <= i.stock_minimo_alerta)
+    .slice(0, limite)
+    .map((i) => ({ id: i.perfumes.id, nombre: i.perfumes.nombre, marca: i.perfumes.marca, stock: i.stock_fisico }));
 }
 
 /* ================= PRODUCTOS ================= */

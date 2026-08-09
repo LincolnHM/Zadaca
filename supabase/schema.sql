@@ -706,6 +706,11 @@ alter table notificaciones enable row level security;
 -- rate_limits: RLS habilitado a propósito SIN políticas — nadie con anon/authenticated puede
 -- leer ni escribir aquí. Solo la Edge Function (con la service role, que ignora RLS) la usa.
 alter table rate_limits enable row level security;
+-- SEGURIDAD: sin este "enable" (y sin ninguna policy), Supabase deja esta tabla con los
+-- permisos por defecto de anon/authenticated — cualquiera con la anon key podría leer o
+-- insertar filas acá directo por la REST API, sin pasar por la app. Nada la usa todavía,
+-- pero al ser un log de auditoría (acciones de admin) no debe quedar expuesta igual.
+alter table auditoria_log enable row level security;
 
 create function is_admin() returns boolean as $$
     select exists (select 1 from perfiles where id = auth.uid() and rol = 'Admin');
@@ -796,4 +801,9 @@ create policy "newsletter admin lee" on newsletter_suscriptores for select using
 -- definer) insertan, así que no hace falta una política de insert para clientes.
 create policy "notificaciones propias" on notificaciones for select using (id_cliente = auth.uid() or is_admin());
 create policy "notificaciones marcar leidas" on notificaciones for update using (id_cliente = auth.uid()) with check (id_cliente = auth.uid());
+
+-- Auditoría: solo lectura de Admin. A propósito sin policy de insert/update/delete — hoy
+-- nada en la app escribe acá; si en el futuro se usa, debe ser desde una función security
+-- definer (como los triggers de notificaciones), nunca por un insert directo de un cliente.
+create policy "auditoria admin lee" on auditoria_log for select using (is_admin());
 
