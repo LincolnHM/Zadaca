@@ -145,7 +145,7 @@ body.admin-body { min-height: 100vh; }
 .admin-card-top { display: flex; gap: 12px; }
 .admin-card-thumb {
   width: 64px; height: 64px; border-radius: var(--radius); flex-shrink: 0;
-  background: radial-gradient(circle at 50% 40%, var(--color-media-bg) 0%, #ddd2b5 100%);
+  background: var(--color-media-bg);
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 .admin-card-thumb img { max-width: 82%; max-height: 82%; object-fit: contain; }

@@ -370,6 +370,54 @@ async function reservarEnConsolidado(idConsolidado, idProducto, cantidad, idDire
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
 }
 
+// Escalones de descuento por volumen (ver migración 0005): un monto fijo por unidad, igual
+// para cualquier perfume, que se activa cuando el cliente supera cierto total acumulado (en
+// soles) reservado en esa campaña. Se cachea porque son datos públicos que casi no cambian.
+let DESCUENTOS_VOLUMEN_CACHE = null;
+async function obtenerDescuentosVolumen() {
+  if (DESCUENTOS_VOLUMEN_CACHE) return DESCUENTOS_VOLUMEN_CACHE;
+  const { data, error } = await supabaseClient
+    .from('descuentos_volumen_consolidado')
+    .select('umbral_soles, descuento_por_unidad')
+    .order('umbral_soles', { ascending: true });
+  if (error) throw new Error(error.message);
+  DESCUENTOS_VOLUMEN_CACHE = data;
+  return data;
+}
+
+// Tabla de precios por escalón para un perfume puntual (para mostrar en producto.html), a
+// partir de su precio consolidado base. Es solo informativo — el precio real que se cobra lo
+// calcula reservar_en_consolidado() del lado del servidor según lo que el cliente ya acumuló.
+function calcularEscalonesPrecio(precioBase, descuentos) {
+  const filas = [{ etiqueta: 'Desde 4 unidades', precio: precioBase }];
+  for (const d of descuentos) {
+    filas.push({ etiqueta: `Acumulando S/ ${Number(d.umbral_soles).toLocaleString('es-PE')}+`, precio: Math.max(precioBase - d.descuento_por_unidad, 0.01) });
+  }
+  return filas;
+}
+
+// Progreso del cliente logueado en una campaña: cuánto lleva acumulado, el descuento por
+// unidad que ya tiene, y qué le falta para el siguiente escalón (siguiente_umbral viene null
+// cuando ya alcanzó el escalón más alto). Usado en el panel de reserva de consolidado.js.
+async function obtenerProgresoVolumenConsolidado(idConsolidado) {
+  const session = await obtenerSesion();
+  if (!session) return null;
+  const { data, error } = await supabaseClient.rpc('progreso_volumen_consolidado', { p_id_consolidado: idConsolidado });
+  if (error) throw new Error(error.message);
+  return data && data[0] ? data[0] : null;
+}
+
+// Espejo en el navegador de la lógica de reservar_en_consolidado(): solo para mostrarle al
+// cliente una vista previa del precio ANTES de reservar. El precio que de verdad se cobra
+// siempre lo calcula el servidor otra vez (el navegador nunca manda un precio).
+function estimarPrecioConsolidadoPorVolumen(precioBase, acumuladoPrevio, cantidad, descuentos) {
+  const montoEstaReserva = acumuladoPrevio + precioBase * cantidad;
+  const descuento = descuentos
+    .filter((d) => d.umbral_soles <= montoEstaReserva)
+    .reduce((max, d) => Math.max(max, d.descuento_por_unidad), 0);
+  return Math.max(precioBase - descuento, 0.01);
+}
+
 async function obtenerMisReservas() {
   const session = await obtenerSesion();
   if (!session) return [];

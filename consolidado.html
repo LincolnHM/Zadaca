@@ -42,6 +42,12 @@
     .combo-opcion strong { color: var(--color-text); }
     .combo-precio { color: var(--color-gold); font-size: 0.8rem; flex-shrink: 0; }
     .combo-vacio { padding: 12px; font-size: 0.82rem; color: var(--color-text-faint); }
+
+    /* ---------- Progreso de descuento por volumen (migración 0005) ---------- */
+    .volumen-progreso { background: rgba(217, 176, 84, 0.08); border: 1px solid var(--color-gold-dim); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 18px; }
+    .volumen-progreso-linea { font-size: 0.82rem; color: var(--color-text-muted); line-height: 1.5; }
+    .volumen-progreso-linea + .volumen-progreso-linea { margin-top: 4px; }
+    .volumen-progreso-linea strong { color: var(--color-text); }
   </style>
 </head>
 <body>

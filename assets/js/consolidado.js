@@ -87,7 +87,7 @@ function renderConsolidado(c) {
         <h3 style="font-size:1.1rem; margin-bottom:6px;">Reservar en esta campaña</h3>
         <p style="font-size:0.82rem; color:var(--color-text-faint); margin-bottom:20px;">Elige el perfume y la cantidad que deseas reservar al precio consolidado.</p>
         ${abierto
-          ? `<div id="reserva-form-mount"></div>`
+          ? `<div id="progreso-volumen-mount"></div><div id="reserva-form-mount"></div>`
           : `<p style="font-size:0.85rem; color:var(--color-text-muted);">${vencido && c.estado === 'Abierto' ? `El plazo para reservar venció el ${cierreTexto}. Escríbenos por WhatsApp si aún quieres participar.` : 'Esta campaña ya no admite nuevas reservas.'}</p>`}
       </aside>
     </div>
@@ -95,6 +95,9 @@ function renderConsolidado(c) {
 
   if (abierto) renderFormularioReserva();
 }
+
+let PROGRESO_VOLUMEN = null;
+let DESCUENTOS_VOLUMEN = [];
 
 async function renderFormularioReserva() {
   const mount = document.getElementById('reserva-form-mount');
@@ -105,7 +108,15 @@ async function renderFormularioReserva() {
   }
   mount.innerHTML = '<div class="loading-state">Cargando…</div>';
   try {
-    const direcciones = await obtenerDirecciones();
+    const [direcciones, progreso, descuentos] = await Promise.all([
+      obtenerDirecciones(),
+      obtenerProgresoVolumenConsolidado(CONSOLIDADO_ID).catch(() => null),
+      obtenerDescuentosVolumen().catch(() => []),
+    ]);
+    PROGRESO_VOLUMEN = progreso;
+    DESCUENTOS_VOLUMEN = descuentos;
+    renderProgresoVolumen();
+
     mount.innerHTML = `
       <form id="reserva-form">
         <div class="form-group">
@@ -113,10 +124,12 @@ async function renderFormularioReserva() {
           <div class="combo-perfume">
             <input type="text" id="buscador-perfume" placeholder="Escribe el nombre o la marca…" autocomplete="off" required />
             <input type="hidden" name="id_producto" />
+            <input type="hidden" name="precio_base" />
             <div class="combo-resultados" id="combo-resultados"></div>
           </div>
         </div>
-        <div class="form-group"><label>Cantidad</label><input type="number" name="cantidad" value="1" min="1" required /></div>
+        <div class="form-group"><label>Cantidad</label><input type="number" name="cantidad" id="cantidad-input" value="1" min="1" required /></div>
+        <div class="form-hint" id="precio-estimado-hint" style="margin-bottom:14px;"></div>
         <div class="form-group">
           <label>Entrega</label>
           ${direcciones.length
@@ -127,10 +140,44 @@ async function renderFormularioReserva() {
       </form>
     `;
     iniciarBuscadorPerfume();
+    document.getElementById('cantidad-input').addEventListener('input', actualizarPrecioEstimado);
     document.getElementById('reserva-form').addEventListener('submit', enviarReserva);
   } catch (err) {
     mount.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
   }
+}
+
+// Le muestra al cliente cuánto lleva acumulado en soles en esta campaña (sumando todos los
+// perfumes que ya reservó, no solo uno), el descuento por unidad que ya tiene ganado, y
+// cuánto le falta para el siguiente escalón — ver migración 0005 y progreso_volumen_consolidado().
+function renderProgresoVolumen() {
+  const mount = document.getElementById('progreso-volumen-mount');
+  if (!mount) return;
+  if (!PROGRESO_VOLUMEN || !DESCUENTOS_VOLUMEN.length) { mount.innerHTML = ''; return; }
+  const { total_acumulado: total, descuento_actual: descuento, siguiente_umbral: siguienteUmbral, siguiente_descuento: siguienteDescuento, falta_para_siguiente: falta } = PROGRESO_VOLUMEN;
+  mount.innerHTML = `
+    <div class="volumen-progreso">
+      <div class="volumen-progreso-linea">Llevas acumulado <strong>${formatoMoneda(total)}</strong> en esta campaña${descuento > 0 ? ` — ya tienes <strong style="color:var(--color-gold)">-${formatoMoneda(descuento)}</strong> por unidad` : ''}.</div>
+      ${siguienteUmbral
+        ? `<div class="volumen-progreso-linea">Te faltan <strong>${formatoMoneda(falta)}</strong> para llegar a S/ ${Number(siguienteUmbral).toLocaleString('es-PE')} y bajar a <strong style="color:var(--color-gold)">-${formatoMoneda(siguienteDescuento)}</strong> por unidad.</div>`
+        : total > 0 ? '<div class="volumen-progreso-linea">Ya alcanzaste el mejor precio por volumen de esta campaña.</div>' : ''}
+    </div>`;
+}
+
+// Vista previa del precio ANTES de reservar (mismo cálculo que hace el servidor en
+// reservar_en_consolidado, ver api.js). Se actualiza al elegir perfume o cambiar la cantidad.
+function actualizarPrecioEstimado() {
+  const hint = document.getElementById('precio-estimado-hint');
+  if (!hint) return;
+  const form = document.getElementById('reserva-form');
+  const precioBase = Number(form.precio_base.value);
+  const cantidad = Number(form.cantidad.value);
+  if (!precioBase || !cantidad || cantidad < 1) { hint.textContent = ''; return; }
+  const acumuladoPrevio = PROGRESO_VOLUMEN ? Number(PROGRESO_VOLUMEN.total_acumulado) : 0;
+  const precioUnidad = DESCUENTOS_VOLUMEN.length
+    ? estimarPrecioConsolidadoPorVolumen(precioBase, acumuladoPrevio, cantidad, DESCUENTOS_VOLUMEN)
+    : precioBase;
+  hint.innerHTML = `Precio estimado: <strong style="color:var(--color-gold)">${formatoMoneda(precioUnidad)}</strong> por unidad &middot; total ${formatoMoneda(precioUnidad * cantidad)}`;
 }
 
 // Antes el selector de perfume era un <select> con como mucho 48 de los 217 perfumes del
@@ -153,7 +200,7 @@ function iniciarBuscadorPerfume() {
         const { productos } = await obtenerProductos({ busqueda: texto, porPagina: 12, orden: 'nombre' });
         resultados.innerHTML = productos.length
           ? productos.map((p) => `
-              <button type="button" class="combo-opcion" data-id="${p.id}" data-label="${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)}">
+              <button type="button" class="combo-opcion" data-id="${p.id}" data-precio="${p.precio_consolidado_fijo}" data-label="${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)}">
                 <span><strong>${escapeHtml(p.marca)}</strong> — ${escapeHtml(p.nombre)}</span>
                 <span class="combo-precio">${formatoMoneda(p.precio_consolidado_fijo)}</span>
               </button>`).join('')
@@ -171,8 +218,10 @@ function iniciarBuscadorPerfume() {
     if (!opcion) return;
     hidden.value = opcion.dataset.id;
     input.value = opcion.dataset.label;
+    document.querySelector('#reserva-form input[name="precio_base"]').value = opcion.dataset.precio;
     resultados.innerHTML = '';
     resultados.classList.remove('open');
+    actualizarPrecioEstimado();
   });
 
   document.addEventListener('click', (e) => {

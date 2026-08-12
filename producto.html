@@ -15,7 +15,7 @@
   <style>
     .product-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
     @media (max-width: 860px) { .product-detail { grid-template-columns: 1fr; gap: 32px; } }
-    .pd-media { aspect-ratio: 3/4; border-radius: var(--radius); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, var(--color-media-bg) 0%, #ddd2b5 100%); }
+    .pd-media { aspect-ratio: 3/4; border-radius: var(--radius); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; background: var(--color-media-bg); }
     .pd-media img { max-width: 78%; max-height: 82%; object-fit: contain; }
     .pd-brand { color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.8rem; }
     .pd-name { font-size: 2rem; margin: 6px 0 10px; }
@@ -24,6 +24,11 @@
     .pd-price .price-current { font-size: 1.7rem; }
     .pd-consolidado-note { font-size: 0.82rem; color: var(--color-text-muted); margin-bottom: 22px; }
     .pd-consolidado-note strong { color: var(--color-gold); }
+    .pd-tier-table { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 12px 14px; margin: 10px 0 22px; background: var(--color-bg-card); }
+    .pd-tier-title { font-size: 0.74rem; color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+    .pd-tier-row { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 4px 0; color: var(--color-text-muted); }
+    .pd-tier-row-base { color: var(--color-text); font-weight: 600; }
+    .pd-tier-row span:last-child { color: var(--color-gold); font-variant-numeric: tabular-nums; }
     .pd-meta-row { display: flex; gap: 24px; margin: 20px 0; font-size: 0.82rem; color: var(--color-text-muted); flex-wrap: wrap; }
     .pd-meta-row strong { color: var(--color-text); display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
     .qty-selector { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius); width: fit-content; }
