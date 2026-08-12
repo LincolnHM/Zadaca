@@ -6,6 +6,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('icon-shield').innerHTML = ICONS.shield;
   document.getElementById('icon-lock').innerHTML = ICONS.lock;
   document.getElementById('icon-box').innerHTML = ICONS.box;
+  document.getElementById('info-icon-catalogo').innerHTML = ICONS.bag;
+  document.getElementById('info-icon-consolidados').innerHTML = ICONS.box;
+  document.getElementById('info-icon-liquidaciones').innerHTML = ICONS.check;
 
   if (!SUPABASE_CONFIGURADO) {
     mostrarAvisoConfiguracion();
@@ -15,14 +18,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   cargarNuevos();
   cargarBestsellers();
   cargarConsolidados();
+  cargarLiquidaciones();
   cargarTestimonios();
 });
 
 function mostrarAvisoConfiguracion() {
   const aviso = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js para ver datos reales (ver README.md).</div>';
-  ['grid-nuevos', 'grid-bestsellers', 'grid-consolidados', 'grid-testimonios'].forEach((id) => {
+  ['grid-nuevos', 'grid-bestsellers', 'grid-consolidados', 'grid-liquidaciones', 'grid-testimonios'].forEach((id) => {
     document.getElementById(id).innerHTML = aviso;
   });
+}
+
+async function cargarLiquidaciones() {
+  const mount = document.getElementById('grid-liquidaciones');
+  try {
+    const { productos } = await obtenerProductos({ destacado: 'liquidacion', porPagina: 4 });
+    mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No hay liquidaciones activas por el momento.</div>';
+  } catch (err) {
+    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+  }
 }
 
 async function cargarNuevos() {

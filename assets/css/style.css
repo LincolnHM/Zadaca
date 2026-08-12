@@ -119,7 +119,7 @@ h1, h2, h3, h4 {
    "contents" el div deja de generar su propia caja y el header queda efectivamente pegado a
    <body>, que sí es lo bastante alto como para que el sticky funcione en toda la página. */
 #site-header { display: contents; }
-.site-header { position: sticky; top: 0; z-index: 100; background: rgba(10, 9, 8, 0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--color-border); }
+.site-header { position: sticky; top: 0; z-index: 100; background: rgba(10, 9, 8, 0.92); border-bottom: 1px solid var(--color-border); }
 .header-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; gap: 24px; }
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .brand-icon { width: 26px; height: 18px; color: var(--color-gold); }
@@ -280,6 +280,19 @@ h1, h2, h3, h4 {
   .category-tile:nth-child(2) { border-right: none; }
 }
 
+/* ---------- Info cards ("cómo comprar") ---------- */
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+@media (max-width: 900px) { .info-grid { grid-template-columns: 1fr; } }
+.info-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 26px 24px; transition: border-color 0.2s, transform 0.2s; }
+.info-card:hover { border-color: var(--color-gold-dim); transform: translateY(-3px); }
+.info-card .info-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--color-gold); }
+.info-card .info-icon svg { width: 26px; height: 26px; }
+.info-card h3 { font-size: 1.1rem; margin-bottom: 10px; }
+.info-card p { color: var(--color-text-muted); font-size: 0.88rem; margin: 0 0 14px; }
+.info-card ul { margin: 0 0 14px; padding-left: 18px; color: var(--color-text-muted); font-size: 0.85rem; }
+.info-card ul li { margin-bottom: 5px; }
+.info-card ul li strong { color: var(--color-gold); }
+
 /* ---------- Quick filter pills (estilo Micht) ---------- */
 .pill-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
 .pill {
@@ -312,6 +325,8 @@ h1, h2, h3, h4 {
 .badge-new { background: var(--color-gold); color: #14110c; }
 .badge-sale { background: var(--color-danger); color: #14110c; }
 .badge-out { background: #2a2a2a; color: var(--color-text-muted); }
+.badge-liquidacion { background: var(--color-success); color: #14110c; }
+.liq-unidad-note { font-size: 0.7rem; color: var(--color-text-faint); margin-top: 2px; }
 .wishlist-btn {
   position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%;
   background: rgba(10, 9, 8, 0.55); border: 1px solid var(--color-border);

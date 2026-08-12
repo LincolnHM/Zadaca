@@ -35,10 +35,12 @@ function renderDetalle(data) {
   if (p.imagen_url) document.getElementById('og-image').setAttribute('content', p.imagen_url);
   document.getElementById('crumb-nombre').textContent = p.nombre;
 
-  const final = precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
-  const tieneDescuento = Number(p.descuento_tienda_porcentaje) > 0;
+  const esLiquidacion = !!p.es_liquidacion;
+  const final = esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
+  const tieneDescuento = !esLiquidacion && Number(p.descuento_tienda_porcentaje) > 0;
   const agotado = p.estado === 'Agotado';
   const promedio = data.calificacionPromedio;
+  const unidadMinima = esLiquidacion ? Math.max(Number(p.liquidacion_unidad_minima) || 1, 1) : 1;
 
   document.getElementById('detalle-mount').innerHTML = `
     <div class="container product-detail">
@@ -52,8 +54,11 @@ function renderDetalle(data) {
         <div class="pd-price">
           <span class="price-current">${formatoMoneda(final)}</span>
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
+          ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
         </div>
-        <div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="consolidados.html" class="link-arrow">ver campañas activas</a></div>
+        ${esLiquidacion
+          ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
+          : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="consolidados.html" class="link-arrow">ver campañas activas</a></div>`}
 
         <div class="pd-meta-row">
           <div><strong>Concentración</strong>${escapeHtml(p.concentracion || '—')}</div>
@@ -65,7 +70,7 @@ function renderDetalle(data) {
         <div class="pd-actions">
           <div class="qty-selector">
             <button type="button" id="qty-menos">${ICONS.minus}</button>
-            <input type="number" id="qty-input" value="1" min="1" max="${Math.max(p.stock_disponible, 1)}" />
+            <input type="number" id="qty-input" value="${unidadMinima}" min="${unidadMinima}" max="${Math.max(p.stock_disponible, unidadMinima)}" />
             <button type="button" id="qty-mas">${ICONS.plus}</button>
           </div>
           <button class="btn btn-primary" id="btn-agregar-carrito" ${agotado ? 'disabled' : ''}>${agotado ? 'Agotado' : 'Agregar al Carrito'}</button>
@@ -113,7 +118,8 @@ function renderDetalle(data) {
 
 function ajustarCantidad(delta) {
   const input = document.getElementById('qty-input');
-  const nuevo = Math.max(1, Math.min(Number(input.max) || 99, Number(input.value) + delta));
+  const minimo = Number(input.min) || 1;
+  const nuevo = Math.max(minimo, Math.min(Number(input.max) || 99, Number(input.value) + delta));
   input.value = nuevo;
 }
 

@@ -65,6 +65,7 @@ async function obtenerProductos({ genero, marca, familia, busqueda, destacado, o
   if (busqueda) query = query.or(`nombre.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`);
   if (destacado === 'nuevo') query = query.eq('es_nuevo', true);
   if (destacado === 'bestseller') query = query.eq('es_bestseller', true);
+  if (destacado === 'liquidacion') query = query.eq('es_liquidacion', true);
 
   const ordenamientos = {
     precio_asc: { column: 'precio_tienda_regular', ascending: true },
@@ -186,7 +187,7 @@ async function obtenerCarrito() {
   if (!session) return [];
   const { data, error } = await supabaseClient
     .from('carrito_items')
-    .select('id, cantidad, perfumes(id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, inventario(stock_disponible))')
+    .select('id, cantidad, perfumes(id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, imagen_url, inventario(stock_disponible))')
     .eq('id_cliente', session.user.id)
     .order('fecha_agregado', { ascending: false });
   if (error) throw new Error(error.message);
@@ -209,9 +210,11 @@ async function agregarAlCarrito(idProducto, cantidad = 1) {
     .maybeSingle();
 
   if (existente) {
-    await supabaseClient.from('carrito_items').update({ cantidad: existente.cantidad + cantidad }).eq('id', existente.id);
+    const { error } = await supabaseClient.from('carrito_items').update({ cantidad: existente.cantidad + cantidad }).eq('id', existente.id);
+    if (error) throw new Error(error.message);
   } else {
-    await supabaseClient.from('carrito_items').insert({ id_cliente: session.user.id, id_producto: idProducto, cantidad });
+    const { error } = await supabaseClient.from('carrito_items').insert({ id_cliente: session.user.id, id_producto: idProducto, cantidad });
+    if (error) throw new Error(error.message);
   }
 }
 

@@ -21,6 +21,7 @@ const NAV_LINKS = [
   { href: 'index.html', label: 'Inicio' },
   { href: 'catalogo.html', label: 'Catálogo' },
   { href: 'consolidados.html', label: 'Consolidados' },
+  { href: 'liquidaciones.html', label: 'Liquidaciones' },
   { href: 'contacto.html', label: 'Contacto' },
 ];
 
@@ -236,6 +237,7 @@ function renderFooter() {
             <a href="catalogo.html?genero=Hombre">Para Hombre</a>
             <a href="catalogo.html?genero=Mujer">Para Mujer</a>
             <a href="consolidados.html">Consolidados activos</a>
+            <a href="liquidaciones.html">Liquidaciones</a>
           </div>
           <div class="footer-col">
             <h4>Empresa</h4>
@@ -246,6 +248,7 @@ function renderFooter() {
           </div>
           <div class="footer-col">
             <h4>Ayuda</h4>
+            <p>Tienda física en San Martín de Porres</p>
             <p>Envíos vía Shalom / Olva a todo el Perú</p>
             <p>Pagos: Yape, Plin, transferencia y tarjeta</p>
           </div>
@@ -302,8 +305,9 @@ function imagenProducto(p, claseExtra = '') {
 }
 
 function tarjetaProducto(p) {
-  const final = precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
-  const tieneDescuento = Number(p.descuento_tienda_porcentaje) > 0;
+  const esLiquidacion = !!p.es_liquidacion;
+  const final = esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
+  const tieneDescuento = !esLiquidacion && Number(p.descuento_tienda_porcentaje) > 0;
   const agotado = p.estado === 'Agotado';
   return `
     <a href="producto.html?slug=${p.slug}" class="product-card">
@@ -311,6 +315,7 @@ function tarjetaProducto(p) {
         ${imagenProducto(p)}
         <div class="product-badges">
           ${p.es_nuevo ? '<span class="badge badge-new">Nuevo</span>' : ''}
+          ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
           ${tieneDescuento ? `<span class="badge badge-sale">-${Number(p.descuento_tienda_porcentaje)}%</span>` : ''}
           ${agotado ? '<span class="badge badge-out">Agotado</span>' : ''}
         </div>
@@ -323,6 +328,7 @@ function tarjetaProducto(p) {
           <span class="price-current">${formatoMoneda(final)}</span>
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
         </div>
+        ${esLiquidacion ? `<div class="liq-unidad-note">${p.liquidacion_unidad_minima > 1 ? `Solo por mayor · mínimo ${p.liquidacion_unidad_minima} unidades` : 'Por unidad o por mayor'}</div>` : ''}
       </div>
     </a>
   `;

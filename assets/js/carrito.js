@@ -35,7 +35,7 @@ function renderCarrito() {
     return;
   }
 
-  const total = CARRITO_ITEMS.reduce((acc, i) => acc + i.cantidad * precioFinal(i.precio_tienda_regular, i.descuento_tienda_porcentaje), 0);
+  const total = CARRITO_ITEMS.reduce((acc, i) => acc + i.cantidad * precioFinalItem(i), 0);
 
   mount.innerHTML = `
     <div class="container cart-layout">
@@ -51,22 +51,28 @@ function renderCarrito() {
   `;
 
   CARRITO_ITEMS.forEach((item) => {
-    document.getElementById(`menos-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad - 1));
-    document.getElementById(`mas-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad + 1));
+    const minimo = item.es_liquidacion ? Math.max(Number(item.liquidacion_unidad_minima) || 1, 1) : 1;
+    document.getElementById(`menos-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad - 1, minimo));
+    document.getElementById(`mas-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad + 1, minimo));
     document.getElementById(`eliminar-${item.id}`).addEventListener('click', () => eliminarItem(item.id));
   });
 
   cargarDirecciones();
 }
 
+function precioFinalItem(item) {
+  return item.es_liquidacion ? Number(item.precio_liquidacion) : precioFinal(item.precio_tienda_regular, item.descuento_tienda_porcentaje);
+}
+
 function filaCarrito(item) {
-  const final = precioFinal(item.precio_tienda_regular, item.descuento_tienda_porcentaje);
+  const final = precioFinalItem(item);
+  const minimo = item.es_liquidacion ? Math.max(Number(item.liquidacion_unidad_minima) || 1, 1) : 1;
   return `
     <div class="cart-row">
       <div class="cr-media">${imagenProducto(item)}</div>
       <div>
-        <p class="cr-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}</p>
-        <span class="cr-meta">${item.mililitros} ml &middot; ${formatoMoneda(final)} c/u</span>
+        <p class="cr-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}${item.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}</p>
+        <span class="cr-meta">${item.mililitros} ml &middot; ${formatoMoneda(final)} c/u${minimo > 1 ? ` &middot; mínimo ${minimo} uds.` : ''}</span>
       </div>
       <div class="cr-qty">
         <button type="button" id="menos-${item.id}">${ICONS.minus}</button>
@@ -78,8 +84,8 @@ function filaCarrito(item) {
   `;
 }
 
-async function cambiarCantidad(id, nuevaCantidad) {
-  if (nuevaCantidad < 1) return eliminarItem(id);
+async function cambiarCantidad(id, nuevaCantidad, minimo = 1) {
+  if (nuevaCantidad < minimo) return eliminarItem(id);
   try {
     await actualizarCantidadCarrito(id, nuevaCantidad);
     await cargarCarrito();

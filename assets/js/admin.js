@@ -233,7 +233,7 @@ function tarjetaProductoAdmin(p) {
         <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
         <div style="min-width:0;">
           <span class="admin-card-sub">${escapeHtml(p.marca)}</span>
-          <h3 class="admin-card-title">${escapeHtml(p.nombre)}</h3>
+          <h3 class="admin-card-title">${escapeHtml(p.nombre)}${p.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}</h3>
           <span style="font-size:0.72rem; color:var(--color-text-faint);">${p.mililitros} ml &middot; ${escapeHtml(p.concentracion || '—')}</span>
         </div>
       </div>
@@ -337,8 +337,15 @@ document.addEventListener('DOMContentLoaded', () => {
     data.costo_importacion_usd = data.costo_importacion_usd ? Number(data.costo_importacion_usd) : null;
     data.es_nuevo = e.target.elements.es_nuevo.checked;
     data.es_bestseller = e.target.elements.es_bestseller.checked;
+    data.es_liquidacion = e.target.elements.es_liquidacion.checked;
+    data.precio_liquidacion = data.precio_liquidacion ? Number(data.precio_liquidacion) : null;
+    data.liquidacion_unidad_minima = Number(data.liquidacion_unidad_minima || 1);
     if (data.precio_consolidado_fijo > data.precio_tienda_regular) {
       mostrarToast('El precio consolidado no puede ser mayor al precio tienda', 'error');
+      return;
+    }
+    if (data.es_liquidacion && !data.precio_liquidacion) {
+      mostrarToast('Ingresa el precio de liquidación', 'error');
       return;
     }
     // un precio de venta puesto a mano por el admin cuenta como "margen aplicado" (evita que
