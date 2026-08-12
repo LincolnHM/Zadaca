@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liquidaciones — Maison Zadaca Importaciones</title>
+  <meta name="description" content="Mercadería que cae directo a stock, a precio de liquidación: por mayor y por unidad, con cantidad mínima según el producto." />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Inicio</a> / Liquidaciones</div>
+        <h1>Liquidaciones</h1>
+      </div>
+    </div>
+
+    <section class="section-tight">
+      <div class="container">
+        <p style="max-width:680px; color:var(--color-text-muted); font-size:0.95rem;">
+          Es <strong style="color:var(--color-gold)">mercadería que cae directo a stock</strong>, a precio de liquidación — la vendemos por mayor y por unidad. Cada producto tiene su propia cantidad mínima de compra (algunos desde 1 unidad, otros solo en packs de 2 o 6), según lo que vaya llegando.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:24px;">
+      <div class="container">
+        <div class="product-grid" id="grid-liquidaciones">
+          <div class="loading-state">Cargando liquidaciones…</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      iniciarLayout('liquidaciones.html');
+      const mount = document.getElementById('grid-liquidaciones');
+      try {
+        const { productos } = await apiFetch('/productos?destacado=liquidacion&por_pagina=48&orden=recientes');
+        mount.innerHTML = productos.length
+          ? productos.map(tarjetaProducto).join('')
+          : '<div class="empty-state">No hay liquidaciones activas por el momento. Vuelve pronto.</div>';
+      } catch (err) {
+        mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+      }
+    });
+  </script>
+</body>
+</html>

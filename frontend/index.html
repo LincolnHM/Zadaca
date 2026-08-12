@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Maison Zadaca Importaciones — Perfumería de Lujo</title>
+  <meta name="description" content="Perfumes originales importados, en tienda o mediante compras consolidadas a precio preferencial. Envíos a todo el Perú." />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-copy">
+          <span class="eyebrow">Bienvenido a Maison Zadaca</span>
+          <h1>Viste tu <em>presencia</em>.<br>Importa tu <em>fragancia</em>.</h1>
+          <p>Perfumes originales de las casas más exclusivas del mundo. Cómpralos directo en tienda, resérvalos en nuestros consolidados mensuales o llévalos a precio de liquidación.</p>
+          <div style="display:flex; gap:16px; flex-wrap:wrap;">
+            <a href="catalogo.html" class="btn btn-primary">Ver Catálogo</a>
+            <a href="consolidados.html" class="btn btn-outline">Consolidados Activos</a>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="hero-bottle-frame">
+            <svg viewBox="0 0 120 220" fill="none" stroke="currentColor">
+              <rect x="48" y="6" width="24" height="16" rx="3" stroke-width="2.5"/>
+              <rect x="52" y="0" width="16" height="8" rx="2" fill="currentColor" stroke="none"/>
+              <path d="M40 22 L40 44 C40 44 30 52 30 72 L30 190 C30 202 38 210 50 210 L70 210 C82 210 90 202 90 190 L90 72 C90 52 80 44 80 44 L80 22 Z" stroke-width="2.5"/>
+              <line x1="30" y1="96" x2="90" y2="96" stroke-width="2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-tight">
+      <div class="container">
+        <div class="section-header" style="margin-bottom:24px;">
+          <div>
+            <span class="eyebrow">Guía rápida</span>
+            <h2>¿Cómo comprar en Maison Zadaca?</h2>
+          </div>
+        </div>
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="info-icon" id="info-icon-catalogo"></div>
+            <h3>Catálogo</h3>
+            <p>Son los perfumes originales que tenemos disponibles en tienda: los compras y los recibes de inmediato, sin esperar a ningún consolidado.</p>
+            <p style="margin:0;">También contamos con <strong style="color:var(--color-gold)">tienda física en San Martín de Porres</strong>, donde puedes comprar o recoger tu pedido en persona.</p>
+          </div>
+          <div class="info-card">
+            <div class="info-icon" id="info-icon-consolidados"></div>
+            <h3>Consolidados</h3>
+            <p>Campañas de importación grupal: reservas tu perfume a precio preferencial y, al reunirse el mínimo, lo importamos todos juntos.</p>
+            <ul>
+              <li>Pedido mínimo: <strong>4 unidades</strong> por consolidado</li>
+              <li>Demora de llegada: <strong>7 a 14 días</strong> tras el cierre</li>
+              <li>Cada consolidado <strong>cierra los domingos</strong></li>
+            </ul>
+          </div>
+          <div class="info-card">
+            <div class="info-icon" id="info-icon-liquidaciones"></div>
+            <h3>Liquidaciones</h3>
+            <p>Mercadería que cae directo a stock, a precio de liquidación — por mayor y por unidad.</p>
+            <p style="margin:0;">Cada producto tiene su propia cantidad mínima (desde 1 unidad hasta packs de 2 o 6), según lo que vaya llegando.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="category-strip">
+      <a class="category-tile" href="catalogo.html?genero=Hombre">
+        <div class="cat-icon" id="icon-hombre"></div>
+        <div class="cat-name">Hombre</div>
+        <div class="cat-sub">Explorar</div>
+      </a>
+      <a class="category-tile" href="catalogo.html?genero=Mujer">
+        <div class="cat-icon" id="icon-mujer"></div>
+        <div class="cat-name">Mujer</div>
+        <div class="cat-sub">Explorar</div>
+      </a>
+      <a class="category-tile" href="catalogo.html?genero=Unisex">
+        <div class="cat-icon" id="icon-unisex"></div>
+        <div class="cat-name">Unisex / Nicho</div>
+        <div class="cat-sub">Explorar</div>
+      </a>
+      <a class="category-tile" href="consolidados.html">
+        <div class="cat-icon" id="icon-consolidado"></div>
+        <div class="cat-name">Consolidados</div>
+        <div class="cat-sub">Reserva y ahorra</div>
+      </a>
+      <a class="category-tile" href="liquidaciones.html">
+        <div class="cat-icon" id="icon-liquidacion"></div>
+        <div class="cat-name">Liquidaciones</div>
+        <div class="cat-sub">Por mayor y unidad</div>
+      </a>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Recién llegados</span>
+            <h2>Nuevos Ingresos</h2>
+          </div>
+          <a href="catalogo.html?destacado=nuevo" class="link-arrow">Ver todos &rarr;</a>
+        </div>
+        <div class="product-grid" id="grid-nuevos">
+          <div class="loading-state">Cargando productos…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="feature-strip">
+      <div class="feature-item">
+        <span id="icon-truck"></span>
+        <div><div class="f-title">Envío a todo el Perú</div><div class="f-sub">Vía Shalom / Olva</div></div>
+      </div>
+      <div class="feature-item">
+        <span id="icon-shield"></span>
+        <div><div class="f-title">100% Originales</div><div class="f-sub">Garantía de autenticidad</div></div>
+      </div>
+      <div class="feature-item">
+        <span id="icon-lock"></span>
+        <div><div class="f-title">Pago Seguro</div><div class="f-sub">Yape, Plin, tarjeta y más</div></div>
+      </div>
+      <div class="feature-item">
+        <span id="icon-box"></span>
+        <div><div class="f-title">Consolidados</div><div class="f-sub">Importa y ahorra hasta 20%</div></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Los favoritos</span>
+            <h2>Best Sellers</h2>
+          </div>
+          <a href="catalogo.html?destacado=bestseller" class="link-arrow">Ver todos &rarr;</a>
+        </div>
+        <div class="product-grid" id="grid-bestsellers">
+          <div class="loading-state">Cargando productos…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Compra grupal</span>
+            <h2>Consolidados Activos</h2>
+          </div>
+          <a href="consolidados.html" class="link-arrow">Ver todos &rarr;</a>
+        </div>
+        <div class="consolidado-grid" id="grid-consolidados">
+          <div class="loading-state">Cargando consolidados…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="section-header">
+          <div>
+            <span class="eyebrow">Stock que llega y se va</span>
+            <h2>Liquidaciones</h2>
+          </div>
+          <a href="liquidaciones.html" class="link-arrow">Ver todas &rarr;</a>
+        </div>
+        <div class="product-grid" id="grid-liquidaciones">
+          <div class="loading-state">Cargando liquidaciones…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:0;">
+      <div class="container">
+        <div class="section-header" style="justify-content:center; text-align:center; flex-direction:column;">
+          <span class="eyebrow">Testimonios</span>
+          <h2>Lo Que Dicen Nuestros Clientes</h2>
+        </div>
+        <div class="testimonial-grid" id="grid-testimonios">
+          <div class="loading-state">Cargando testimonios…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="newsletter">
+      <div class="container newsletter-inner">
+        <div>
+          <h3>Únete al Club Zadaca</h3>
+          <p>Sé el primero en enterarte de nuevos ingresos, consolidados y ofertas exclusivas.</p>
+        </div>
+        <form class="newsletter-form" id="newsletter-form">
+          <input type="email" placeholder="Ingresa tu correo" required />
+          <button type="submit" class="btn btn-primary">Suscribirme</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script src="assets/js/home.js"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consolidados — Maison Zadaca Importaciones</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="index.html">Inicio</a> / Consolidados</div>
+        <h1>Compras Consolidadas</h1>
+      </div>
+    </div>
+
+    <section class="section-tight">
+      <div class="container">
+        <p style="max-width:680px; color:var(--color-text-muted); font-size:0.95rem;">
+          Un <strong style="color:var(--color-gold)">consolidado</strong> es una campaña de importación grupal: reserva tu perfume al precio preferencial y, al alcanzar el mínimo de unidades, lo importamos todos juntos para reducir costos. Así accedes a precios que no encontrarás en tienda.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" style="padding-top:24px;">
+      <div class="container">
+        <div class="consolidado-grid" id="grid-consolidados">
+          <div class="loading-state">Cargando consolidados…</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      iniciarLayout('consolidados.html');
+      const mount = document.getElementById('grid-consolidados');
+      try {
+        const consolidados = await apiFetch('/consolidados');
+        mount.innerHTML = consolidados.length
+          ? consolidados.map(tarjetaConsolidadoCompleta).join('')
+          : '<div class="empty-state">No hay consolidados registrados todavía.</div>';
+      } catch (err) {
+        mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+      }
+    });
+
+    function tarjetaConsolidadoCompleta(c) {
+      const cierre = new Date(c.fecha_cierre_programada).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
+      const estadoLegible = {
+        Borrador: 'Próximamente', Abierto: 'Abierto', Cerrado_Procesando: 'Cerrado — Procesando',
+        Comprado_En_Transito: 'En tránsito', En_Aduanas: 'En aduanas', En_Almacen_Local: 'En almacén local',
+        Finalizado: 'Finalizado', Cancelado: 'Cancelado',
+      }[c.estado] || c.estado;
+      return `
+        <a href="consolidado.html?id=${c.id}" class="consolidado-card">
+          <span class="status-pill">${estadoLegible}</span>
+          <h3>${escapeHtml(c.codigo_campana)}</h3>
+          <div class="cc-dates">Cierra el ${cierre}</div>
+          <div class="progress-track"><div class="progress-fill" style="width:${c.porcentaje_avance}%"></div></div>
+          <div class="progress-label">
+            <span>${c.total_unidades_acumuladas} de ${c.minimo_unidades} unidades</span>
+            <span>${c.porcentaje_avance}%</span>
+          </div>
+          <span class="link-arrow">Ver detalle &rarr;</span>
+        </a>
+      `;
+    }
+  </script>
+</body>
+</html>
