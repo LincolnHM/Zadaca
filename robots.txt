@@ -4,6 +4,4 @@ Disallow: /admin.html
 Disallow: /cuenta.html
 Disallow: /carrito.html
 
-# Reemplaza TU-DOMINIO por la URL real una vez publicado (ej. https://tu-usuario.github.io/tu-repo
-# o tu dominio propio) y descomenta esta línea — así los buscadores encuentran sitemap.xml solos.
-# Sitemap: https://TU-DOMINIO/sitemap.xml
+Sitemap: https://lincolnhm.github.io/Zadaca/sitemap.xml

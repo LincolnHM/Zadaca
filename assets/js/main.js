@@ -68,6 +68,7 @@ function renderHeaderEstatico(activo) {
             <span class="brand-tagline">SELECCIÓN &amp; CONSOLIDADOS</span>
           </span>
         </a>
+        <div class="nav-backdrop" id="nav-backdrop" hidden></div>
         <nav class="main-nav" id="main-nav">
           ${NAV_LINKS.map((l) => `<a href="${l.href}" class="${activo === l.href ? 'active' : ''}">${l.label}</a>`).join('')}
         </nav>
@@ -92,10 +93,21 @@ function renderHeaderEstatico(activo) {
 
   const toggle = document.getElementById('menu-toggle');
   const nav = document.getElementById('main-nav');
+  const backdrop = document.getElementById('nav-backdrop');
+  const cerrarMenu = () => {
+    nav.classList.remove('open');
+    backdrop.hidden = true;
+    toggle.innerHTML = ICONS.menu;
+  };
   toggle.addEventListener('click', () => {
-    nav.classList.toggle('open');
-    toggle.innerHTML = nav.classList.contains('open') ? ICONS.close : ICONS.menu;
+    const abrir = !nav.classList.contains('open');
+    nav.classList.toggle('open', abrir);
+    backdrop.hidden = !abrir;
+    toggle.innerHTML = abrir ? ICONS.close : ICONS.menu;
   });
+  backdrop.addEventListener('click', cerrarMenu);
+  nav.querySelectorAll('a').forEach((link) => link.addEventListener('click', cerrarMenu));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenu(); });
 
   configurarCampanitaNotificaciones();
 }
