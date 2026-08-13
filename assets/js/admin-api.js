@@ -311,15 +311,17 @@ async function actualizarCantidadReserva(idDetalle, cantidad) {
 
 /* ================= CONTABILIDAD ================= */
 
-// Cuánto pedir al proveedor y cuánto se espera cobrar, a partir de las reservas vivas
-// (no canceladas) de la campaña — sirve desde antes de cerrarla, para planificar.
+// Cuánto pedir al proveedor y cuánto se espera cobrar, a partir de las reservas vivas y ya
+// aprobadas de la campaña (no canceladas, no pendientes de aprobación — ver migración 0006:
+// una reserva de 10+ unidades de un mismo perfume no debe inflar el pedido al proveedor hasta
+// que el admin la confirme) — sirve desde antes de cerrarla, para planificar.
 async function obtenerContabilidadConsolidado(idConsolidado) {
   const [{ data: detalle, error: e1 }, { data: pedidos, error: e2 }] = await Promise.all([
     supabaseClient
       .from('detalle_consolidado')
       .select('cantidad, precio_consolidado_aplicado, estado_item, perfumes(id, nombre, marca, costo_importacion_pen, mililitros)')
       .eq('id_consolidado', idConsolidado)
-      .neq('estado_item', 'Cancelado'),
+      .not('estado_item', 'in', '(Cancelado,Pendiente_Aprobacion)'),
     supabaseClient
       .from('pedidos')
       .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago')

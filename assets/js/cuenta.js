@@ -242,6 +242,12 @@ const ESTADOS_CAMPANA_LEGIBLES = {
   Comprado_En_Transito: 'En tránsito', En_Aduanas: 'En aduanas', En_Almacen_Local: 'En almacén local',
   Finalizado: 'Finalizado', Cancelado: 'Cancelado',
 };
+// Reservas de 10 unidades o más de un mismo perfume quedan en 'Pendiente_Aprobacion' hasta que
+// el admin las revisa (ver migración 0006) — acá solo se traduce el texto para el cliente.
+const ESTADOS_ITEM_LEGIBLES = {
+  Reservado: 'Reservado', Pendiente_Aprobacion: 'Pendiente de aprobación', Confirmado: 'Confirmado',
+  Cancelado: 'Cancelado', Convertido_A_Pedido: 'Convertido a pedido',
+};
 
 async function cargarReservas() {
   const mount = document.getElementById('tab-content');
@@ -260,7 +266,7 @@ async function cargarReservas() {
               <td><a href="consolidado.html?id=${r.id_consolidado}" style="color:var(--color-gold)">${escapeHtml(r.codigo_campana)}</a></td>
               <td>${r.cantidad}</td>
               <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
-              <td><span class="status-tag">${escapeHtml(r.estado_item)}</span></td>
+              <td><span class="status-tag"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(201,168,106,0.15); color:var(--color-gold);"' : ''}>${escapeHtml(ESTADOS_ITEM_LEGIBLES[r.estado_item] || r.estado_item)}</span></td>
               <td><span class="status-tag">${escapeHtml(ESTADOS_CAMPANA_LEGIBLES[r.estado_consolidado] || r.estado_consolidado || '—')}</span></td>
             </tr>
           `).join('')}

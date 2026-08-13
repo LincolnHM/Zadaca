@@ -236,8 +236,10 @@ async function enviarReserva(e) {
   const btn = e.target.querySelector('button[type="submit"]');
   btn.disabled = true;
   try {
-    await reservarEnConsolidado(CONSOLIDADO_ID, idProducto, Number(e.target.cantidad.value), Number(e.target.id_direccion.value));
-    mostrarToast('¡Reserva registrada con éxito!');
+    const estado = await reservarEnConsolidado(CONSOLIDADO_ID, idProducto, Number(e.target.cantidad.value), Number(e.target.id_direccion.value));
+    mostrarToast(estado === 'Pendiente_Aprobacion'
+      ? 'Reserva registrada. Al ser una cantidad grande de un mismo perfume, queda pendiente de aprobación del equipo antes de sumar al progreso de la campaña.'
+      : '¡Reserva registrada con éxito!');
     cargarConsolidado();
   } catch (err) {
     mostrarToast(err.message, 'error');

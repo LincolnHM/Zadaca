@@ -358,16 +358,22 @@ async function obtenerConsolidadoPorId(id) {
 // el cliente nunca manda el precio, así no hay forma de manipular a cuánto se reserva. La
 // función también valida ahí mismo que la campaña siga dentro de su fecha límite y que la
 // dirección sea del cliente que llama.
+// Devuelve el estado_item resultante (no solo el id): si esa fila llegó a 10 unidades o más
+// del mismo perfume, el servidor la deja en 'Pendiente_Aprobacion' en vez de 'Reservado' (ver
+// migración 0006) — consolidado.js usa esto para avisarle al cliente que su reserva no se
+// perdió, solo está esperando que el admin la confirme.
 async function reservarEnConsolidado(idConsolidado, idProducto, cantidad, idDireccion) {
   const session = await obtenerSesion();
   if (!session) throw new Error('Debes iniciar sesión');
-  const { error } = await supabaseClient.rpc('reservar_en_consolidado', {
+  const { data: idDetalle, error } = await supabaseClient.rpc('reservar_en_consolidado', {
     p_id_consolidado: idConsolidado,
     p_id_producto: idProducto,
     p_cantidad: cantidad,
     p_id_direccion: idDireccion,
   });
   if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
+  const { data: detalle } = await supabaseClient.from('detalle_consolidado').select('estado_item').eq('id', idDetalle).single();
+  return detalle?.estado_item || 'Reservado';
 }
 
 // Escalones de descuento por volumen (ver migración 0005): un monto fijo por unidad, igual

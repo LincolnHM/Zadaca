@@ -1,5 +1,8 @@
 const ESTADOS_CONSOLIDADO = ['Borrador', 'Abierto', 'Cerrado_Procesando', 'Comprado_En_Transito', 'En_Aduanas', 'En_Almacen_Local', 'Finalizado', 'Cancelado'];
-const ESTADOS_RESERVA = ['Reservado', 'Confirmado', 'Cancelado', 'Convertido_A_Pedido'];
+// 'Pendiente_Aprobacion': reservas de 10+ unidades de un mismo perfume (ver migración 0006) —
+// no cuentan en el progreso de la campaña hasta que el admin las cambia a 'Reservado' (aprobar)
+// o 'Cancelado' (rechazar) desde este mismo selector.
+const ESTADOS_RESERVA = ['Reservado', 'Pendiente_Aprobacion', 'Confirmado', 'Cancelado', 'Convertido_A_Pedido'];
 let PERFIL_ADMIN = null;
 let COTIZACION_ORIGEN = null; // id de la cotización que se está convirtiendo en producto, si aplica
 
@@ -747,7 +750,7 @@ function conectarEventosConsolidados(consolidados) {
             <thead><tr><th>Cliente</th><th>Producto</th><th>Cant.</th><th>Precio</th><th>Estado</th></tr></thead>
             <tbody>
               ${reservas.map((r) => `
-                <tr data-reserva-id="${r.id}">
+                <tr data-reserva-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(201,168,106,0.08);"' : ''}>
                   <td>${escapeHtml(r.cliente)}<br><span style="font-size:0.7rem; color:var(--color-text-faint);">${escapeHtml(r.correo_cliente || '')}</span></td>
                   <td>${escapeHtml(r.marca)} — ${escapeHtml(r.nombre)}</td>
                   <td><input type="number" min="1" class="input-cantidad-reserva" value="${r.cantidad}" style="width:56px; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 8px; border-radius:3px;" /></td>
@@ -984,7 +987,7 @@ async function cargarTodasLasReservas() {
   try {
     const reservas = await obtenerTodasLasReservasAdmin({ busqueda });
     tbody.innerHTML = reservas.length ? reservas.map((r) => `
-      <tr data-id="${r.id}">
+      <tr data-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(201,168,106,0.08);"' : ''}>
         <td>${escapeHtml(r.cliente)}</td>
         <td>${escapeHtml(r.producto)}</td>
         <td><a href="consolidado.html?id=${r.id_consolidado}" target="_blank" style="color:var(--color-gold)">${escapeHtml(r.campana || '—')}</a></td>
