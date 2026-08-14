@@ -56,13 +56,22 @@ function irALoginConRetorno() {
 
 /* ---------------- Catálogo ---------------- */
 
-async function obtenerProductos({ genero, marca, familia, busqueda, destacado, orden, pagina = 1, porPagina = 12 } = {}) {
+// Los filtros .or()/.ilike() de PostgREST usan coma y paréntesis como sintaxis propia — si el
+// cliente escribe "Dior, Sauvage" o "Sauvage (100ml)" en el buscador, esos caracteres cortarían
+// el filtro en vez de buscarse como texto literal. Se escapan con backslash antes de armar la
+// query (ver docs de PostgREST: https://postgrest.org/en/stable/references/api/tables_views.html#operators).
+function escaparFiltroSupabase(texto) {
+  return String(texto).replace(/[,()]/g, (c) => `\\${c}`);
+}
+
+async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12 } = {}) {
   let query = supabaseClient.from('perfumes').select('*, inventario(stock_disponible)', { count: 'exact' });
 
   if (genero) query = query.eq('genero', genero);
   if (marca) query = query.eq('marca', marca);
   if (familia) query = query.eq('familia_olfativa', familia);
-  if (busqueda) query = query.or(`nombre.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`);
+  if (tipo_casa) query = query.eq('tipo_casa', tipo_casa);
+  if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
   if (destacado === 'nuevo') query = query.eq('es_nuevo', true);
   if (destacado === 'bestseller') query = query.eq('es_bestseller', true);
   if (destacado === 'liquidacion') query = query.eq('es_liquidacion', true);
@@ -97,6 +106,27 @@ async function obtenerFiltrosCatalogo() {
   const marcas = [...new Set((marcasData || []).map((r) => r.marca))].sort();
   const familias = [...new Set((familiasData || []).map((r) => r.familia_olfativa))].sort();
   return { marcas, familias };
+}
+
+// A diferencia de marca/familia (que salen de los datos reales), tipo_casa es un vocabulario
+// fijo — ver constraint chk_perfumes_tipo_casa en schema.sql — así que no hace falta una
+// consulta aparte para listar sus valores posibles.
+const TIPOS_CASA = ['Árabe', 'Diseñador', 'Nicho'];
+
+// Sugerencias del buscador en vivo del catálogo (dropdown mientras se escribe). Trae pocos
+// campos y un límite bajo porque se dispara en cada tecleo (con debounce) — a diferencia de
+// obtenerProductos(), que trae la página completa con paginación.
+async function obtenerSugerenciasBusqueda(texto, limite = 6) {
+  const q = (texto || '').trim();
+  if (!q) return [];
+  const { data, error } = await supabaseClient
+    .from('perfumes')
+    .select('slug, nombre, marca, imagen_url, precio_tienda_regular, descuento_tienda_porcentaje')
+    .or(`nombre.ilike.%${escaparFiltroSupabase(q)}%,marca.ilike.%${escaparFiltroSupabase(q)}%`)
+    .order('nombre', { ascending: true })
+    .limit(limite);
+  if (error) return [];
+  return data || [];
 }
 
 async function obtenerProductoPorSlug(slug) {

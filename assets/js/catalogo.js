@@ -24,11 +24,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (params.get('destacado')) document.getElementById('filter-form').dataset.destacado = params.get('destacado');
 
-  await cargarFiltros(params.get('marca'), params.get('familia'));
+  await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'));
   iniciarDropdownsFiltro();
+  iniciarBuscadorEnVivo();
 
   document.getElementById('filter-form').addEventListener('submit', (e) => {
     e.preventDefault();
+    ocultarSugerencias();
     paginaActual = 1;
     cargarProductos();
     actualizarUIFiltros();
@@ -41,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   cargarProductos();
 });
 
-async function cargarFiltros(marcaSeleccionada, familiaSeleccionada) {
+async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada) {
   try {
     const { marcas, familias } = await obtenerFiltrosCatalogo();
     document.getElementById('filtro-marcas').innerHTML =
@@ -50,12 +52,15 @@ async function cargarFiltros(marcaSeleccionada, familiaSeleccionada) {
     document.getElementById('filtro-familias').innerHTML =
       `<label class="filter-option"><input type="radio" name="familia" value="" ${!familiaSeleccionada ? 'checked' : ''}/> Todas</label>` +
       familias.map((f) => `<label class="filter-option"><input type="radio" name="familia" value="${escapeHtml(f)}" ${f === familiaSeleccionada ? 'checked' : ''}/> ${escapeHtml(f)}</label>`).join('');
+    document.getElementById('filtro-casas').innerHTML =
+      `<label class="filter-option"><input type="radio" name="tipo_casa" value="" ${!casaSeleccionada ? 'checked' : ''}/> Todas</label>` +
+      TIPOS_CASA.map((c) => `<label class="filter-option"><input type="radio" name="tipo_casa" value="${escapeHtml(c)}" ${c === casaSeleccionada ? 'checked' : ''}/> ${escapeHtml(c)}</label>`).join('');
 
     // La familia olfativa todavía no está cargada en el catálogo real (ver seed.sql) — mientras
     // esté vacía, ocultamos el botón en vez de mostrar un filtro que solo dice "Todas".
     document.getElementById('dd-familia').style.display = familias.length ? '' : 'none';
 
-    document.querySelectorAll('#filtro-marcas input, #filtro-familias input').forEach((input) => {
+    document.querySelectorAll('#filtro-marcas input, #filtro-familias input, #filtro-casas input').forEach((input) => {
       input.addEventListener('change', () => {
         cerrarDropdowns();
         paginaActual = 1;
@@ -115,6 +120,98 @@ function posicionarPanel(dd) {
   if (desborde > 0) panel.style.left = `-${desborde}px`;
 }
 
+/* ---------- Buscador en vivo (sugerencias mientras se escribe) ---------- */
+
+let busquedaTimeout;
+let sugerenciasSeq = 0; // descarta respuestas que llegan fuera de orden si el usuario tecleó rápido
+
+function iniciarBuscadorEnVivo() {
+  const input = document.querySelector('input[name="busqueda"]');
+  const panel = document.getElementById('search-suggest');
+
+  input.addEventListener('input', () => {
+    clearTimeout(busquedaTimeout);
+    busquedaTimeout = setTimeout(() => {
+      paginaActual = 1;
+      cargarProductos();
+      actualizarUIFiltros();
+      cargarSugerencias(input.value);
+    }, 350);
+  });
+  input.addEventListener('focus', () => { if (input.value.trim()) cargarSugerencias(input.value); });
+  input.addEventListener('keydown', manejarTecladoSugerencias);
+  document.addEventListener('click', (e) => { if (!e.target.closest('.search-compact')) ocultarSugerencias(); });
+  panel.addEventListener('click', (e) => e.stopPropagation());
+}
+
+async function cargarSugerencias(texto) {
+  const q = texto.trim();
+  if (!q) { ocultarSugerencias(); return; }
+  const idSolicitud = ++sugerenciasSeq;
+  const lista = await obtenerSugerenciasBusqueda(q, 6);
+  if (idSolicitud !== sugerenciasSeq) return; // el usuario ya siguió tecleando; esta respuesta quedó vieja
+  renderSugerencias(lista, q);
+}
+
+function renderSugerencias(lista, texto) {
+  const panel = document.getElementById('search-suggest');
+  const filas = lista.map((p) => {
+    const precio = formatoMoneda(precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje));
+    const miniatura = p.imagen_url
+      ? `<img src="${p.imagen_url}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
+      : `<span class="fallback-icon">${ICONS.box}</span>`;
+    return `
+      <a href="producto.html?slug=${p.slug}" class="search-suggest-item">
+        ${miniatura}
+        <span class="ss-info">
+          <span class="ss-marca">${escapeHtml(p.marca)}</span>
+          <span class="ss-nombre">${escapeHtml(p.nombre)}</span>
+        </span>
+        <span class="ss-precio">${precio}</span>
+      </a>`;
+  }).join('');
+
+  panel.innerHTML =
+    (filas || `<div class="search-suggest-empty">Sin coincidencias para "${escapeHtml(texto)}".</div>`) +
+    `<button type="button" class="search-suggest-footer" id="ss-ver-todos">Ver todos los resultados para "${escapeHtml(texto)}"</button>`;
+  panel.classList.add('open');
+
+  document.getElementById('ss-ver-todos').addEventListener('click', () => ocultarSugerencias());
+}
+
+function ocultarSugerencias() {
+  document.getElementById('search-suggest').classList.remove('open');
+}
+
+// Flechas para recorrer las sugerencias, Enter para ir al perfume resaltado (si no hay ninguno
+// resaltado, Enter sigue funcionando como el submit normal del formulario) y Escape para cerrar.
+function manejarTecladoSugerencias(e) {
+  const panel = document.getElementById('search-suggest');
+  if (!panel.classList.contains('open')) return;
+  const items = [...panel.querySelectorAll('.search-suggest-item')];
+  if (!items.length) return;
+  let idx = items.findIndex((el) => el.classList.contains('is-active'));
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    idx = (idx + 1) % items.length;
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    idx = idx <= 0 ? items.length - 1 : idx - 1;
+  } else if (e.key === 'Enter' && idx >= 0) {
+    e.preventDefault();
+    window.location.href = items[idx].href;
+    return;
+  } else if (e.key === 'Escape') {
+    ocultarSugerencias();
+    return;
+  } else {
+    return;
+  }
+  items.forEach((el) => el.classList.remove('is-active'));
+  items[idx].classList.add('is-active');
+}
+
 // Refleja el estado actual de los filtros en los botones (nombre de la marca elegida en vez
 // de "Marca" a secas) y en la fila de chips, para que se note de un vistazo qué está activo
 // sin tener que abrir cada dropdown — clave ahora que ya no hay un sidebar siempre visible.
@@ -122,11 +219,16 @@ function actualizarUIFiltros() {
   const form = document.getElementById('filter-form');
   const marca = form.querySelector('input[name="marca"]:checked')?.value || '';
   const familia = form.querySelector('input[name="familia"]:checked')?.value || '';
+  const casa = form.querySelector('input[name="tipo_casa"]:checked')?.value || '';
   const busqueda = form.querySelector('input[name="busqueda"]').value.trim();
 
   const btnMarca = document.querySelector('#dd-marca .filter-dd-btn');
   document.getElementById('dd-marca').classList.toggle('has-value', !!marca);
   btnMarca.childNodes[0].textContent = marca ? `Marca: ${marca}` : 'Marca ';
+
+  const btnCasa = document.querySelector('#dd-casa .filter-dd-btn');
+  document.getElementById('dd-casa').classList.toggle('has-value', !!casa);
+  btnCasa.childNodes[0].textContent = casa ? `Casa: ${casa}` : 'Casa ';
 
   const btnFamilia = document.querySelector('#dd-familia .filter-dd-btn');
   document.getElementById('dd-familia').classList.toggle('has-value', !!familia);
@@ -135,6 +237,7 @@ function actualizarUIFiltros() {
   const chips = [];
   if (generoActivo) chips.push({ label: `Género: ${generoActivo}`, quitar: () => limpiarGenero() });
   if (marca) chips.push({ label: `Marca: ${marca}`, quitar: () => seleccionarRadio('marca', '') });
+  if (casa) chips.push({ label: `Casa: ${casa}`, quitar: () => seleccionarRadio('tipo_casa', '') });
   if (familia) chips.push({ label: `Familia: ${familia}`, quitar: () => seleccionarRadio('familia', '') });
   if (busqueda) chips.push({ label: `"${busqueda}"`, quitar: () => { form.querySelector('input[name="busqueda"]').value = ''; aplicarFiltrosYActualizar(); } });
 
@@ -147,6 +250,7 @@ function actualizarUIFiltros() {
   if (btnLimpiar) btnLimpiar.addEventListener('click', () => {
     limpiarGenero(false);
     seleccionarRadio('marca', '', false);
+    seleccionarRadio('tipo_casa', '', false);
     seleccionarRadio('familia', '', false);
     form.querySelector('input[name="busqueda"]').value = '';
     aplicarFiltrosYActualizar();
@@ -166,6 +270,7 @@ function seleccionarRadio(nombre, valor, aplicar = true) {
 }
 
 function aplicarFiltrosYActualizar() {
+  ocultarSugerencias();
   paginaActual = 1;
   cargarProductos();
   actualizarUIFiltros();
@@ -179,6 +284,7 @@ function leerFiltros() {
     genero: generoActivo || undefined,
     marca: data.get('marca') || undefined,
     familia: data.get('familia') || undefined,
+    tipo_casa: data.get('tipo_casa') || undefined,
     destacado: form.dataset.destacado || undefined,
     orden: document.getElementById('orden-select').value,
     pagina: paginaActual,

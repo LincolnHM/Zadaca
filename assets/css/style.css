@@ -9,9 +9,14 @@
   --color-bg-alt: #131110;
   --color-bg-card: #16130f;
   --color-border: #2a241c;
-  --color-gold: #d9b054;
-  --color-gold-light: #f6dd97;
-  --color-gold-dim: #a67c34;
+  /* Los nombres "gold-*" quedan por compatibilidad con el resto del CSS (habría que tocar
+     78+ selectores para renombrarlos) pero los valores ya no son dorados — ahora es la paleta
+     plata/burdeos del logo: gold-light y gold son los dos tonos de plata (texto, bordes,
+     rellenos con texto oscuro encima) y gold-dim es el burdeos (bordes de hover, degradados
+     sin texto encima — nunca se usa detrás de texto oscuro, ver btn-primary más abajo). */
+  --color-gold: #bcbac2;
+  --color-gold-light: #ece9ee;
+  --color-gold-dim: #7a2030;
   --color-text: #f3efe6;
   --color-text-muted: #a89f8d;
   --color-text-faint: #6f6858;
@@ -90,13 +95,16 @@ h1, h2, h3, h4 {
   transition: all 0.2s ease; white-space: nowrap;
 }
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold) 45%, var(--color-gold-dim) 100%);
+  /* Se corta en var(--color-gold) en vez de --color-gold-dim: ese tono ahora es el burdeos
+     oscuro, y el texto encima es #14110c (casi negro) — llevar el degradado hasta el burdeos
+     le restaría contraste al texto en esa esquina del botón. */
+  background: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold) 45%, var(--color-gold) 100%);
   color: #14110c;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
 }
 .btn-primary:hover {
   background: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold-light) 45%, var(--color-gold) 100%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 6px 22px rgba(217, 176, 84, 0.35);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 6px 22px rgba(188, 186, 194, 0.35);
 }
 .btn-primary:disabled { background: var(--color-text-faint); box-shadow: none; cursor: not-allowed; }
 .btn-outline { background: transparent; color: var(--color-gold); border-color: var(--color-gold); }
@@ -111,7 +119,7 @@ h1, h2, h3, h4 {
 .btn-whatsapp:hover { filter: brightness(1.1); }
 
 /* ---------- Header ---------- */
-.announce-bar { background: var(--color-gold); color: #14110c; text-align: center; font-size: 0.78rem; letter-spacing: 0.08em; padding: 9px 16px; font-weight: 600; }
+.announce-bar { background: var(--color-gold-dim); color: var(--color-gold-light); text-align: center; font-size: 0.78rem; letter-spacing: 0.08em; padding: 9px 16px; font-weight: 600; }
 /* #site-header es el <div> donde main.js monta el header — sin "display: contents" ese div
    (que mide justo lo que ocupa su contenido, ~100px) se vuelve el contenedor del sticky, y un
    elemento sticky no puede quedarse fijo más allá de los límites de su contenedor: apenas se
@@ -125,9 +133,9 @@ h1, h2, h3, h4 {
 .brand-icon { width: 26px; height: 18px; color: var(--color-gold); }
 .brand-text { display: flex; flex-direction: column; line-height: 1; }
 .brand-name { font-family: var(--font-heading); font-size: 1.35rem; letter-spacing: 0.03em; color: var(--color-text); }
-/* Brillo metálico: dorado con reflejo, reservado a los dos momentos de marca más
+/* Brillo metálico: plata con reflejo sobre burdeos, reservado a los dos momentos de marca más
    protagonistas (wordmark del logo y la palabra destacada del titular). El resto de la
-   interfaz usa el --color-gold plano para no saturar la página de brillo. */
+   interfaz usa el --color-gold (plata) plano para no saturar la página de brillo. */
 .brand-name span,
 .hero-copy h1 em {
   background: linear-gradient(100deg,
@@ -138,9 +146,9 @@ h1, h2, h3, h4 {
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: brillo-dorado 7s ease-in-out infinite;
+  animation: brillo-plateado 7s ease-in-out infinite;
 }
-@keyframes brillo-dorado {
+@keyframes brillo-plateado {
   0%, 100% { background-position: 0% center; }
   50% { background-position: 100% center; }
 }
@@ -181,7 +189,7 @@ h1, h2, h3, h4 {
   padding: 12px 16px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); cursor: pointer;
 }
 .notif-item:last-child { border-bottom: none; }
-.notif-item:hover { background: rgba(201,168,106,0.06); }
+.notif-item:hover { background: rgba(188,186,194,0.06); }
 .notif-item strong { color: var(--color-text); font-size: 0.85rem; }
 .notif-item span { font-size: 0.78rem; }
 .notif-item time { font-size: 0.68rem; color: var(--color-text-faint); margin-top: 2px; }
@@ -246,7 +254,7 @@ h1, h2, h3, h4 {
 }
 
 /* ---------- Hero ---------- */
-.hero { position: relative; background: radial-gradient(ellipse at 30% 20%, #201a10 0%, var(--color-bg) 60%); border-bottom: 1px solid var(--color-border); overflow: hidden; }
+.hero { position: relative; background: radial-gradient(ellipse at 30% 20%, #22121a 0%, var(--color-bg) 60%); border-bottom: 1px solid var(--color-border); overflow: hidden; }
 .hero-inner { display: grid; grid-template-columns: 1fr 1fr; align-items: center; min-height: 560px; gap: 40px; }
 .hero-copy .eyebrow { margin-bottom: 18px; display: block; }
 .hero-copy h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); margin-bottom: 20px; }
@@ -358,7 +366,7 @@ h1, h2, h3, h4 {
 .consolidado-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 24px; }
 .consolidado-card .status-pill {
   display: inline-block; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 4px 10px; border-radius: 20px; background: rgba(201, 168, 106, 0.14); color: var(--color-gold); margin-bottom: 12px;
+  padding: 4px 10px; border-radius: 20px; background: rgba(188,186,194,0.14); color: var(--color-gold); margin-bottom: 12px;
 }
 .consolidado-card h3 { font-size: 1.15rem; margin-bottom: 6px; }
 .consolidado-card .cc-dates { font-size: 0.75rem; color: var(--color-text-faint); margin-bottom: 18px; }

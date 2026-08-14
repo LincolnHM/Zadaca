@@ -750,7 +750,7 @@ function conectarEventosConsolidados(consolidados) {
             <thead><tr><th>Cliente</th><th>Producto</th><th>Cant.</th><th>Precio</th><th>Estado</th></tr></thead>
             <tbody>
               ${reservas.map((r) => `
-                <tr data-reserva-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(201,168,106,0.08);"' : ''}>
+                <tr data-reserva-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(188,186,194,0.08);"' : ''}>
                   <td>${escapeHtml(r.cliente)}<br><span style="font-size:0.7rem; color:var(--color-text-faint);">${escapeHtml(r.correo_cliente || '')}</span></td>
                   <td>${escapeHtml(r.marca)} — ${escapeHtml(r.nombre)}</td>
                   <td><input type="number" min="1" class="input-cantidad-reserva" value="${r.cantidad}" style="width:56px; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 8px; border-radius:3px;" /></td>
@@ -987,7 +987,7 @@ async function cargarTodasLasReservas() {
   try {
     const reservas = await obtenerTodasLasReservasAdmin({ busqueda });
     tbody.innerHTML = reservas.length ? reservas.map((r) => `
-      <tr data-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(201,168,106,0.08);"' : ''}>
+      <tr data-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(188,186,194,0.08);"' : ''}>
         <td>${escapeHtml(r.cliente)}</td>
         <td>${escapeHtml(r.producto)}</td>
         <td><a href="consolidado.html?id=${r.id_consolidado}" target="_blank" style="color:var(--color-gold)">${escapeHtml(r.campana || '—')}</a></td>

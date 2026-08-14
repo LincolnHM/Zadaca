@@ -88,7 +88,7 @@ body.admin-body { min-height: 100vh; }
   display: flex; align-items: center; justify-content: center;
 }
 .kpi-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.kpi-icon.gold { background: rgba(217, 176, 84, 0.14); color: var(--color-gold); }
+.kpi-icon.gold { background: rgba(188,186,194,0.14); color: var(--color-gold); }
 .kpi-icon.success { background: rgba(127, 174, 131, 0.14); color: var(--color-success); }
 .kpi-icon.amber { background: rgba(210, 154, 58, 0.16); color: #d29a3a; }
 .kpi-icon.danger { background: rgba(196, 106, 95, 0.16); color: var(--color-danger); }
@@ -119,10 +119,10 @@ body.admin-body { min-height: 100vh; }
 .status-tag {
   display: inline-block; font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;
   padding: 4px 10px; border-radius: 20px;
-  background: rgba(217, 176, 84, 0.14); color: var(--color-gold);
+  background: rgba(188,186,194,0.14); color: var(--color-gold);
 }
 .status-tag.pago-completado, .status-tag.pago-pagado { background: rgba(127, 174, 131, 0.16); color: var(--color-success); }
-.status-tag.pago-parcial { background: rgba(217, 176, 84, 0.16); color: var(--color-gold); }
+.status-tag.pago-parcial { background: rgba(188,186,194,0.16); color: var(--color-gold); }
 .status-tag.pago-pendiente { background: rgba(210, 154, 58, 0.16); color: #d29a3a; }
 
 /* ---------- Toolbar ---------- */
@@ -163,7 +163,7 @@ body.admin-body { min-height: 100vh; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .switch-track { position: absolute; inset: 0; background: var(--color-border); border-radius: 20px; transition: 0.2s; cursor: pointer; }
 .switch-track::before { content: ''; position: absolute; width: 15px; height: 15px; left: 3px; top: 3px; background: var(--color-text-faint); border-radius: 50%; transition: 0.2s; }
-.switch input:checked + .switch-track { background: rgba(201,168,106,0.3); }
+.switch input:checked + .switch-track { background: rgba(188,186,194,0.3); }
 .switch input:checked + .switch-track::before { transform: translateX(17px); background: var(--color-gold); }
 
 /* ---------- Tables ---------- */

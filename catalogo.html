@@ -25,12 +25,37 @@
     .toolbar-right { display: flex; align-items: center; gap: 14px; margin-left: auto; }
     .catalog-toolbar select { background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text); padding: 10px 14px; border-radius: var(--radius); font-size: 0.82rem; }
 
-    .search-compact { flex: 1 1 200px; max-width: 260px; }
+    .search-compact { position: relative; flex: 1 1 200px; max-width: 260px; }
     .search-compact input {
       width: 100%; background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text);
       padding: 10px 16px; border-radius: 20px; font-size: 0.82rem; outline: none;
     }
     .search-compact input:focus { border-color: var(--color-gold); }
+
+    /* ---------- Sugerencias en vivo del buscador ---------- */
+    .search-suggest {
+      display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0; min-width: 280px;
+      background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius);
+      box-shadow: var(--shadow-card); z-index: 260; max-height: 380px; overflow-y: auto;
+    }
+    .search-suggest.open { display: block; }
+    .search-suggest-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer;
+      color: var(--color-text); text-decoration: none;
+    }
+    .search-suggest-item:hover, .search-suggest-item.is-active { background: rgba(188,186,194,0.08); }
+    .search-suggest-item img { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; background: var(--color-bg); flex-shrink: 0; }
+    .search-suggest-item .fallback-icon { width: 34px; height: 34px; padding: 7px; box-sizing: border-box; color: var(--color-text-faint); flex-shrink: 0; }
+    .search-suggest-item .ss-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .search-suggest-item .ss-marca { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-faint); }
+    .search-suggest-item .ss-nombre { font-size: 0.82rem; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .search-suggest-item .ss-precio { font-size: 0.78rem; color: var(--color-gold-light); flex-shrink: 0; white-space: nowrap; }
+    .search-suggest-empty { padding: 14px 12px; font-size: 0.8rem; color: var(--color-text-faint); }
+    .search-suggest-footer {
+      display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: 0.78rem;
+      color: var(--color-gold-light); border: none; border-top: 1px solid var(--color-border); background: none; cursor: pointer;
+    }
+    .search-suggest-footer:hover { background: rgba(188,186,194,0.08); }
 
     .filter-dd { position: relative; }
     .filter-dd-btn {
@@ -56,13 +81,13 @@
     .filter-dd-search:focus { border-color: var(--color-gold); }
     .filter-dd-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; }
     .filter-option { display: flex; align-items: center; gap: 9px; font-size: 0.85rem; padding: 7px 4px; margin: 0; border-radius: 3px; color: var(--color-text-muted); cursor: pointer; }
-    .filter-option:hover { color: var(--color-text); background: rgba(217, 176, 84, 0.08); }
+    .filter-option:hover { color: var(--color-text); background: rgba(188,186,194,0.08); }
     .filter-option input { accent-color: var(--color-gold); flex-shrink: 0; }
     .filter-dd-empty { font-size: 0.78rem; color: var(--color-text-faint); padding: 6px 4px; }
 
     .active-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
     .chip {
-      display: inline-flex; align-items: center; gap: 7px; background: rgba(217, 176, 84, 0.1); color: var(--color-gold-light);
+      display: inline-flex; align-items: center; gap: 7px; background: rgba(188,186,194,0.1); color: var(--color-gold-light);
       border: 1px solid var(--color-gold-dim); padding: 6px 8px 6px 12px; border-radius: 20px; font-size: 0.74rem;
     }
     .chip button { display: flex; color: var(--color-gold-light); opacity: 0.75; font-size: 0.95rem; line-height: 1; }
@@ -104,13 +129,20 @@
           <div class="catalog-toolbar">
             <div class="toolbar-filters">
               <div class="search-compact">
-                <input type="text" name="busqueda" placeholder="Buscar perfume o marca..." />
+                <input type="text" name="busqueda" placeholder="Buscar perfume o marca..." autocomplete="off" />
+                <div class="search-suggest" id="search-suggest"></div>
               </div>
               <div class="filter-dd" id="dd-marca">
                 <button type="button" class="filter-dd-btn">Marca <span class="caret">⌄</span></button>
                 <div class="filter-dd-panel">
                   <input type="text" class="filter-dd-search" placeholder="Filtrar marcas..." />
                   <div class="filter-dd-list" id="filtro-marcas"></div>
+                </div>
+              </div>
+              <div class="filter-dd" id="dd-casa">
+                <button type="button" class="filter-dd-btn">Casa <span class="caret">⌄</span></button>
+                <div class="filter-dd-panel">
+                  <div class="filter-dd-list" id="filtro-casas"></div>
                 </div>
               </div>
               <div class="filter-dd" id="dd-familia">
