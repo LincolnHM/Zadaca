@@ -34,19 +34,17 @@
   <main>
     <section class="hero">
       <div class="container hero-inner">
-        <div class="hero-copy">
-          <span class="eyebrow">Bienvenido a Maison Zadaca</span>
-          <h1>Perfumes originales.<br>Precios de <em>consolidado</em>.</h1>
-          <p>Fragancias árabes y de diseñador seleccionadas. Cómpralas directo en tienda o resérvalas en nuestras campañas de importación grupal al mejor precio.</p>
-          <div class="hero-actions" style="display:flex; gap:16px; flex-wrap:wrap;">
-            <a href="catalogo.html" class="btn btn-primary">Ver Catálogo</a>
-            <a href="consolidados.html" class="btn btn-outline">Consolidados Activos</a>
-          </div>
+        <span class="eyebrow">Bienvenido a Maison Zadaca</span>
+        <h1>Perfumes originales.<br>Precios de <em>consolidado</em>.</h1>
+        <p>Fragancias árabes y de diseñador seleccionadas. Cómpralas directo en tienda o resérvalas en nuestras campañas de importación grupal al mejor precio.</p>
+        <div class="hero-actions">
+          <a href="catalogo.html" class="btn btn-primary">Ver Catálogo</a>
+          <a href="catalogo-consolidado.html" class="btn btn-outline">Ver Consolidado</a>
         </div>
-        <div class="hero-visual">
-          <div class="hero-bottle-frame">
-            <img src="assets/img/perfumes/Aventus_Creed.png" alt="Aventus Creed" />
-          </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><span id="hero-icon-truck"></span><span>Envíos a todo el Perú</span></div>
+          <div class="hero-stat"><span id="hero-icon-shield"></span><span>100% Originales</span></div>
+          <div class="hero-stat"><span id="hero-icon-pin"></span><span>Tienda física en SMP</span></div>
         </div>
       </div>
     </section>
@@ -58,7 +56,7 @@
           <a href="catalogo.html?genero=Hombre" class="pill">Hombre</a>
           <a href="catalogo.html?genero=Mujer" class="pill">Mujer</a>
           <a href="catalogo.html?genero=Unisex" class="pill">Unisex</a>
-          <a href="consolidados.html" class="pill">Consolidados</a>
+          <a href="catalogo-consolidado.html" class="pill">Consolidado</a>
           <a href="liquidaciones.html" class="pill">Liquidaciones</a>
         </div>
       </div>
@@ -152,13 +150,14 @@
       </div>
     </section>
 
-    <section class="newsletter reveal">
-      <div class="container newsletter-inner">
-        <div><h3>Únete al Club Zadaca</h3><p>Sé el primero en enterarte de nuevos ingresos, consolidados y ofertas.</p></div>
-        <form class="newsletter-form" id="newsletter-form">
-          <input type="email" placeholder="Ingresa tu correo" required />
-          <button type="submit" class="btn btn-primary">Suscribirme</button>
-        </form>
+    <section class="section reveal" style="padding-top:0;">
+      <div class="container">
+        <div class="section-header">
+          <div><span class="eyebrow">Explora</span><h2>Nuestro Catálogo</h2></div>
+          <a href="catalogo.html" class="link-arrow">Ver todos &rarr;</a>
+        </div>
+        <div class="product-grid reveal-grid" id="grid-explorar"><div class="loading-state">Cargando productos…</div></div>
+        <div class="pagination" id="paginacion-explorar"></div>
       </div>
     </section>
   </main>

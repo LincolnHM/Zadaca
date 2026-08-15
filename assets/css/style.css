@@ -92,8 +92,9 @@ h1, h2, h3, h4 {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   padding: 14px 28px; border-radius: var(--radius); font-size: 0.8rem; font-weight: 600;
   letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid transparent;
-  transition: all 0.2s ease; white-space: nowrap;
+  transition: all 0.2s ease, transform 0.12s ease; white-space: nowrap;
 }
+.btn:active:not(:disabled) { transform: scale(0.97); }
 .btn-primary {
   /* Se corta en var(--color-gold) en vez de --color-gold-dim: ese tono ahora es el burdeos
      oscuro, y el texto encima es #14110c (casi negro) — llevar el degradado hasta el burdeos
@@ -137,7 +138,7 @@ h1, h2, h3, h4 {
    protagonistas (wordmark del logo y la palabra destacada del titular). El resto de la
    interfaz usa el --color-gold (plata) plano para no saturar la página de brillo. */
 .brand-name span,
-.hero-copy h1 em {
+.hero-inner h1 em {
   background: linear-gradient(100deg,
     var(--color-gold-dim) 0%, var(--color-gold) 20%, var(--color-gold-light) 40%,
     var(--color-gold) 60%, var(--color-gold-dim) 80%, var(--color-gold) 100%);
@@ -153,7 +154,7 @@ h1, h2, h3, h4 {
   50% { background-position: 100% center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .brand-name span, .hero-copy h1 em { animation: none; background-position: 30% center; }
+  .brand-name span, .hero-inner h1 em { animation: none; background-position: 30% center; }
 }
 .brand-tagline { font-size: 0.55rem; letter-spacing: 0.28em; color: var(--color-text-faint); margin-top: 3px; }
 .main-nav { display: flex; gap: 32px; }
@@ -167,8 +168,15 @@ h1, h2, h3, h4 {
   position: absolute; top: -8px; right: -10px; background: var(--color-gold); color: #14110c;
   font-size: 0.65rem; font-weight: 700; min-width: 17px; height: 17px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; padding: 0 3px;
+  animation: badge-bump 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .cart-badge[hidden] { display: none; }
+@keyframes badge-bump {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .cart-badge { animation: none; } }
 .menu-toggle { display: none; background: none; border: none; color: var(--color-text); }
 .menu-toggle svg { width: 24px; height: 24px; }
 
@@ -226,15 +234,15 @@ h1, h2, h3, h4 {
    sistema, este bloque entero no aplica y los elementos quedan visibles de una, sin depender
    de que el JS revierta nada. */
 @media (prefers-reduced-motion: no-preference) {
-  .hero-copy .eyebrow, .hero-copy h1, .hero-copy p, .hero-copy .hero-actions {
+  .hero-inner > .eyebrow, .hero-inner > h1, .hero-inner > p, .hero-inner > .hero-actions, .hero-inner > .hero-stats {
     opacity: 0;
     animation: entrada-suave 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
-  .hero-copy .eyebrow { animation-delay: 0.05s; }
-  .hero-copy h1 { animation-delay: 0.16s; }
-  .hero-copy p { animation-delay: 0.32s; }
-  .hero-copy .hero-actions { animation-delay: 0.44s; }
-  .hero-visual { opacity: 0; animation: entrada-suave-escala 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.22s forwards; }
+  .hero-inner > .eyebrow { animation-delay: 0.05s; }
+  .hero-inner > h1 { animation-delay: 0.16s; }
+  .hero-inner > p { animation-delay: 0.3s; }
+  .hero-inner > .hero-actions { animation-delay: 0.42s; }
+  .hero-inner > .hero-stats { animation-delay: 0.54s; }
 
   .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease-out, transform 0.7s ease-out; }
   .reveal.is-visible { opacity: 1; transform: translateY(0); }
@@ -253,25 +261,45 @@ h1, h2, h3, h4 {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ---------- Hero ---------- */
-.hero { position: relative; background: radial-gradient(ellipse at 30% 20%, #22121a 0%, var(--color-bg) 60%); border-bottom: 1px solid var(--color-border); overflow: hidden; }
-.hero-inner { display: grid; grid-template-columns: 1fr 1fr; align-items: center; min-height: 560px; gap: 40px; }
-.hero-copy .eyebrow { margin-bottom: 18px; display: block; }
-.hero-copy h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); margin-bottom: 20px; }
-.hero-copy h1 em { font-style: normal; }
-.hero-copy p { color: var(--color-text-muted); max-width: 440px; margin-bottom: 32px; font-size: 1.02rem; }
-.hero-visual { display: flex; align-items: center; justify-content: center; height: 100%; min-height: 420px; position: relative; }
-.hero-bottle-frame {
-  width: 320px; height: 400px; border-radius: 6px; background: var(--color-media-bg);
-  border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center;
-  box-shadow: var(--shadow-card); padding: 24px; overflow: hidden;
+/* ---------- Hero ----------
+   Antes tenía una imagen fija de un solo producto (Aventus Creed) al costado — no reflejaba
+   el catálogo real ni su stock. Ahora es un hero centrado en el mensaje, con un fondo
+   decorativo (gradiente + textura de puntos) en vez de depender de una foto de producto, y
+   una fila de "hero-stats" abajo que ocupa el espacio visual que antes tenía la imagen. */
+.hero {
+  position: relative; background: radial-gradient(ellipse at 30% 20%, #22121a 0%, var(--color-bg) 60%);
+  border-bottom: 1px solid var(--color-border); overflow: hidden;
 }
-.hero-bottle-frame img { max-height: 100%; width: auto; margin: 0 auto; object-fit: contain; }
+.hero::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image: radial-gradient(rgba(188,186,194,0.14) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
+}
+.hero-inner {
+  position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;
+  max-width: 760px; margin: 0 auto; min-height: 520px; justify-content: center; padding: 64px 0;
+}
+.hero-inner .eyebrow { margin-bottom: 18px; display: block; }
+.hero-inner h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); margin-bottom: 20px; }
+.hero-inner h1 em { font-style: normal; }
+.hero-inner p { color: var(--color-text-muted); max-width: 480px; margin: 0 auto 32px; font-size: 1.02rem; }
+.hero-actions { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.hero-stats {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 44px;
+  padding-top: 28px; border-top: 1px solid var(--color-border);
+}
+.hero-stat {
+  display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--color-text-faint);
+  letter-spacing: 0.02em;
+}
+.hero-stat span:first-child { width: 17px; height: 17px; color: var(--color-gold); flex-shrink: 0; }
+.hero-stat span:first-child svg { width: 100%; height: 100%; }
 
 @media (max-width: 860px) {
-  .hero-inner { grid-template-columns: 1fr; min-height: unset; padding: 48px 0; }
-  .hero-visual { order: -1; min-height: 260px; }
-  .hero-bottle-frame { width: 220px; height: 280px; }
+  .hero-inner { min-height: unset; padding: 48px 0; }
+  .hero-stats { flex-direction: column; align-items: center; gap: 12px; margin-top: 32px; padding-top: 22px; }
 }
 
 /* ---------- Category strip ---------- */
@@ -320,14 +348,16 @@ h1, h2, h3, h4 {
 
 .product-card {
   background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius);
-  overflow: hidden; display: flex; flex-direction: column; transition: transform 0.2s, border-color 0.2s;
+  overflow: hidden; display: flex; flex-direction: column;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s, box-shadow 0.25s;
 }
-.product-card:hover { transform: translateY(-4px); border-color: var(--color-gold-dim); }
+.product-card:hover { transform: translateY(-4px); border-color: var(--color-gold-dim); box-shadow: var(--shadow-card); }
+.product-card:hover .product-media img { transform: scale(1.05); }
 .product-media {
   position: relative; aspect-ratio: 3 / 4; display: flex; align-items: center; justify-content: center;
   overflow: hidden; background: var(--color-media-bg);
 }
-.product-media img { max-width: 84%; max-height: 88%; object-fit: contain; object-position: center; }
+.product-media img { max-width: 84%; max-height: 88%; object-fit: contain; object-position: center; transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
 .product-media .fallback-icon { width: 42%; color: rgba(20, 17, 12, 0.35); }
 .product-badges { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
 .badge { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 9px; border-radius: 20px; font-weight: 700; }
@@ -335,6 +365,7 @@ h1, h2, h3, h4 {
 .badge-sale { background: var(--color-danger); color: #14110c; }
 .badge-out { background: #2a2a2a; color: var(--color-text-muted); }
 .badge-liquidacion { background: var(--color-success); color: #14110c; }
+.badge-consolidado { background: var(--color-gold-dim); color: var(--color-gold-light); }
 .liq-unidad-note { font-size: 0.7rem; color: var(--color-text-faint); margin-top: 2px; }
 .wishlist-btn {
   position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%;
@@ -397,8 +428,9 @@ h1, h2, h3, h4 {
 
 /* ---------- Footer ---------- */
 .site-footer { background: var(--color-bg-alt); border-top: 1px solid var(--color-border); padding-top: 56px; }
-.footer-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 32px; padding-bottom: 40px; }
-@media (max-width: 800px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+.footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; gap: 32px; padding-bottom: 40px; }
+@media (max-width: 980px) { .footer-grid { grid-template-columns: 1fr 1fr 1fr; } .footer-brand { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
 .footer-brand p { color: var(--color-text-faint); font-size: 0.85rem; max-width: 300px; margin: 14px 0 20px; }
 .footer-col h4 { font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-text); margin-bottom: 16px; }
 .footer-col a, .footer-col p { display: block; color: var(--color-text-faint); font-size: 0.85rem; margin-bottom: 11px; transition: color 0.2s; }
@@ -453,7 +485,19 @@ h1, h2, h3, h4 {
 .cr-remove svg { width: 18px; height: 18px; }
 .empty-state { text-align: center; padding: 60px 20px; color: var(--color-text-faint); }
 .empty-state svg { width: 48px; height: 48px; margin: 0 auto 16px; color: var(--color-border); }
-.loading-state { text-align: center; padding: 60px 20px; color: var(--color-text-faint); font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.loading-state {
+  text-align: center; padding: 60px 20px; font-size: 0.85rem; letter-spacing: 0.06em; text-transform: uppercase;
+  background: linear-gradient(90deg, var(--color-text-faint) 0%, var(--color-text) 50%, var(--color-text-faint) 100%);
+  background-size: 200% auto; background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  animation: shimmer-texto 1.6s ease-in-out infinite;
+}
+@keyframes shimmer-texto {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-state { animation: none; background: none; color: var(--color-text-faint); -webkit-text-fill-color: var(--color-text-faint); }
+}
 .text-center { text-align: center; }
 .mt-40 { margin-top: 40px; }
 .flex-between { display: flex; align-items: center; justify-content: space-between; }

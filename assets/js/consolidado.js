@@ -58,20 +58,9 @@ function renderConsolidado(c) {
         <h1 style="margin:14px 0 8px;">${escapeHtml(c.codigo_campana)}</h1>
         <p style="color:var(--color-text-faint); font-size:0.85rem; margin-bottom:24px;">Cierre programado: ${cierreTexto}${cuentaRegresiva}</p>
         <div class="progress-track"><div class="progress-fill" style="width:${c.porcentaje_avance}%"></div></div>
-        <div class="progress-label"><span>${c.total_unidades_acumuladas} de ${c.minimo_unidades} unidades mínimas</span><span>${c.porcentaje_avance}%</span></div>
+        <div class="progress-label"><span>${c.porcentaje_avance}% del mínimo alcanzado</span></div>
 
-        <h3 style="margin-top:40px; font-size:1.2rem;">Perfumes reservados en esta campaña</h3>
-        <div style="margin:16px 0 40px;">
-          ${c.productos.length
-            ? c.productos.map((p) => `
-              <div class="participante-row">
-                <span><a href="producto.html?slug=${p.slug}" style="color:var(--color-text)">${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)}</a></span>
-                <span style="color:var(--color-gold)">${p.unidades_reservadas} und. &middot; ${formatoMoneda(p.precio_consolidado_aplicado)}</span>
-              </div>`).join('')
-            : '<p style="color:var(--color-text-faint); font-size:0.85rem;">Aún no hay reservas en esta campaña.</p>'}
-        </div>
-
-        <h3 style="font-size:1.2rem;">Seguimiento de la campaña</h3>
+        <h3 style="margin-top:40px; font-size:1.2rem;">Seguimiento de la campaña</h3>
         <div class="timeline" style="margin-top:20px;">
           ${c.historial.map((h) => `
             <div class="timeline-item">

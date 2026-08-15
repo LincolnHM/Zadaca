@@ -14,13 +14,14 @@ const ICONS = {
   minus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
   mail: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>`,
   bell: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+  pin: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
   whatsapp: `<svg viewBox="0 0 32 32" fill="currentColor"><path d="M16.03 3C9.4 3 4 8.4 4 15.03c0 2.23.62 4.32 1.68 6.12L4 29l8.03-1.65a12 12 0 0 0 4 .68c6.63 0 12.03-5.4 12.03-12.03C28.06 8.4 22.66 3 16.03 3Zm0 21.94c-1.9 0-3.68-.5-5.24-1.4l-.38-.22-4.77.98.99-4.65-.25-.4a9.9 9.9 0 0 1-1.5-5.22c0-5.48 4.46-9.94 9.95-9.94 5.48 0 9.94 4.46 9.94 9.94 0 5.49-4.46 9.91-9.74 9.91Zm5.44-7.43c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15s-.77.97-.94 1.17-.35.22-.65.07a8.14 8.14 0 0 1-2.4-1.48 9 9 0 0 1-1.66-2.06c-.17-.3 0-.46.13-.6.14-.14.3-.35.45-.53.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.6-.91-2.2-.24-.57-.49-.5-.67-.5h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.5.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35Z"/></svg>`,
 };
 
 const NAV_LINKS = [
   { href: 'index.html', label: 'Inicio' },
-  { href: 'catalogo.html', label: 'Catálogo' },
-  { href: 'consolidados.html', label: 'Consolidados' },
+  { href: 'catalogo.html', label: 'Tienda' },
+  { href: 'catalogo-consolidado.html', label: 'Consolidado' },
   { href: 'liquidaciones.html', label: 'Liquidaciones' },
   { href: 'contacto.html', label: 'Contacto' },
 ];
@@ -37,7 +38,10 @@ async function iniciarLayout(activo) {
 // página). Si el usuario prefiere menos movimiento, se saltea el observer y se muestra todo
 // de una — la regla CSS que oculta ".reveal" ni siquiera aplica en ese caso (ver style.css).
 function activarRevelado() {
-  const elementos = document.querySelectorAll('.reveal');
+  // .reveal-grid también se observa acá (antes solo se observaba .reveal): el CSS que anima
+  // los hijos en cascada es ".reveal-grid.is-visible > *" — necesita is-visible en el propio
+  // elemento reveal-grid, no en un ancestro. Sin esto, esa animación nunca se disparaba.
+  const elementos = document.querySelectorAll('.reveal, .reveal-grid');
   if (!elementos.length) return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     elementos.forEach((el) => el.classList.add('is-visible'));
@@ -245,15 +249,19 @@ function renderFooter() {
           </div>
           <div class="footer-col">
             <h4>Tienda</h4>
-            <a href="catalogo.html">Catálogo completo</a>
+            <a href="catalogo.html">Catálogo en stock</a>
             <a href="catalogo.html?genero=Hombre">Para Hombre</a>
             <a href="catalogo.html?genero=Mujer">Para Mujer</a>
-            <a href="consolidados.html">Consolidados activos</a>
             <a href="liquidaciones.html">Liquidaciones</a>
           </div>
           <div class="footer-col">
+            <h4>Consolidado</h4>
+            <a href="catalogo-consolidado.html">Catálogo consolidado</a>
+            <a href="consolidados.html">Campañas activas</a>
+            <a href="contacto.html">Cómo funciona</a>
+          </div>
+          <div class="footer-col">
             <h4>Empresa</h4>
-            <a href="contacto.html">Cómo funciona un consolidado</a>
             <a href="contacto.html">Solicitar cotización</a>
             <a href="contacto.html">Contacto</a>
             <a href="cuenta.html">Mi cuenta</a>
@@ -341,6 +349,33 @@ function tarjetaProducto(p) {
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
         </div>
         ${esLiquidacion ? `<div class="liq-unidad-note">${p.liquidacion_unidad_minima > 1 ? `Solo por mayor · mínimo ${p.liquidacion_unidad_minima} unidades` : 'Por unidad o por mayor'}</div>` : ''}
+      </div>
+    </a>
+  `;
+}
+
+// Tarjeta del catálogo de CONSOLIDADO: mismo layout que tarjetaProducto(), pero con
+// precio_consolidado_fijo (no hay descuento de tienda ni estado "Agotado" — un consolidado se
+// importa bajo pedido, no depende del stock físico) y una nota de "unidad mínima" en vez de
+// las badges de tienda.
+function tarjetaProductoConsolidado(p) {
+  return `
+    <a href="producto.html?slug=${p.slug}" class="product-card">
+      <div class="product-media">
+        ${imagenProducto(p)}
+        <div class="product-badges">
+          ${p.es_nuevo ? '<span class="badge badge-new">Nuevo</span>' : ''}
+          <span class="badge badge-consolidado">Consolidado</span>
+        </div>
+      </div>
+      <div class="product-info">
+        <span class="product-brand">${escapeHtml(p.marca)}</span>
+        <h3 class="product-name">${escapeHtml(p.nombre)}</h3>
+        <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.mililitros ? ` · ${p.mililitros} ml` : ''}</span>
+        <div class="product-price-row">
+          <span class="price-current">${formatoMoneda(p.precio_consolidado_fijo)}</span>
+        </div>
+        <div class="liq-unidad-note">Precio consolidado · desde 4 unidades</div>
       </div>
     </a>
   `;

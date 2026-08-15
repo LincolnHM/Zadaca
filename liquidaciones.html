@@ -34,7 +34,7 @@
 
     <section class="section" style="padding-top:24px;">
       <div class="container">
-        <div class="product-grid" id="grid-liquidaciones"><div class="loading-state">Cargando liquidaciones…</div></div>
+        <div class="product-grid reveal-grid" id="grid-liquidaciones"><div class="loading-state">Cargando liquidaciones…</div></div>
       </div>
     </section>
   </main>
@@ -51,7 +51,7 @@
       const mount = document.getElementById('grid-liquidaciones');
       if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>'; return; }
       try {
-        const { productos } = await obtenerProductos({ destacado: 'liquidacion', porPagina: 48, orden: 'recientes' });
+        const { productos } = await obtenerProductos({ destacado: 'liquidacion', porPagina: 48, orden: 'recientes', soloConStock: true });
         mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No hay liquidaciones activas por el momento. Vuelve pronto.</div>';
       } catch (err) {
         mount.innerHTML = `<div class="empty-state">${err.message}</div>`;

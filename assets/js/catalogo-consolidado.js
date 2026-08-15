@@ -1,8 +1,12 @@
+// Catálogo de CONSOLIDADO: misma UI de filtros/paginación que catalogo.js (tienda), pero
+// consulta obtenerProductosConsolidado() (todo el catálogo, sin filtrar por stock físico) y
+// muestra precio_consolidado_fijo en vez de precio_tienda_regular — ver api.js para el porqué
+// de separar las dos consultas.
 let paginaActual = 1;
 let generoActivo = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('catalogo.html');
+  await iniciarLayout('catalogo-consolidado.html');
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('grid-catalogo').innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>';
     return;
@@ -21,8 +25,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       actualizarUIFiltros();
     });
   });
-
-  if (params.get('destacado')) document.getElementById('filter-form').dataset.destacado = params.get('destacado');
 
   await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'));
   iniciarDropdownsFiltro();
@@ -56,8 +58,6 @@ async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSelecci
       `<label class="filter-option"><input type="radio" name="tipo_casa" value="" ${!casaSeleccionada ? 'checked' : ''}/> Todas</label>` +
       TIPOS_CASA.map((c) => `<label class="filter-option"><input type="radio" name="tipo_casa" value="${escapeHtml(c)}" ${c === casaSeleccionada ? 'checked' : ''}/> ${escapeHtml(c)}</label>`).join('');
 
-    // La familia olfativa todavía no está cargada en el catálogo real (ver seed.sql) — mientras
-    // esté vacía, ocultamos el botón en vez de mostrar un filtro que solo dice "Todas".
     document.getElementById('dd-familia').style.display = familias.length ? '' : 'none';
 
     document.querySelectorAll('#filtro-marcas input, #filtro-familias input, #filtro-casas input').forEach((input) => {
@@ -74,7 +74,7 @@ async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSelecci
   }
 }
 
-/* ---------- Dropdowns de filtro (compactos, en vez del sidebar fijo) ---------- */
+/* ---------- Dropdowns de filtro ---------- */
 
 function iniciarDropdownsFiltro() {
   document.querySelectorAll('.filter-dd').forEach((dd) => {
@@ -107,10 +107,6 @@ function cerrarDropdowns() {
   document.querySelectorAll('.filter-dd.open').forEach((dd) => dd.classList.remove('open'));
 }
 
-// El panel se ancla por defecto al borde izquierdo del botón (ver CSS), pero en pantallas
-// angostas eso lo empuja fuera del viewport cuando el botón está cerca del borde (ej. "Marca"
-// pegado a la izquierda). Se corrige moviéndolo con JS después de medir su posición real, en
-// vez de adivinar un breakpoint fijo que no sirve para cualquier ancho de pantalla o botón.
 function posicionarPanel(dd) {
   const panel = dd.querySelector('.filter-dd-panel');
   panel.style.left = '0px';
@@ -120,10 +116,10 @@ function posicionarPanel(dd) {
   if (desborde > 0) panel.style.left = `-${desborde}px`;
 }
 
-/* ---------- Buscador en vivo (sugerencias mientras se escribe) ---------- */
+/* ---------- Buscador en vivo ---------- */
 
 let busquedaTimeout;
-let sugerenciasSeq = 0; // descarta respuestas que llegan fuera de orden si el usuario tecleó rápido
+let sugerenciasSeq = 0;
 
 function iniciarBuscadorEnVivo() {
   const input = document.querySelector('input[name="busqueda"]');
@@ -148,15 +144,15 @@ async function cargarSugerencias(texto) {
   const q = texto.trim();
   if (!q) { ocultarSugerencias(); return; }
   const idSolicitud = ++sugerenciasSeq;
-  const lista = await obtenerSugerenciasBusqueda(q, 6, true);
-  if (idSolicitud !== sugerenciasSeq) return; // el usuario ya siguió tecleando; esta respuesta quedó vieja
+  const lista = await obtenerSugerenciasBusqueda(q, 6);
+  if (idSolicitud !== sugerenciasSeq) return;
   renderSugerencias(lista, q);
 }
 
 function renderSugerencias(lista, texto) {
   const panel = document.getElementById('search-suggest');
   const filas = lista.map((p) => {
-    const precio = formatoMoneda(precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje));
+    const precio = formatoMoneda(p.precio_consolidado_fijo);
     const miniatura = p.imagen_url
       ? `<img src="${p.imagen_url}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
       : `<span class="fallback-icon">${ICONS.box}</span>`;
@@ -183,8 +179,6 @@ function ocultarSugerencias() {
   document.getElementById('search-suggest').classList.remove('open');
 }
 
-// Flechas para recorrer las sugerencias, Enter para ir al perfume resaltado (si no hay ninguno
-// resaltado, Enter sigue funcionando como el submit normal del formulario) y Escape para cerrar.
 function manejarTecladoSugerencias(e) {
   const panel = document.getElementById('search-suggest');
   if (!panel.classList.contains('open')) return;
@@ -212,9 +206,6 @@ function manejarTecladoSugerencias(e) {
   items[idx].classList.add('is-active');
 }
 
-// Refleja el estado actual de los filtros en los botones (nombre de la marca elegida en vez
-// de "Marca" a secas) y en la fila de chips, para que se note de un vistazo qué está activo
-// sin tener que abrir cada dropdown — clave ahora que ya no hay un sidebar siempre visible.
 function actualizarUIFiltros() {
   const form = document.getElementById('filter-form');
   const marca = form.querySelector('input[name="marca"]:checked')?.value || '';
@@ -285,11 +276,9 @@ function leerFiltros() {
     marca: data.get('marca') || undefined,
     familia: data.get('familia') || undefined,
     tipo_casa: data.get('tipo_casa') || undefined,
-    destacado: form.dataset.destacado || undefined,
     orden: document.getElementById('orden-select').value,
     pagina: paginaActual,
     porPagina: 12,
-    soloConStock: true,
   };
 }
 
@@ -297,18 +286,15 @@ async function cargarProductos() {
   const mount = document.getElementById('grid-catalogo');
   mount.innerHTML = '<div class="loading-state">Cargando productos…</div>';
   try {
-    const { productos, total, totalPaginas } = await obtenerProductos(leerFiltros());
+    const { productos, total, totalPaginas } = await obtenerProductosConsolidado(leerFiltros());
     document.getElementById('resultado-conteo').textContent = `${total} producto${total === 1 ? '' : 's'} encontrados`;
-    mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';
+    mount.innerHTML = productos.length ? productos.map(tarjetaProductoConsolidado).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';
     renderPaginacion(totalPaginas);
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
 }
 
-// Con muchas páginas (el catálogo real tiene ~19), listarlas todas seguidas es ilegible.
-// Se muestra siempre la primera, la última, y una ventana alrededor de la actual, con "…"
-// en los saltos — el patrón estándar de paginación.
 function calcularRangoPaginas(actual, total) {
   const distancia = 1;
   const paginas = [];

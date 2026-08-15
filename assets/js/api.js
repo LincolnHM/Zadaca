@@ -64,9 +64,19 @@ function escaparFiltroSupabase(texto) {
   return String(texto).replace(/[,()]/g, (c) => `\\${c}`);
 }
 
-async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12 } = {}) {
-  let query = supabaseClient.from('perfumes').select('*, inventario(stock_disponible)', { count: 'exact' });
+// soloConStock=true es el catálogo de TIENDA FÍSICA: solo perfumes con stock_fisico > 0 (lo
+// que el admin cargó en "Stock físico" por producto). Usa !inner para forzar el join con
+// inventario, así el .gt() puede filtrar filas del catálogo, no solo del inventario embebido
+// (con left join normal, un perfume sin stock igual aparecería con inventario: null).
+// soloConStock=false (por default) es el comportamiento de siempre: todo el catálogo, sin
+// mirar stock — lo usa el buscador de consolidado.js, porque una reserva de consolidado se
+// importa bajo pedido y no depende de lo que haya físicamente en la tienda ahora mismo.
+async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12, soloConStock = false } = {}) {
+  let query = supabaseClient
+    .from('perfumes')
+    .select(soloConStock ? '*, inventario!inner(stock_disponible)' : '*, inventario(stock_disponible)', { count: 'exact' });
 
+  if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
   if (genero) query = query.eq('genero', genero);
   if (marca) query = query.eq('marca', marca);
   if (familia) query = query.eq('familia_olfativa', familia);
@@ -95,6 +105,37 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
   return { productos, total: count || 0, totalPaginas: Math.ceil((count || 0) / porPagina) };
 }
 
+// Catálogo de CONSOLIDADO: a diferencia de obtenerProductos(), muestra TODO lo que tenemos
+// (sin filtrar por stock de tienda) y ordena/muestra precio_consolidado_fijo en vez de
+// precio_tienda_regular — son dos catálogos con precios independientes (ver schema.sql,
+// precio_consolidado_fijo <= precio_tienda_regular no implica que sean el mismo número).
+async function obtenerProductosConsolidado({ genero, marca, familia, tipo_casa, busqueda, orden, pagina = 1, porPagina = 12 } = {}) {
+  let query = supabaseClient.from('perfumes').select('*', { count: 'exact' });
+
+  if (genero) query = query.eq('genero', genero);
+  if (marca) query = query.eq('marca', marca);
+  if (familia) query = query.eq('familia_olfativa', familia);
+  if (tipo_casa) query = query.eq('tipo_casa', tipo_casa);
+  if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
+
+  const ordenamientos = {
+    precio_asc: { column: 'precio_consolidado_fijo', ascending: true },
+    precio_desc: { column: 'precio_consolidado_fijo', ascending: false },
+    nombre: { column: 'nombre', ascending: true },
+    recientes: { column: 'fecha_creacion', ascending: false },
+  };
+  const orderBy = ordenamientos[orden] || ordenamientos.recientes;
+  query = query.order(orderBy.column, { ascending: orderBy.ascending });
+
+  const desde = (pagina - 1) * porPagina;
+  query = query.range(desde, desde + porPagina - 1);
+
+  const { data, error, count } = await query;
+  if (error) throw new Error(error.message);
+
+  return { productos: data || [], total: count || 0, totalPaginas: Math.ceil((count || 0) / porPagina) };
+}
+
 function normalizarProducto(p) {
   const stock = Array.isArray(p.inventario) ? p.inventario[0]?.stock_disponible : p.inventario?.stock_disponible;
   return { ...p, stock_disponible: Math.max(stock ?? 0, 0) };
@@ -116,15 +157,18 @@ const TIPOS_CASA = ['Árabe', 'Diseñador', 'Nicho'];
 // Sugerencias del buscador en vivo del catálogo (dropdown mientras se escribe). Trae pocos
 // campos y un límite bajo porque se dispara en cada tecleo (con debounce) — a diferencia de
 // obtenerProductos(), que trae la página completa con paginación.
-async function obtenerSugerenciasBusqueda(texto, limite = 6) {
+async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = false) {
   const q = (texto || '').trim();
   if (!q) return [];
-  const { data, error } = await supabaseClient
+  const campos = 'slug, nombre, marca, imagen_url, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo';
+  let query = supabaseClient
     .from('perfumes')
-    .select('slug, nombre, marca, imagen_url, precio_tienda_regular, descuento_tienda_porcentaje')
+    .select(soloConStock ? `${campos}, inventario!inner(stock_disponible)` : campos)
     .or(`nombre.ilike.%${escaparFiltroSupabase(q)}%,marca.ilike.%${escaparFiltroSupabase(q)}%`)
     .order('nombre', { ascending: true })
     .limit(limite);
+  if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
+  const { data, error } = await query;
   if (error) return [];
   return data || [];
 }
@@ -359,6 +403,9 @@ function calcularAvanceConsolidado(c) {
   return { ...c, porcentaje_avance: porcentaje };
 }
 
+// Qué perfume y cuántas unidades lleva reservadas cada producto de la campaña es información
+// interna (panel admin → Consolidados) — la página pública ya no la trae ni la muestra, solo
+// el estado y el % de avance hacia el mínimo.
 async function obtenerConsolidadoPorId(id) {
   const { data: consolidado, error } = await supabaseClient.from('consolidados').select('*').eq('id', id).single();
   if (error) throw new Error('Consolidado no encontrado');
@@ -369,18 +416,9 @@ async function obtenerConsolidadoPorId(id) {
     .eq('id_consolidado', id)
     .order('fecha_evento', { ascending: true });
 
-  // Vista pública agregada (sin id_cliente) — así funciona para cualquier visitante, no solo
-  // para quien tiene reservas propias en esta campaña (ver consolidado_resumen_publico).
-  const { data: productos } = await supabaseClient
-    .from('consolidado_resumen_publico')
-    .select('slug, nombre, marca, imagen_url, unidades_reservadas, precio_consolidado_aplicado')
-    .eq('id_consolidado', id)
-    .order('unidades_reservadas', { ascending: false });
-
   return {
     ...calcularAvanceConsolidado(consolidado),
     historial: historial || [],
-    productos: productos || [],
   };
 }
 
