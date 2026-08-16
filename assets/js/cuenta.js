@@ -26,53 +26,101 @@ document.addEventListener('DOMContentLoaded', async () => {
 function renderAuthForms() {
   document.getElementById('cuenta-mount').innerHTML = `
     <div class="container">
-      <div class="form-card">
-        <div class="form-tabs">
-          <button class="form-tab active" data-tab="login">Iniciar Sesión</button>
-          <button class="form-tab" data-tab="registro">Crear Cuenta</button>
+      <div class="auth-shell">
+        <div class="auth-visual">
+          <div class="auth-visual-content">
+            <span class="brand-icon-lg">${ICONS.box}</span>
+            <h2>La casa de tus fragancias favoritas</h2>
+            <p>Crea tu cuenta para reservar en consolidados, guardar favoritos y seguir tus pedidos.</p>
+            <div class="auth-perks">
+              <div class="auth-perk"><span>${ICONS.shield}</span> Perfumes 100% originales importados</div>
+              <div class="auth-perk"><span>${ICONS.truck}</span> Envíos a todo el Perú</div>
+              <div class="auth-perk"><span>${ICONS.box}</span> Compra individual o consolidada</div>
+            </div>
+          </div>
         </div>
-        <div id="alert-mount"></div>
-        <form id="login-form">
-          <div class="form-group"><label>Correo</label><input type="email" name="correo" required /></div>
-          <div class="form-group"><label>Contraseña</label><input type="password" name="contrasena" required /></div>
-          <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
-        </form>
-        <form id="registro-form" style="display:none;">
-          <div class="form-row">
-            <div class="form-group"><label>Nombres</label><input type="text" name="nombres" required /></div>
-            <div class="form-group"><label>Apellidos</label><input type="text" name="apellidos" required /></div>
+        <div class="form-card auth-card">
+          <div class="form-tabs">
+            <button class="form-tab active" data-tab="login">Iniciar Sesión</button>
+            <button class="form-tab" data-tab="registro">Crear Cuenta</button>
+            <div class="tab-indicator"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label>DNI / CE / RUC</label><input type="text" name="dni_ce_ruc" maxlength="15" /></div>
-            <div class="form-group"><label>Teléfono</label><input type="text" name="telefono" /></div>
-          </div>
-          <div class="form-group"><label>Correo</label><input type="email" name="correo" required /></div>
-          <div class="form-group">
-            <label>Contraseña</label>
-            <input type="password" name="contrasena" id="registro-contrasena" minlength="8" autocomplete="new-password" required />
-          </div>
-          <ul class="pwd-requirements" id="pwd-requirements" aria-live="polite">
-            <li data-req="longitud"><span class="pwd-req-mark">•</span> Mínimo 8 caracteres</li>
-            <li data-req="mayuscula"><span class="pwd-req-mark">•</span> Una letra mayúscula</li>
-            <li data-req="numero"><span class="pwd-req-mark">•</span> Un número</li>
-            <li data-req="especial"><span class="pwd-req-mark">•</span> Un carácter especial (ej. ! @ # $)</li>
-          </ul>
-          <div class="form-group">
-            <label>Repetir Contraseña</label>
-            <input type="password" name="confirmar_contrasena" id="registro-confirmar" autocomplete="new-password" required />
-            <p class="form-hint" id="confirmar-hint"></p>
-          </div>
-          <button type="submit" class="btn btn-primary btn-block" id="registro-submit" disabled>Crear Cuenta</button>
-        </form>
+          <div id="alert-mount"></div>
+          <form id="login-form">
+            <div class="form-group has-icon">
+              <label>Correo</label>
+              <div class="input-wrap"><span class="form-icon">${ICONS.mail}</span><input type="email" name="correo" required /></div>
+            </div>
+            <div class="form-group has-icon">
+              <label>Contraseña</label>
+              <div class="input-wrap password-field">
+                <span class="form-icon">${ICONS.lock}</span>
+                <input type="password" name="contrasena" required />
+                <button type="button" class="toggle-password" aria-label="Mostrar contraseña">${ICONS.eye}</button>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+          </form>
+          <form id="registro-form" style="display:none;">
+            <div class="form-row">
+              <div class="form-group has-icon">
+                <label>Nombres</label>
+                <div class="input-wrap"><span class="form-icon">${ICONS.user}</span><input type="text" name="nombres" required /></div>
+              </div>
+              <div class="form-group"><label>Apellidos</label><input type="text" name="apellidos" required /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group has-icon">
+                <label>DNI / CE / RUC</label>
+                <div class="input-wrap"><span class="form-icon">${ICONS.idCard}</span><input type="text" name="dni_ce_ruc" maxlength="15" /></div>
+              </div>
+              <div class="form-group has-icon">
+                <label>Teléfono</label>
+                <div class="input-wrap"><span class="form-icon">${ICONS.phone}</span><input type="text" name="telefono" /></div>
+              </div>
+            </div>
+            <div class="form-group has-icon">
+              <label>Correo</label>
+              <div class="input-wrap"><span class="form-icon">${ICONS.mail}</span><input type="email" name="correo" required /></div>
+            </div>
+            <div class="form-group has-icon">
+              <label>Contraseña</label>
+              <div class="input-wrap password-field">
+                <span class="form-icon">${ICONS.lock}</span>
+                <input type="password" name="contrasena" id="registro-contrasena" minlength="8" autocomplete="new-password" required />
+                <button type="button" class="toggle-password" aria-label="Mostrar contraseña">${ICONS.eye}</button>
+              </div>
+            </div>
+            <ul class="pwd-requirements" id="pwd-requirements" aria-live="polite">
+              <li data-req="longitud"><span class="pwd-req-mark">•</span> Mínimo 8 caracteres</li>
+              <li data-req="mayuscula"><span class="pwd-req-mark">•</span> Una letra mayúscula</li>
+              <li data-req="numero"><span class="pwd-req-mark">•</span> Un número</li>
+              <li data-req="especial"><span class="pwd-req-mark">•</span> Un carácter especial (ej. ! @ # $)</li>
+            </ul>
+            <div class="form-group has-icon">
+              <label>Repetir Contraseña</label>
+              <div class="input-wrap password-field">
+                <span class="form-icon">${ICONS.lock}</span>
+                <input type="password" name="confirmar_contrasena" id="registro-confirmar" autocomplete="new-password" required />
+                <button type="button" class="toggle-password" aria-label="Mostrar contraseña">${ICONS.eye}</button>
+              </div>
+              <p class="form-hint" id="confirmar-hint"></p>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="registro-submit" disabled>Crear Cuenta</button>
+          </form>
+        </div>
       </div>
     </div>
   `;
+
+  activarTogglesPassword(document.getElementById('cuenta-mount'));
 
   document.querySelectorAll('.form-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.form-tab').forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
       const esLogin = tab.dataset.tab === 'login';
+      document.querySelector('.form-tabs').classList.toggle('tab-registro', !esLogin);
       document.getElementById('login-form').style.display = esLogin ? '' : 'none';
       document.getElementById('registro-form').style.display = esLogin ? 'none' : '';
     });
@@ -429,6 +477,7 @@ async function cargarDirecciones() {
           </select>
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestra tienda de Lima: Jr. Ávila Godoy 664, San Martín de Porres.</p>
         <label class="filter-option"><input type="checkbox" name="predeterminada" /> Usar como predeterminada</label>
         <button type="submit" class="btn btn-outline btn-block" style="margin-top:20px;">Guardar Dirección</button>
       </form>
@@ -448,6 +497,7 @@ async function cargarDirecciones() {
 
     document.getElementById('tipo-despacho-select').addEventListener('change', (e) => {
       document.getElementById('agencia-group').style.display = e.target.value.startsWith('Agencia') ? '' : 'none';
+      document.getElementById('recojo-hint').style.display = e.target.value === 'Recojo_En_Tienda' ? '' : 'none';
     });
 
     iniciarSelectsUbigeoCascada(ubigeos);

@@ -132,7 +132,38 @@ h1, h2, h3, h4 {
    "contents" el div deja de generar su propia caja y el header queda efectivamente pegado a
    <body>, que sí es lo bastante alto como para que el sticky funcione en toda la página. */
 #site-header { display: contents; }
-.site-header { position: sticky; top: 0; z-index: 100; background: rgba(10, 9, 8, 0.92); border-bottom: 1px solid var(--color-border); }
+.site-header {
+  position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--color-border);
+  /* Degradado (no un solo color plano) para que el header se lea como una franja aparte del
+     fondo negro plano del body -- mismo tono burdeos oscuro (#22121a) que usa el ::before del
+     .hero, así queda de la misma familia de color en vez de un negro random distinto. */
+  background: linear-gradient(180deg, rgba(34, 18, 26, 0.95) 0%, rgba(10, 9, 8, 0.92) 100%);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  transition: background 0.35s ease, box-shadow 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
+}
+/* Estado al bajar más de 30px (ver activarScrollHeader() en main.js): más blur, más opaco y un
+   filo inferior degradado plata/burdeos -- nada de esto se anima en loop, solo transiciona
+   entre los dos estados (ver nota de "Continuous Animation" -- una animación infinita ahí
+   sería solo decorativa y distraería en vez de comunicar algo). */
+.site-header.is-scrolled {
+  background: linear-gradient(180deg, rgba(34, 18, 26, 0.98) 0%, rgba(10, 9, 8, 0.97) 100%);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-bottom-color: transparent;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.site-header::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-gold-dim), var(--color-gold), var(--color-gold-dim), transparent);
+  opacity: 0; transition: opacity 0.4s ease;
+}
+.site-header.is-scrolled::after { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  .site-header { animation: header-entrada 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+}
+@keyframes header-entrada {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
 .header-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; gap: 24px; }
 .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .brand-icon { width: 26px; height: 18px; color: var(--color-gold); }
@@ -158,7 +189,7 @@ h1, h2, h3, h4 {
   50% { background-position: 100% center; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .brand-name span, .hero-inner h1 em { animation: none; background-position: 30% center; }
+  .brand-name span, .hero-inner h1 em, .auth-card::before { animation: none; background-position: 30% center; }
 }
 .brand-tagline { font-size: 0.55rem; letter-spacing: 0.28em; color: var(--color-text-faint); margin-top: 3px; }
 .main-nav { display: flex; gap: 32px; }
@@ -238,7 +269,7 @@ h1, h2, h3, h4 {
    sistema, este bloque entero no aplica y los elementos quedan visibles de una, sin depender
    de que el JS revierta nada. */
 @media (prefers-reduced-motion: no-preference) {
-  .hero-inner > .eyebrow, .hero-inner > h1, .hero-inner > p, .hero-inner > .hero-actions, .hero-inner > .hero-stats {
+  .hero-inner > .eyebrow, .hero-inner > h1, .hero-inner > p, .hero-inner > .hero-actions {
     opacity: 0;
     animation: entrada-suave 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
@@ -246,7 +277,23 @@ h1, h2, h3, h4 {
   .hero-inner > h1 { animation-delay: 0.16s; }
   .hero-inner > p { animation-delay: 0.3s; }
   .hero-inner > .hero-actions { animation-delay: 0.42s; }
-  .hero-inner > .hero-stats { animation-delay: 0.54s; }
+  /* Cada estadística entra por separado (en vez de las 3 juntas como un solo bloque) para que
+     el remate del hero se sienta como una secuencia, no dos golpes (texto, luego botones+stats). */
+  .hero-stat { opacity: 0; animation: entrada-suave 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+  .hero-stat:nth-child(1) { animation-delay: 0.56s; }
+  .hero-stat:nth-child(2) { animation-delay: 0.64s; }
+  .hero-stat:nth-child(3) { animation-delay: 0.72s; }
+
+  /* Filtros rápidos justo debajo del hero (#pill-generos, solo en el inicio): siguen la misma
+     secuencia de entrada. Va por id (no ".pill" a secas) para no repetirse cada vez que
+     catalogo.js vuelve a pintar sus propios chips de filtro al hacer clic. */
+  #pill-generos .pill { opacity: 0; animation: entrada-suave 0.5s ease-out forwards; }
+  #pill-generos .pill:nth-child(1) { animation-delay: 0.78s; }
+  #pill-generos .pill:nth-child(2) { animation-delay: 0.83s; }
+  #pill-generos .pill:nth-child(3) { animation-delay: 0.88s; }
+  #pill-generos .pill:nth-child(4) { animation-delay: 0.93s; }
+  #pill-generos .pill:nth-child(5) { animation-delay: 0.98s; }
+  #pill-generos .pill:nth-child(6) { animation-delay: 1.03s; }
 
   .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s ease-out, transform 0.7s ease-out; }
   .reveal.is-visible { opacity: 1; transform: translateY(0); }
@@ -275,11 +322,22 @@ h1, h2, h3, h4 {
   border-bottom: 1px solid var(--color-border); overflow: hidden;
 }
 .hero::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  content: ''; position: absolute; inset: -10%; pointer-events: none; opacity: 0.5;
   background-image: radial-gradient(rgba(188,186,194,0.14) 1px, transparent 1px);
   background-size: 26px 26px;
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
+}
+/* Deriva ambiental lenta del punteado de fondo -- no es un efecto "decorativo en loop" al
+   estilo rebote de ícono (eso sí distrae, ver nota en .site-header): es un desplazamiento tan
+   lento y sutil que registra como "el fondo respira" en vez de como movimiento que compita por
+   atención, mismo criterio que usan los paneles premium con "blobs" ambientales de fondo. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero::before { animation: hero-respiracion 22s ease-in-out infinite; }
+}
+@keyframes hero-respiracion {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(1.5%, -1.5%) scale(1.04); opacity: 0.65; }
 }
 .hero-inner {
   position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;
@@ -300,6 +358,8 @@ h1, h2, h3, h4 {
 }
 .hero-stat span:first-child { width: 17px; height: 17px; color: var(--color-gold); flex-shrink: 0; }
 .hero-stat span:first-child svg { width: 100%; height: 100%; }
+.hero-stat-link { transition: color 0.2s ease; }
+.hero-stat-link:hover { color: var(--color-gold); }
 
 @media (max-width: 860px) {
   .hero-inner { min-height: unset; padding: 48px 0; }
@@ -378,6 +438,25 @@ h1, h2, h3, h4 {
 }
 .wishlist-btn svg { width: 16px; height: 16px; }
 .wishlist-btn.active { color: var(--color-gold); border-color: var(--color-gold); }
+
+/* Botón de favorito de la página de producto: círculo con el corazón de ICONS.heart, que se
+   rellena de burdeos con un pequeño "pop" al activarse (mismo timing que .cart-badge-bump). */
+.heart-toggle {
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text);
+  display: inline-flex; align-items: center; justify-content: center; transition: color 0.2s, border-color 0.2s, background-color 0.2s;
+}
+.heart-toggle svg { width: 20px; height: 20px; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.heart-toggle:hover { border-color: var(--color-gold-dim); color: var(--color-gold-dim); }
+.heart-toggle.active { background: rgba(122, 32, 48, 0.12); border-color: var(--color-gold-dim); color: var(--color-gold-dim); }
+.heart-toggle.active svg { fill: currentColor; }
+.heart-toggle.pop svg { animation: heart-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes heart-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .heart-toggle.pop svg { animation: none; } }
 .product-info { padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .product-brand { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-gold); }
 .product-name { font-family: var(--font-heading); font-size: 1.02rem; margin: 0; }
@@ -431,7 +510,19 @@ h1, h2, h3, h4 {
 .newsletter-form button { border-radius: 0 var(--radius) var(--radius) 0; }
 
 /* ---------- Footer ---------- */
-.site-footer { background: var(--color-bg-alt); border-top: 1px solid var(--color-border); padding-top: 56px; }
+/* Degradado (negro del body -> gris cálido -> burdeos oscuro) para que el footer se lea como
+   una franja aparte del contenido, en vez de fundirse con el mismo negro plano del body -- el
+   resplandor burdeos del ::before es el mismo tono (#7a2030 / --color-gold-dim) que ya usa el
+   borde inferior del header al hacer scroll, para que ambas franjas se sientan de la misma familia. */
+.site-footer {
+  position: relative; overflow: hidden;
+  background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-alt) 45%, #22121a 100%);
+  border-top: 1px solid var(--color-border); padding-top: 56px;
+}
+.site-footer::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(122, 32, 48, 0.16), transparent 70%);
+}
 .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; gap: 32px; padding-bottom: 40px; }
 @media (max-width: 980px) { .footer-grid { grid-template-columns: 1fr 1fr 1fr; } .footer-brand { grid-column: 1 / -1; } }
 @media (max-width: 560px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
@@ -474,12 +565,80 @@ h1, h2, h3, h4 {
 .pwd-requirements li.valid { color: var(--color-success); }
 .pwd-req-mark { width: 14px; text-align: center; font-size: 0.85rem; }
 .form-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 32px; max-width: 460px; margin: 0 auto; }
-.form-tabs { display: flex; border-bottom: 1px solid var(--color-border); margin-bottom: 28px; }
+.form-tabs { display: flex; border-bottom: 1px solid var(--color-border); margin-bottom: 28px; position: relative; }
 .form-tab {
   flex: 1; text-align: center; padding: 12px 0; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--color-text-faint); border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none;
+  color: var(--color-text-faint); background: none; border: none; transition: color 0.2s ease;
 }
-.form-tab.active { color: var(--color-gold); border-color: var(--color-gold); }
+.form-tab.active { color: var(--color-gold); }
+.tab-indicator {
+  position: absolute; bottom: -1px; left: 0; width: 50%; height: 2px;
+  background: linear-gradient(90deg, var(--color-gold-dim), var(--color-gold));
+  transition: transform 0.3s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.form-tabs.tab-registro .tab-indicator { transform: translateX(100%); }
+
+/* ---------- Auth (Iniciar Sesión / Crear Cuenta) ---------- */
+.auth-shell {
+  display: grid; grid-template-columns: 1fr 1fr; max-width: 920px; margin: 0 auto;
+  border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-card);
+}
+.auth-card { border: none; border-radius: 0; max-width: none; margin: 0; position: relative; }
+.auth-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(100deg,
+    var(--color-gold-dim) 0%, var(--color-gold) 20%, var(--color-gold-light) 40%,
+    var(--color-gold) 60%, var(--color-gold-dim) 80%, var(--color-gold) 100%);
+  background-size: 250% auto; animation: brillo-plateado 7s ease-in-out infinite;
+}
+.auth-visual {
+  position: relative; padding: 48px 40px; display: flex; flex-direction: column; justify-content: center;
+  background: radial-gradient(ellipse at 30% 20%, #22121a 0%, var(--color-bg-alt) 70%);
+  border-right: 1px solid var(--color-border); overflow: hidden;
+}
+.auth-visual::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image: radial-gradient(rgba(188,186,194,0.14) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
+}
+.auth-visual-content { position: relative; }
+.auth-visual .brand-icon-lg { display: block; width: 40px; height: 28px; color: var(--color-gold); margin-bottom: 22px; }
+.auth-visual .brand-icon-lg svg { width: 100%; height: 100%; }
+.auth-visual h2 { font-size: 1.55rem; margin-bottom: 14px; }
+.auth-visual p { color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 30px; }
+.auth-perks { display: flex; flex-direction: column; gap: 16px; }
+.auth-perk { display: flex; align-items: center; gap: 12px; font-size: 0.82rem; color: var(--color-text-muted); }
+.auth-perk span:first-child {
+  width: 34px; height: 34px; border-radius: 50%; background: rgba(188,186,194,0.08); border: 1px solid var(--color-border);
+  display: flex; align-items: center; justify-content: center; color: var(--color-gold); flex-shrink: 0;
+}
+.auth-perk span:first-child svg { width: 16px; height: 16px; }
+@media (max-width: 860px) {
+  .auth-visual { display: none; }
+  .auth-shell { grid-template-columns: 1fr; max-width: 460px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .auth-shell { opacity: 0; animation: entrada-suave 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+}
+
+/* Campos con ícono a la izquierda (correo, nombre, teléfono, contraseña, etc.) */
+.input-wrap { position: relative; }
+.input-wrap .form-icon {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px;
+  color: var(--color-text-faint); pointer-events: none;
+}
+.input-wrap .form-icon svg { width: 100%; height: 100%; }
+.form-group.has-icon .input-wrap input { padding-left: 40px; }
+.password-field input { padding-right: 40px; }
+.toggle-password {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none;
+  color: var(--color-text-faint); display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 50%; transition: color 0.15s, background-color 0.15s;
+}
+.toggle-password:hover { color: var(--color-gold); background: rgba(188,186,194,0.08); }
+.toggle-password svg { width: 18px; height: 18px; }
 
 /* ---------- Alerts / toasts ---------- */
 .alert { padding: 13px 16px; border-radius: var(--radius); font-size: 0.85rem; margin-bottom: 18px; border: 1px solid; }

@@ -22,6 +22,16 @@
     .steps { counter-reset: step; margin: 28px 0; }
     .steps li { list-style: none; position: relative; padding-left: 40px; margin-bottom: 18px; font-size: 0.88rem; color: var(--color-text-muted); }
     .steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border: 1px solid var(--color-gold); color: var(--color-gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; }
+    .store-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 700px) { .store-grid { grid-template-columns: 1fr; } }
+    .store-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px 26px; transition: border-color 0.2s, transform 0.2s; }
+    .store-card:hover { border-color: var(--color-gold-dim); transform: translateY(-3px); }
+    .store-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--color-gold); }
+    .store-icon svg { width: 100%; height: 100%; }
+    .store-card h3 { font-size: 1.1rem; margin-bottom: 8px; }
+    .store-badge { display: inline-block; font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 20px; background: var(--color-gold-dim); color: var(--color-gold-light); font-weight: 700; margin-bottom: 12px; }
+    .store-address { color: var(--color-text-muted); font-size: 0.9rem; margin: 0 0 6px; }
+    .store-note { color: var(--color-text-faint); font-size: 0.8rem; margin: 0 0 16px; }
   </style>
 </head>
 <body>
@@ -41,7 +51,7 @@
           <div class="mt-40">
             <div class="info-item"><span id="icon-mail"></span><div><h4>Correo</h4><p>contacto@maisonzadaca.com</p></div></div>
             <div class="info-item"><span id="icon-whatsapp"></span><div><h4>WhatsApp</h4><p id="texto-whatsapp"></p></div></div>
-            <div class="info-item"><span id="icon-envios"></span><div><h4>Envíos</h4><p>A todo el Perú vía Shalom / Olva, o recojo en tienda.</p></div></div>
+            <div class="info-item"><span id="icon-envios"></span><div><h4>Envíos</h4><p>A todo el Perú vía Shalom / Olva, o recojo en cualquiera de nuestras tiendas <a href="#tiendas" class="link-arrow">(ver ubicaciones)</a>.</p></div></div>
           </div>
           <h3 style="margin-top:40px; font-size:1.1rem;">¿Cómo funciona un consolidado?</h3>
           <ol class="steps">
@@ -56,6 +66,30 @@
             <h3 style="margin-bottom:6px; font-size:1.15rem;">Solicitar Cotización</h3>
             <p style="font-size:0.85rem; color:var(--color-text-faint); margin-bottom:22px;">¿No encuentras el perfume que buscas en el catálogo? Cuéntanos cuál es y te cotizamos.</p>
             <div id="cotizacion-mount"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section reveal" style="padding-top:0;" id="tiendas">
+      <div class="container">
+        <div class="section-header">
+          <div><span class="eyebrow">Visítanos</span><h2>Nuestras Tiendas</h2></div>
+        </div>
+        <div class="store-grid">
+          <div class="store-card">
+            <span class="store-icon" id="icon-tienda-lima"></span>
+            <span class="store-badge">Punto de recojo — Consolidado</span>
+            <h3>Lima — San Martín de Porres</h3>
+            <p class="store-address">Jr. Ávila Godoy 664, San Martín de Porres, Lima</p>
+            <p class="store-note">Aquí se recoge el pedido si eliges "Recojo en tienda" al reservar en un consolidado.</p>
+            <a class="link-arrow" href="https://www.google.com/maps/search/?api=1&amp;query=Jr.+Avila+Godoy+664,+San+Martin+de+Porres,+Lima,+Peru" target="_blank" rel="noopener">Cómo llegar &rarr;</a>
+          </div>
+          <div class="store-card">
+            <span class="store-icon" id="icon-tienda-chiclayo"></span>
+            <h3>Chiclayo — La Victoria</h3>
+            <p class="store-address" style="margin-bottom:16px;">Av. Los Incas 1090, La Victoria, Chiclayo</p>
+            <a class="link-arrow" href="https://www.google.com/maps/search/?api=1&amp;query=Av.+Los+Incas+1090,+La+Victoria,+Chiclayo,+Peru" target="_blank" rel="noopener">Cómo llegar &rarr;</a>
           </div>
         </div>
       </div>

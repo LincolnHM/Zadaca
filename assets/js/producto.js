@@ -74,7 +74,7 @@ function renderDetalle(data) {
             <button type="button" id="qty-mas">${ICONS.plus}</button>
           </div>
           <button class="btn btn-primary" id="btn-agregar-carrito" ${agotado ? 'disabled' : ''}>${agotado ? 'Agotado' : 'Agregar al Carrito'}</button>
-          <button class="btn btn-ghost" id="btn-favorito">${ICONS.heart} Favorito</button>
+          <button class="heart-toggle" id="btn-favorito" aria-label="Agregar a favoritos" aria-pressed="false">${ICONS.heart}</button>
           <a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera consultar sobre ${p.marca} ${p.nombre}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Consultar</a>
         </div>
 
@@ -107,6 +107,7 @@ function renderDetalle(data) {
   document.getElementById('qty-mas').addEventListener('click', () => ajustarCantidad(1));
   document.getElementById('btn-agregar-carrito').addEventListener('click', agregarAlCarritoUI);
   document.getElementById('btn-favorito').addEventListener('click', favoritoUI);
+  pintarEstadoFavorito();
 
   renderFormularioReseña();
 
@@ -134,13 +135,30 @@ async function agregarAlCarritoUI() {
   }
 }
 
+async function pintarEstadoFavorito() {
+  const btn = document.getElementById('btn-favorito');
+  const activo = await esFavorito(PRODUCTO_ACTUAL.id);
+  btn.classList.toggle('active', activo);
+  btn.setAttribute('aria-pressed', String(activo));
+  btn.setAttribute('aria-label', activo ? 'Quitar de favoritos' : 'Agregar a favoritos');
+}
+
 async function favoritoUI() {
+  const btn = document.getElementById('btn-favorito');
+  const activo = btn.classList.contains('active');
+  btn.disabled = true;
   try {
-    await alternarFavorito(PRODUCTO_ACTUAL.id, false);
-    mostrarToast('Agregado a tus favoritos');
-    document.getElementById('btn-favorito').classList.add('active');
+    await alternarFavorito(PRODUCTO_ACTUAL.id, activo);
+    btn.classList.toggle('active', !activo);
+    btn.classList.add('pop');
+    setTimeout(() => btn.classList.remove('pop'), 400);
+    btn.setAttribute('aria-pressed', String(!activo));
+    btn.setAttribute('aria-label', activo ? 'Agregar a favoritos' : 'Quitar de favoritos');
+    mostrarToast(activo ? 'Quitado de tus favoritos' : 'Agregado a tus favoritos');
   } catch (err) {
     mostrarToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
   }
 }
 

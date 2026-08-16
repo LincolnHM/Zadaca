@@ -254,6 +254,15 @@ async function alternarFavorito(idProducto, activo) {
   }
 }
 
+// Para pintar el corazón ya relleno al entrar a producto.html si el cliente ya lo tiene en
+// favoritos (sin esto, el botón nace siempre "vacío" aunque el producto ya esté guardado).
+async function esFavorito(idProducto) {
+  const session = await obtenerSesion();
+  if (!session) return false;
+  const { data } = await supabaseClient.from('favoritos').select('id_producto').eq('id_cliente', session.user.id).eq('id_producto', idProducto).maybeSingle();
+  return !!data;
+}
+
 /* ---------------- Carrito ---------------- */
 
 async function obtenerCarrito() {
