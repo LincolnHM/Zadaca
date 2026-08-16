@@ -32,7 +32,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; overflow-x: hidden; }
+html { scroll-behavior: smooth; overflow-x: clip; }
 
 body {
   margin: 0;
@@ -44,9 +44,13 @@ body {
   /* El menú móvil (.main-nav) se esconde con transform: translateX(100%), lo que lo deja
      físicamente fuera del viewport en vez de invisible — en móvil eso se sumaba al ancho
      scrolleable de toda la página (~300px de scroll horizontal "fantasma" en cualquier
-     pantalla, incluso sin abrir el menú). overflow-x:hidden recorta cualquier desborde así
-     en el borde de la pantalla sin tocar el layout normal de la página. */
-  overflow-x: hidden;
+     pantalla, incluso sin abrir el menú). overflow-x:clip recorta cualquier desborde así en
+     el borde de la pantalla sin tocar el layout normal de la página.
+     OJO: tiene que ser "clip" y no "hidden" -- "hidden" fuerza a que overflow-y se calcule
+     como "auto" (regla de la spec CSS Overflow), lo que convierte a html/body en su propio
+     contenedor de scroll y rompe el position:sticky del header (.site-header más abajo) sin
+     ningún error visible, solo dejando de pegarse al hacer scroll. "clip" no dispara esa regla. */
+  overflow-x: clip;
 }
 
 img { max-width: 100%; display: block; }
@@ -460,6 +464,15 @@ h1, h2, h3, h4 {
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
 .form-hint { font-size: 0.72rem; color: var(--color-text-faint); margin-top: 6px; }
+.pwd-match-ok { color: var(--color-success); }
+.pwd-match-error { color: var(--color-danger); }
+
+.pwd-requirements { list-style: none; margin: -8px 0 18px; padding: 0; display: grid; gap: 5px; }
+.pwd-requirements li {
+  display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--color-text-faint); transition: color 0.15s;
+}
+.pwd-requirements li.valid { color: var(--color-success); }
+.pwd-req-mark { width: 14px; text-align: center; font-size: 0.85rem; }
 .form-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 32px; max-width: 460px; margin: 0 auto; }
 .form-tabs { display: flex; border-bottom: 1px solid var(--color-border); margin-bottom: 28px; }
 .form-tab {

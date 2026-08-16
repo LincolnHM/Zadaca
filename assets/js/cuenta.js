@@ -47,9 +47,22 @@ function renderAuthForms() {
             <div class="form-group"><label>Teléfono</label><input type="text" name="telefono" /></div>
           </div>
           <div class="form-group"><label>Correo</label><input type="email" name="correo" required /></div>
-          <div class="form-group"><label>Contraseña</label><input type="password" name="contrasena" minlength="6" required /></div>
-          <p class="form-hint" style="margin:-10px 0 18px;">Mínimo 6 caracteres.</p>
-          <button type="submit" class="btn btn-primary btn-block">Crear Cuenta</button>
+          <div class="form-group">
+            <label>Contraseña</label>
+            <input type="password" name="contrasena" id="registro-contrasena" minlength="8" autocomplete="new-password" required />
+          </div>
+          <ul class="pwd-requirements" id="pwd-requirements" aria-live="polite">
+            <li data-req="longitud"><span class="pwd-req-mark">•</span> Mínimo 8 caracteres</li>
+            <li data-req="mayuscula"><span class="pwd-req-mark">•</span> Una letra mayúscula</li>
+            <li data-req="numero"><span class="pwd-req-mark">•</span> Un número</li>
+            <li data-req="especial"><span class="pwd-req-mark">•</span> Un carácter especial (ej. ! @ # $)</li>
+          </ul>
+          <div class="form-group">
+            <label>Repetir Contraseña</label>
+            <input type="password" name="confirmar_contrasena" id="registro-confirmar" autocomplete="new-password" required />
+            <p class="form-hint" id="confirmar-hint"></p>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="registro-submit" disabled>Crear Cuenta</button>
         </form>
       </div>
     </div>
@@ -76,9 +89,15 @@ function renderAuthForms() {
     }
   });
 
+  conectarValidacionContrasena();
+
   document.getElementById('registro-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target));
+    if (!passwordValida(data.contrasena) || data.contrasena !== data.confirmar_contrasena) {
+      mostrarAlerta('Revisa los requisitos de la contraseña antes de continuar.');
+      return;
+    }
     try {
       const resultado = await registrarUsuario(data);
       if (resultado.session) {
@@ -87,6 +106,7 @@ function renderAuthForms() {
       } else {
         mostrarAlertaExito('Cuenta creada. Revisa tu correo para confirmar tu cuenta antes de iniciar sesión.');
         e.target.reset();
+        actualizarValidacionContrasena();
       }
     } catch (err) {
       mostrarAlerta(err.message);
@@ -99,6 +119,54 @@ function mostrarAlerta(mensaje) {
 }
 function mostrarAlertaExito(mensaje) {
   document.getElementById('alert-mount').innerHTML = `<div class="alert alert-success">${escapeHtml(mensaje)}</div>`;
+}
+
+// Requisitos de contraseña para Crear Cuenta: mínimo 8 caracteres, al menos una mayúscula,
+// un número y un carácter especial. Se validan también acá (no solo en el HTML) porque el
+// checklist en vivo y el botón deshabilitado dependen de esta misma función.
+function evaluarPassword(valor) {
+  const v = valor || '';
+  return {
+    longitud: v.length >= 8,
+    mayuscula: /[A-Z]/.test(v),
+    numero: /[0-9]/.test(v),
+    especial: /[^A-Za-z0-9]/.test(v),
+  };
+}
+function passwordValida(valor) {
+  return Object.values(evaluarPassword(valor)).every(Boolean);
+}
+
+function actualizarValidacionContrasena() {
+  const passInput = document.getElementById('registro-contrasena');
+  const confirmInput = document.getElementById('registro-confirmar');
+  const confirmHint = document.getElementById('confirmar-hint');
+  const submitBtn = document.getElementById('registro-submit');
+  if (!passInput) return;
+
+  const estado = evaluarPassword(passInput.value);
+  document.querySelectorAll('#pwd-requirements li').forEach((li) => {
+    const ok = estado[li.dataset.req];
+    li.classList.toggle('valid', ok);
+    li.querySelector('.pwd-req-mark').textContent = ok ? '✓' : '•';
+  });
+
+  let coincide = true;
+  if (confirmInput.value) {
+    coincide = confirmInput.value === passInput.value;
+    confirmHint.textContent = coincide ? 'Las contraseñas coinciden.' : 'Las contraseñas no coinciden.';
+    confirmHint.className = `form-hint ${coincide ? 'pwd-match-ok' : 'pwd-match-error'}`;
+  } else {
+    confirmHint.textContent = '';
+    confirmHint.className = 'form-hint';
+  }
+
+  submitBtn.disabled = !(Object.values(estado).every(Boolean) && confirmInput.value && coincide);
+}
+
+function conectarValidacionContrasena() {
+  document.getElementById('registro-contrasena').addEventListener('input', actualizarValidacionContrasena);
+  document.getElementById('registro-confirmar').addEventListener('input', actualizarValidacionContrasena);
 }
 
 /* ---------------- DASHBOARD ---------------- */

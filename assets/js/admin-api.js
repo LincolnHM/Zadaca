@@ -82,7 +82,7 @@ async function obtenerStockBajoDashboard(limite = 5) {
 
 async function obtenerProductosAdmin({ busqueda } = {}) {
   let query = supabaseClient.from('perfumes').select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)').order('fecha_creacion', { ascending: false });
-  if (busqueda) query = query.or(`nombre.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`);
+  if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data.map((p) => ({ ...p, inventario: Array.isArray(p.inventario) ? p.inventario[0] : p.inventario }));
@@ -125,7 +125,7 @@ async function obtenerProductosParaMargenes({ busqueda, soloSinMargen } = {}) {
     .from('perfumes')
     .select('id, nombre, marca, costo_importacion_pen, precio_consolidado_fijo, precio_tienda_regular, margen_aplicado')
     .order('marca', { ascending: true });
-  if (busqueda) query = query.or(`nombre.ilike.%${busqueda}%,marca.ilike.%${busqueda}%`);
+  if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
   if (soloSinMargen) query = query.eq('margen_aplicado', false);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
