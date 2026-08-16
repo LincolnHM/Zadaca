@@ -86,14 +86,11 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
   if (destacado === 'bestseller') query = query.eq('es_bestseller', true);
   if (destacado === 'liquidacion') query = query.eq('es_liquidacion', true);
 
-  const ordenamientos = {
-    precio_asc: { column: 'precio_tienda_regular', ascending: true },
-    precio_desc: { column: 'precio_tienda_regular', ascending: false },
-    nombre: { column: 'nombre', ascending: true },
-    recientes: { column: 'fecha_creacion', ascending: false },
-  };
-  const orderBy = ordenamientos[orden] || ordenamientos.recientes;
-  query = query.order(orderBy.column, { ascending: orderBy.ascending });
+  // 'marca' (default): agrupa por marca y, dentro de cada marca, por nombre -- así las
+  // variantes de una misma línea (ej. todos los Khamrah, todos los Game of Spades) salen
+  // seguidas en vez de mezcladas por fecha de creación (que es cuando se cargó cada Excel,
+  // no tiene ninguna relación con qué perfumes son parecidos entre sí).
+  query = aplicarOrden(query, orden, 'precio_tienda_regular');
 
   const desde = (pagina - 1) * porPagina;
   query = query.range(desde, desde + porPagina - 1);
@@ -103,6 +100,16 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
 
   const productos = (data || []).map(normalizarProducto);
   return { productos, total: count || 0, totalPaginas: Math.ceil((count || 0) / porPagina) };
+}
+
+// Compartido entre obtenerProductos() y obtenerProductosConsolidado() -- el único que cambia
+// entre tienda y consolidado es qué columna de precio se usa para precio_asc/precio_desc.
+function aplicarOrden(query, orden, columnaPrecio) {
+  if (orden === 'precio_asc') return query.order(columnaPrecio, { ascending: true });
+  if (orden === 'precio_desc') return query.order(columnaPrecio, { ascending: false });
+  if (orden === 'nombre') return query.order('nombre', { ascending: true });
+  if (orden === 'recientes') return query.order('fecha_creacion', { ascending: false });
+  return query.order('marca', { ascending: true }).order('nombre', { ascending: true });
 }
 
 // Catálogo de CONSOLIDADO: a diferencia de obtenerProductos(), muestra TODO lo que tenemos
@@ -118,14 +125,7 @@ async function obtenerProductosConsolidado({ genero, marca, familia, tipo_casa, 
   if (tipo_casa) query = query.eq('tipo_casa', tipo_casa);
   if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
 
-  const ordenamientos = {
-    precio_asc: { column: 'precio_consolidado_fijo', ascending: true },
-    precio_desc: { column: 'precio_consolidado_fijo', ascending: false },
-    nombre: { column: 'nombre', ascending: true },
-    recientes: { column: 'fecha_creacion', ascending: false },
-  };
-  const orderBy = ordenamientos[orden] || ordenamientos.recientes;
-  query = query.order(orderBy.column, { ascending: orderBy.ascending });
+  query = aplicarOrden(query, orden, 'precio_consolidado_fijo');
 
   const desde = (pagina - 1) * porPagina;
   query = query.range(desde, desde + porPagina - 1);

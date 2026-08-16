@@ -340,8 +340,16 @@ async function cargarDirecciones() {
         <div class="form-group"><label>Etiqueta</label><input type="text" name="etiqueta" placeholder="Casa, Oficina..." /></div>
         <div class="form-group"><label>Dirección</label><textarea name="direccion_detalle" rows="2" required></textarea></div>
         <div class="form-group">
+          <label>Departamento</label>
+          <select id="ubigeo-depto-select" required><option value="">Selecciona...</option>${[...new Set(ubigeos.map((u) => u.departamento))].sort().map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
+        </div>
+        <div class="form-group">
+          <label>Provincia</label>
+          <select id="ubigeo-prov-select" required disabled><option value="">Elige primero el departamento</option></select>
+        </div>
+        <div class="form-group">
           <label>Distrito</label>
-          <select name="codigo_ubigeo" required>${ubigeos.map((u) => `<option value="${u.codigo_ubigeo}">${escapeHtml(u.distrito)} — ${escapeHtml(u.provincia)}, ${escapeHtml(u.departamento)}</option>`).join('')}</select>
+          <select name="codigo_ubigeo" id="ubigeo-dist-select" required disabled><option value="">Elige primero la provincia</option></select>
         </div>
         <div class="form-group">
           <label>Tipo de despacho</label>
@@ -374,6 +382,8 @@ async function cargarDirecciones() {
       document.getElementById('agencia-group').style.display = e.target.value.startsWith('Agencia') ? '' : 'none';
     });
 
+    iniciarSelectsUbigeoCascada(ubigeos);
+
     document.getElementById('nueva-direccion-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.target));
@@ -389,6 +399,34 @@ async function cargarDirecciones() {
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
+}
+
+// Departamento -> Provincia -> Distrito en cascada. Con 1874 distritos en la tabla ubigeo
+// (ver supabase/carga_ubigeo_completo.sql) un solo <select> con todos sería inmanejable --
+// esto reduce cada paso a una lista corta (24 departamentos, ~5-20 provincias, ~5-30 distritos).
+function iniciarSelectsUbigeoCascada(ubigeos) {
+  const deptoSel = document.getElementById('ubigeo-depto-select');
+  const provSel = document.getElementById('ubigeo-prov-select');
+  const distSel = document.getElementById('ubigeo-dist-select');
+
+  deptoSel.addEventListener('change', () => {
+    const depto = deptoSel.value;
+    const provincias = [...new Set(ubigeos.filter((u) => u.departamento === depto).map((u) => u.provincia))].sort();
+    provSel.innerHTML = '<option value="">Selecciona...</option>' + provincias.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+    provSel.disabled = !depto;
+    distSel.innerHTML = '<option value="">Elige primero la provincia</option>';
+    distSel.disabled = true;
+  });
+
+  provSel.addEventListener('change', () => {
+    const depto = deptoSel.value;
+    const prov = provSel.value;
+    const distritos = ubigeos
+      .filter((u) => u.departamento === depto && u.provincia === prov)
+      .sort((a, b) => a.distrito.localeCompare(b.distrito));
+    distSel.innerHTML = '<option value="">Selecciona...</option>' + distritos.map((d) => `<option value="${d.codigo_ubigeo}">${escapeHtml(d.distrito)}</option>`).join('');
+    distSel.disabled = !prov;
+  });
 }
 
 /* ---- Favoritos ---- */

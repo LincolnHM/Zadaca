@@ -16,15 +16,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
-    const [data, descuentosVolumen] = await Promise.all([obtenerProductoPorSlug(slug), obtenerDescuentosVolumen().catch(() => [])]);
+    const data = await obtenerProductoPorSlug(slug);
     PRODUCTO_ACTUAL = data.producto;
-    renderDetalle(data, descuentosVolumen);
+    renderDetalle(data);
   } catch (err) {
     document.getElementById('detalle-mount').innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
   }
 });
 
-function renderDetalle(data, descuentosVolumen = []) {
+function renderDetalle(data) {
   const p = data.producto;
   const tituloPagina = `${p.marca} ${p.nombre} — Maison Zadaca`;
   const descripcionPagina = p.descripcion || `${p.marca} ${p.nombre}, ${p.mililitros}ml. Perfume original importado, disponible en tienda o consolidado.`;
@@ -58,8 +58,7 @@ function renderDetalle(data, descuentosVolumen = []) {
         </div>
         ${esLiquidacion
           ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
-          : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="consolidados.html" class="link-arrow">ver campañas activas</a></div>
-             ${descuentosVolumen.length ? tablaEscalonesHtml(p.precio_consolidado_fijo, descuentosVolumen) : ''}`}
+          : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="consolidados.html" class="link-arrow">ver campañas activas</a></div>`}
 
         <div class="pd-meta-row">
           <div><strong>Concentración</strong>${escapeHtml(p.concentracion || '—')}</div>
@@ -115,23 +114,6 @@ function renderDetalle(data, descuentosVolumen = []) {
     document.getElementById('relacionados-section').style.display = '';
     document.getElementById('grid-relacionados').innerHTML = data.relacionados.map(tarjetaProducto).join('');
   }
-}
-
-// Tabla de precios por volumen del consolidado: cuánto más acumule el cliente en soles en
-// esa campaña (sumando todos los perfumes que reserve, no solo este), más baja el precio por
-// unidad. Ver calcularEscalonesPrecio() en api.js — el precio real siempre lo confirma el
-// servidor al reservar, esto es solo para que el cliente sepa qué esperar.
-function tablaEscalonesHtml(precioBase, descuentosVolumen) {
-  const filas = calcularEscalonesPrecio(precioBase, descuentosVolumen);
-  return `
-    <div class="pd-tier-table">
-      <div class="pd-tier-title">Mientras más acumules en el consolidado, más barato — precio por unidad:</div>
-      ${filas.map((f, i) => `
-        <div class="pd-tier-row${i === 0 ? ' pd-tier-row-base' : ''}">
-          <span>${escapeHtml(f.etiqueta)}</span>
-          <span>${formatoMoneda(f.precio)}</span>
-        </div>`).join('')}
-    </div>`;
 }
 
 function ajustarCantidad(delta) {
