@@ -444,7 +444,7 @@ async function cargarDirecciones() {
               <div>
                 <strong>${escapeHtml(d.etiqueta || 'Dirección')}</strong> ${d.predeterminada ? '<span class="status-tag">Predeterminada</span>' : ''}
                 <p style="margin:6px 0 0; font-size:0.85rem; color:var(--color-text-muted);">${escapeHtml(d.direccion_detalle)}, ${escapeHtml(d.distrito)}, ${escapeHtml(d.provincia)}</p>
-                <p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">${escapeHtml(d.tipo_despacho.replace(/_/g, ' '))}${d.agencia_nombre ? ' — ' + escapeHtml(d.agencia_nombre) : ''}</p>
+                <p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? 'Recojo en almacén (Lima)' : d.tipo_despacho.replace(/_/g, ' '))}${d.agencia_nombre ? ' — ' + escapeHtml(d.agencia_nombre) : ''}</p>
               </div>
               <button class="btn btn-danger btn-sm" data-eliminar-dir="${d.id}">Eliminar</button>
             </div>
@@ -473,11 +473,11 @@ async function cargarDirecciones() {
             <option value="Domicilio">Entrega a domicilio</option>
             <option value="Agencia_Shalom">Agencia Shalom</option>
             <option value="Agencia_Olva">Agencia Olva</option>
-            <option value="Recojo_En_Tienda">Recojo en tienda</option>
+            <option value="Recojo_En_Tienda">Recojo en almacén (Lima)</option>
           </select>
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
-        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestra tienda de Lima: Jr. Ávila Godoy 664, San Martín de Porres.</p>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: Jr. Ávila Godoy 664, San Martín de Porres. No es tienda física de atención al público.</p>
         <label class="filter-option"><input type="checkbox" name="predeterminada" /> Usar como predeterminada</label>
         <button type="submit" class="btn btn-outline btn-block" style="margin-top:20px;">Guardar Dirección</button>
       </form>

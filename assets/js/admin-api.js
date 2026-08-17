@@ -408,7 +408,7 @@ async function obtenerFilasExportacionConsolidado(idConsolidado) {
 // planificar incluso antes de cerrar la campaña.
 function formatearEntrega(dir) {
   if (!dir) return 'Sin dirección registrada';
-  if (dir.tipo_despacho === 'Recojo_En_Tienda') return 'Recojo en tienda';
+  if (dir.tipo_despacho === 'Recojo_En_Tienda') return 'Recojo en almacén (Lima)';
   const tipo = (dir.tipo_despacho || '').replace(/_/g, ' ');
   const partes = [tipo, dir.agencia_nombre, dir.direccion_detalle].filter(Boolean);
   return partes.join(' — ');

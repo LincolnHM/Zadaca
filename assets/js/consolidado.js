@@ -122,7 +122,7 @@ async function renderFormularioReserva() {
         <div class="form-group">
           <label>Entrega</label>
           ${direcciones.length
-            ? `<select name="id_direccion" required>${direcciones.map((d) => `<option value="${d.id}" ${d.predeterminada ? 'selected' : ''}>${escapeHtml(d.etiqueta || 'Dirección')} — ${escapeHtml((d.tipo_despacho || '').replace(/_/g, ' '))}${d.agencia_nombre ? ' (' + escapeHtml(d.agencia_nombre) + ')' : ''}</option>`).join('')}</select>`
+            ? `<select name="id_direccion" required>${direcciones.map((d) => `<option value="${d.id}" ${d.predeterminada ? 'selected' : ''}>${escapeHtml(d.etiqueta || 'Dirección')} — ${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? 'Recojo en almacén (Lima)' : (d.tipo_despacho || '').replace(/_/g, ' '))}${d.agencia_nombre ? ' (' + escapeHtml(d.agencia_nombre) + ')' : ''}</option>`).join('')}</select>`
             : `<p class="form-hint">No tienes direcciones guardadas. <a href="cuenta.html?tab=direcciones&retorno=${encodeURIComponent('consolidado.html?id=' + CONSOLIDADO_ID)}" class="link-arrow">Agregar una</a></p>`}
         </div>
         <button type="submit" class="btn btn-primary btn-block" ${direcciones.length ? '' : 'disabled'}>Reservar Ahora</button>

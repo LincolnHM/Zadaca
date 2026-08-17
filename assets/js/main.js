@@ -307,8 +307,8 @@ function renderFooter() {
           </div>
           <div class="footer-col">
             <h4>Ayuda</h4>
-            <a href="contacto.html#tiendas">Tienda Lima: Jr. Ávila Godoy 664, SMP</a>
             <a href="contacto.html#tiendas">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
+            <a href="contacto.html#tiendas">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>
             <p>Envíos vía Shalom / Olva a todo el Perú</p>
             <p>Pagos: Yape, Plin, transferencia y tarjeta</p>
           </div>

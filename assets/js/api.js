@@ -74,7 +74,8 @@ function escaparFiltroSupabase(texto) {
 async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12, soloConStock = false } = {}) {
   let query = supabaseClient
     .from('perfumes')
-    .select(soloConStock ? '*, inventario!inner(stock_disponible)' : '*, inventario(stock_disponible)', { count: 'exact' });
+    .select(soloConStock ? '*, inventario!inner(stock_disponible)' : '*, inventario(stock_disponible)', { count: 'exact' })
+    .eq('activo', true);
 
   if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
   if (genero) query = query.eq('genero', genero);
@@ -117,7 +118,7 @@ function aplicarOrden(query, orden, columnaPrecio) {
 // precio_tienda_regular — son dos catálogos con precios independientes (ver schema.sql,
 // precio_consolidado_fijo <= precio_tienda_regular no implica que sean el mismo número).
 async function obtenerProductosConsolidado({ genero, marca, familia, tipo_casa, busqueda, orden, pagina = 1, porPagina = 12 } = {}) {
-  let query = supabaseClient.from('perfumes').select('*', { count: 'exact' });
+  let query = supabaseClient.from('perfumes').select('*', { count: 'exact' }).eq('activo', true);
 
   if (genero) query = query.eq('genero', genero);
   if (marca) query = query.eq('marca', marca);
@@ -142,8 +143,8 @@ function normalizarProducto(p) {
 }
 
 async function obtenerFiltrosCatalogo() {
-  const { data: marcasData } = await supabaseClient.from('perfumes').select('marca');
-  const { data: familiasData } = await supabaseClient.from('perfumes').select('familia_olfativa').not('familia_olfativa', 'is', null);
+  const { data: marcasData } = await supabaseClient.from('perfumes').select('marca').eq('activo', true);
+  const { data: familiasData } = await supabaseClient.from('perfumes').select('familia_olfativa').eq('activo', true).not('familia_olfativa', 'is', null);
   const marcas = [...new Set((marcasData || []).map((r) => r.marca))].sort();
   const familias = [...new Set((familiasData || []).map((r) => r.familia_olfativa))].sort();
   return { marcas, familias };
@@ -164,6 +165,7 @@ async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = fals
   let query = supabaseClient
     .from('perfumes')
     .select(soloConStock ? `${campos}, inventario!inner(stock_disponible)` : campos)
+    .eq('activo', true)
     .or(`nombre.ilike.%${escaparFiltroSupabase(q)}%,marca.ilike.%${escaparFiltroSupabase(q)}%`)
     .order('nombre', { ascending: true })
     .limit(limite);
@@ -178,6 +180,7 @@ async function obtenerProductoPorSlug(slug) {
     .from('perfumes')
     .select('*, inventario(stock_disponible)')
     .eq('slug', slug)
+    .eq('activo', true)
     .single();
   if (error || !producto) throw new Error('Producto no encontrado');
 
@@ -192,6 +195,7 @@ async function obtenerProductoPorSlug(slug) {
     .from('perfumes')
     .select('slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
     .eq('marca', producto.marca)
+    .eq('activo', true)
     .neq('id', producto.id)
     .limit(4);
 

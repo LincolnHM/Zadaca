@@ -231,12 +231,12 @@ async function cargarProductos(busqueda) {
 function tarjetaProductoAdmin(p) {
   const inv = p.inventario || {};
   return `
-    <div class="admin-card" data-id="${p.id}">
+    <div class="admin-card" data-id="${p.id}" style="${p.activo === false ? 'opacity:0.6;' : ''}">
       <div class="admin-card-top">
         <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
         <div style="min-width:0;">
           <span class="admin-card-sub">${escapeHtml(p.marca)}</span>
-          <h3 class="admin-card-title">${escapeHtml(p.nombre)}${p.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}</h3>
+          <h3 class="admin-card-title">${escapeHtml(p.nombre)}${p.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}${p.activo === false ? ' <span class="badge badge-out">Oculto</span>' : ''}</h3>
           <span style="font-size:0.72rem; color:var(--color-text-faint);">${p.mililitros} ml &middot; ${escapeHtml(p.concentracion || '—')}</span>
         </div>
       </div>
@@ -253,6 +253,7 @@ function tarjetaProductoAdmin(p) {
       </div>
       <div class="admin-field-row"><span>Nuevo</span><label class="switch"><input type="checkbox" class="chk-nuevo" ${p.es_nuevo ? 'checked' : ''}/><span class="switch-track"></span></label></div>
       <div class="admin-field-row"><span>Best Seller</span><label class="switch"><input type="checkbox" class="chk-bestseller" ${p.es_bestseller ? 'checked' : ''}/><span class="switch-track"></span></label></div>
+      <div class="admin-field-row"><span>Activo (visible en catálogo)</span><label class="switch"><input type="checkbox" class="chk-activo" ${p.activo !== false ? 'checked' : ''}/><span class="switch-track"></span></label></div>
       <div class="admin-card-actions">
         <button class="btn btn-outline btn-sm btn-guardar-producto">Guardar</button>
         <button class="btn btn-ghost btn-sm btn-editar-producto">Editar</button>
@@ -274,6 +275,7 @@ function conectarEventosProductos() {
           estado: card.querySelector('.select-estado').value,
           es_nuevo: card.querySelector('.chk-nuevo').checked,
           es_bestseller: card.querySelector('.chk-bestseller').checked,
+          activo: card.querySelector('.chk-activo').checked,
           margen_aplicado: true,
         });
         await actualizarInventario(id, { stock_fisico: Number(card.querySelector('.input-stock').value) });
