@@ -128,6 +128,7 @@ async function agregarAlCarritoUI() {
   const cantidad = Number(document.getElementById('qty-input').value);
   try {
     await agregarAlCarrito(PRODUCTO_ACTUAL.id, cantidad);
+    animarAgregarCarrito(document.getElementById('btn-agregar-carrito'));
     mostrarToast('Producto agregado al carrito');
     actualizarEstadoSesionHeader();
   } catch (err) {

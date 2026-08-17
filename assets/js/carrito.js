@@ -136,8 +136,12 @@ async function confirmarPedido() {
   btn.disabled = true;
   btn.textContent = 'Procesando…';
   try {
+    const montoTotal = CARRITO_ITEMS.reduce((acc, i) => acc + i.cantidad * precioFinalItem(i), 0);
     const idPedido = await crearPedido(idDireccion);
-    mostrarToast('¡Pedido creado con éxito!');
+    // Todavía no hay pasarela de pago -- se abre WhatsApp con el pedido ya creado para que el
+    // cliente coordine el pago ahí mismo (ver enlaceWhatsappConfirmarPedido en api.js).
+    window.open(enlaceWhatsappConfirmarPedido({ idPedido, items: CARRITO_ITEMS, montoTotal }), '_blank', 'noopener');
+    mostrarToast('¡Pedido creado! Confirma el pago por WhatsApp.');
     window.location.href = `cuenta.html?tab=pedidos&pedido=${idPedido}`;
   } catch (err) {
     mostrarToast(err.message, 'error');

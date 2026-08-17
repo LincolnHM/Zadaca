@@ -127,7 +127,17 @@ function renderHeaderEstatico(activo) {
             </div>
           </div>
           <a href="cuenta.html" class="icon-btn account-label" id="nav-account-link">${ICONS.user}<span id="nav-account-label">Ingresar</span></a>
-          <a href="carrito.html" class="icon-btn">${ICONS.bag}<span class="cart-badge" id="cart-badge" hidden>0</span></a>
+          <div class="cart-wrap" id="cart-wrap">
+            <button class="icon-btn" id="cart-toggle" aria-label="Carrito" aria-haspopup="true" aria-expanded="false">${ICONS.bag}<span class="cart-badge" id="cart-badge" hidden>0</span></button>
+            <div class="cart-dropdown" id="cart-dropdown" hidden>
+              <div class="notif-dropdown-head"><span>Tu Carrito</span></div>
+              <div id="cart-dropdown-lista"><div class="notif-empty">Cargando…</div></div>
+              <div class="cart-dropdown-foot" id="cart-dropdown-foot" hidden>
+                <div class="cart-dropdown-total"><span>Subtotal</span><span id="cart-dropdown-subtotal"></span></div>
+                <a href="carrito.html" class="btn btn-primary btn-block btn-sm">Ir al Carrito</a>
+              </div>
+            </div>
+          </div>
           <button class="menu-toggle" id="menu-toggle" aria-label="Menú">${ICONS.menu}</button>
         </div>
       </div>
@@ -153,6 +163,75 @@ function renderHeaderEstatico(activo) {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenu(); });
 
   configurarCampanitaNotificaciones();
+  configurarCarritoDropdown();
+}
+
+// Mini-carrito desplegable del header: mismo patrón que la campanita de notificaciones (abre
+// al click, se cierra al click afuera), pero en vez de navegar directo a carrito.html al
+// tocar la bolsa, esto la muestra como vista previa -- "Ir al Carrito" adentro sigue llevando
+// a la página completa para editar cantidades/checkout.
+function configurarCarritoDropdown() {
+  const btn = document.getElementById('cart-toggle');
+  const dropdown = document.getElementById('cart-dropdown');
+  if (!btn) return;
+  btn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const abrir = dropdown.hidden;
+    dropdown.hidden = !abrir;
+    btn.setAttribute('aria-expanded', String(abrir));
+    if (abrir) await cargarCarritoDropdown();
+  });
+  document.addEventListener('click', (e) => {
+    if (!dropdown.hidden && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+      dropdown.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !dropdown.hidden) {
+      dropdown.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+async function cargarCarritoDropdown() {
+  const mount = document.getElementById('cart-dropdown-lista');
+  const foot = document.getElementById('cart-dropdown-foot');
+  if (!mount) return;
+  if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="notif-empty">Carrito no disponible.</div>'; foot.hidden = true; return; }
+  const session = await obtenerSesion();
+  if (!session) {
+    mount.innerHTML = '<div class="notif-empty">Inicia sesión para ver tu carrito.</div>';
+    foot.hidden = true;
+    return;
+  }
+  try {
+    const items = await obtenerCarrito();
+    if (!items.length) {
+      mount.innerHTML = '<div class="notif-empty">Tu carrito está vacío.</div>';
+      foot.hidden = true;
+      return;
+    }
+    let total = 0;
+    mount.innerHTML = items.map((item) => {
+      const final = item.es_liquidacion ? Number(item.precio_liquidacion) : precioFinal(item.precio_tienda_regular, item.descuento_tienda_porcentaje);
+      total += final * item.cantidad;
+      return `
+        <div class="cart-drop-item">
+          <div class="cart-drop-media">${imagenProducto(item)}</div>
+          <div class="cart-drop-info">
+            <span class="cart-drop-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}</span>
+            <span class="cart-drop-meta">${item.cantidad} &times; ${formatoMoneda(final)}</span>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('cart-dropdown-subtotal').textContent = formatoMoneda(total);
+    foot.hidden = false;
+  } catch (err) {
+    mount.innerHTML = `<div class="notif-empty">${err.message}</div>`;
+    foot.hidden = true;
+  }
 }
 
 function configurarCampanitaNotificaciones() {
@@ -250,6 +329,44 @@ async function actualizarEstadoSesionHeader() {
   }
 
   await actualizarBadgeNotificaciones();
+}
+
+// Reinicia la animación de "bump" del badge (cantidad de carrito/notificaciones) sacando y
+// devolviendo la clase que la dispara -- si el elemento ya estaba visible (ej. ya tenías 1
+// perfume y agregas un segundo), solo cambiar el texto no vuelve a disparar la animación de
+// CSS por sí solo.
+function pulsarBadge(id) {
+  const badge = document.getElementById(id);
+  if (!badge) return;
+  badge.classList.remove('badge-pop');
+  void badge.offsetWidth; // fuerza reflow para que el navegador "olvide" el estado anterior
+  badge.classList.add('badge-pop');
+}
+
+// Clona el ícono de la bolsa y lo anima "volando" desde el botón donde se hizo click hasta
+// el ícono del carrito en el header -- confirmación visual de que el producto se agregó, en
+// vez de depender solo de que el cliente note que cambió el numerito del badge.
+function animarAgregarCarrito(origenEl) {
+  pulsarBadge('cart-badge');
+  const destino = document.getElementById('cart-toggle');
+  if (!origenEl || !destino || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const origenRect = origenEl.getBoundingClientRect();
+  const destinoRect = destino.getBoundingClientRect();
+  const vuelo = document.createElement('div');
+  vuelo.className = 'cart-fly-icon';
+  vuelo.innerHTML = ICONS.bag;
+  vuelo.style.left = `${origenRect.left + origenRect.width / 2 - 11}px`;
+  vuelo.style.top = `${origenRect.top + origenRect.height / 2 - 11}px`;
+  document.body.appendChild(vuelo);
+
+  const dx = (destinoRect.left + destinoRect.width / 2) - (origenRect.left + origenRect.width / 2);
+  const dy = (destinoRect.top + destinoRect.height / 2) - (origenRect.top + origenRect.height / 2);
+  requestAnimationFrame(() => {
+    vuelo.style.transform = `translate(${dx}px, ${dy}px) scale(0.3)`;
+    vuelo.style.opacity = '0';
+  });
+  vuelo.addEventListener('transitionend', () => vuelo.remove(), { once: true });
 }
 
 function renderWhatsappFloat() {

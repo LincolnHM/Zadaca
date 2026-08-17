@@ -619,6 +619,23 @@ function enlaceWhatsappPago({ idPedido, montoPendiente, montoTotal }) {
   return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensaje)}`;
 }
 
+// Todavía no hay pasarela de pago en el sitio -- mientras tanto, al confirmar el pedido del
+// carrito se abre WhatsApp con el detalle (qué perfumes, cuántas unidades de cada uno, y el
+// monto total) para que el cliente coordine el pago directo ahí, igual que ya se hace en
+// "Mis Pedidos" con enlaceWhatsappPago().
+function enlaceWhatsappConfirmarPedido({ idPedido, items, montoTotal }) {
+  const totalUnidades = items.reduce((acc, i) => acc + i.cantidad, 0);
+  const lineas = [
+    `Hola! Acabo de confirmar mi pedido #${idPedido} (${totalUnidades} perfume${totalUnidades === 1 ? '' : 's'}):`,
+    '',
+    ...items.map((i) => `- ${i.cantidad} x ${i.marca} — ${i.nombre}`),
+    '',
+    `Total a pagar: ${formatoMoneda(montoTotal)}`,
+    'Te mando la captura del pago apenas me confirmes los datos.',
+  ];
+  return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(lineas.join('\n'))}`;
+}
+
 /* ---------------- Newsletter ---------------- */
 
 async function suscribirNewsletter(correo) {

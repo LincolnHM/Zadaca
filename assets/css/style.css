@@ -203,15 +203,26 @@ h1, h2, h3, h4 {
   position: absolute; top: -8px; right: -10px; background: var(--color-gold); color: #14110c;
   font-size: 0.65rem; font-weight: 700; min-width: 17px; height: 17px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; padding: 0 3px;
-  animation: badge-bump 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .cart-badge[hidden] { display: none; }
+/* Clase aparte (en vez de atarla directo a .cart-badge) para poder reiniciar la animación a
+   demanda desde JS quitando y volviendo a poner la clase (ver pulsarBadge() en main.js) --
+   si estuviera en el selector base, solo se dispararía la primera vez que el badge aparece
+   (hidden -> visible), no en cada unidad que se agrega con el carrito ya abierto. */
+.cart-badge.badge-pop { animation: badge-bump 0.32s cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes badge-bump {
   0% { transform: scale(0.4); opacity: 0; }
   60% { transform: scale(1.15); opacity: 1; }
   100% { transform: scale(1); }
 }
-@media (prefers-reduced-motion: reduce) { .cart-badge { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .cart-badge.badge-pop { animation: none; } }
+
+/* ---------- Animación "volar al carrito" al agregar un producto ---------- */
+.cart-fly-icon {
+  position: fixed; width: 22px; height: 22px; color: var(--color-gold); z-index: 500;
+  pointer-events: none; transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease 0.12s;
+}
+.cart-fly-icon svg { width: 100%; height: 100%; }
 .menu-toggle { display: none; background: none; border: none; color: var(--color-text); }
 .menu-toggle svg { width: 24px; height: 24px; }
 
@@ -242,7 +253,42 @@ h1, h2, h3, h4 {
 .notif-empty { padding: 24px 16px; text-align: center; font-size: 0.8rem; color: var(--color-text-faint); }
 @media (max-width: 480px) { .notif-dropdown { width: calc(100vw - 32px); right: -60px; } }
 
+/* ---------- Mini-carrito desplegable ---------- */
+.cart-wrap { position: relative; }
+.cart-wrap .icon-btn { background: none; border: none; padding: 0; }
+.cart-dropdown {
+  position: absolute; top: calc(100% + 14px); right: -10px; width: 320px; max-height: 420px;
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius);
+  box-shadow: var(--shadow-card); z-index: 300;
+}
+/* "display:flex" tiene que ir condicionado a ":not([hidden])" -- declararlo directo en
+   .cart-dropdown pisaba la regla por defecto del user-agent "[hidden]{display:none}", porque
+   una regla de autor gana sobre la del user-agent sin importar especificidad. Con display sin
+   declarar en la regla base, [hidden] vuelve a esconder el dropdown como corresponde. */
+.cart-dropdown:not([hidden]) { display: flex; flex-direction: column; }
+#cart-dropdown-lista { overflow-y: auto; max-height: 280px; }
+.cart-drop-item { display: grid; grid-template-columns: 48px 1fr; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--color-border); align-items: center; }
+.cart-drop-item:last-child { border-bottom: none; }
+.cart-drop-media { width: 48px; height: 58px; border-radius: var(--radius); overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--color-media-bg); }
+.cart-drop-media img { max-width: 84%; max-height: 88%; object-fit: contain; }
+.cart-drop-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cart-drop-name { font-size: 0.82rem; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cart-drop-meta { font-size: 0.75rem; color: var(--color-text-faint); }
+.cart-dropdown-foot { padding: 14px 16px; border-top: 1px solid var(--color-border); }
+.cart-dropdown-total { display: flex; justify-content: space-between; font-size: 0.88rem; font-weight: 700; margin-bottom: 12px; }
+@media (max-width: 480px) { .cart-dropdown { width: calc(100vw - 32px); right: -70px; } }
+
 @media (max-width: 900px) {
+  /* backdrop-filter en .site-header (ver arriba) convierte al header en "containing block"
+     de sus descendientes position:fixed -- así que .main-nav y .nav-backdrop (fixed, para
+     cubrir toda la pantalla) quedaban encerrados dentro de la cajita del header (~90px de
+     alto) en vez del viewport completo. El panel del menú terminaba aplastado ahí arriba y
+     sus links se salían por fuera del recuadro con fondo, flotando sin ningún color detrás
+     -- de ahí el efecto "menú transparente" en celular. Se saca el blur solo en mobile (en
+     desktop .main-nav no es fixed, así que el problema no existe ahí) para que .main-nav y
+     .nav-backdrop vuelvan a posicionarse contra el viewport real.
+  */
+  .site-header, .site-header.is-scrolled { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .main-nav {
     position: fixed; inset: 0 0 0 auto; width: 78%; max-width: 320px; background: var(--color-bg-alt);
     flex-direction: column; padding: 90px 28px 28px; gap: 22px; transform: translateX(100%);
