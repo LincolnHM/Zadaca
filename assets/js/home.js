@@ -18,28 +18,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   cargarNuevos();
-  cargarBestsellers();
   cargarConsolidados();
-  cargarLiquidaciones();
-  cargarTestimonios();
   cargarExplorar();
+  cargarSobreNosotros();
+  cargarMarcasMarquee();
 });
+
+// Franja de marcas disponibles (prueba social real, no inventada -- son las marcas que ya
+// están en el catálogo activo). Se duplica la lista una vez para poder animar un scroll
+// infinito con un solo translateX(-50%): al llegar a la mitad, la segunda copia ya está
+// exactamente donde arrancó la primera, así que el reinicio del loop es invisible.
+async function cargarMarcasMarquee() {
+  const track = document.getElementById('marquee-track');
+  if (!track) return;
+  try {
+    // "Por Definir" es un marcador interno para productos con marca sin identificar
+    // todavía (ver seed.sql) -- no es una marca real, así que no debe salir en una franja
+    // pensada como prueba social de cara al cliente.
+    const marcas = (await obtenerFiltrosCatalogo()).marcas.filter((m) => m !== 'Por Definir');
+    if (!marcas.length) { track.closest('.brand-marquee').style.display = 'none'; return; }
+    const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const lista = marcas.map((m) => `<span>${escapeHtml(m)}</span>`).join('<span class="marquee-sep">&#9670;</span>');
+    track.innerHTML = reducido ? lista : `${lista}<span class="marquee-sep">&#9670;</span>${lista}`;
+    track.classList.toggle('marquee-static', reducido);
+  } catch {
+    track.closest('.brand-marquee').style.display = 'none';
+  }
+}
 
 function mostrarAvisoConfiguracion() {
   const aviso = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js para ver datos reales (ver README.md).</div>';
-  ['grid-nuevos', 'grid-bestsellers', 'grid-consolidados', 'grid-liquidaciones', 'grid-testimonios', 'grid-explorar'].forEach((id) => {
+  ['grid-nuevos', 'grid-consolidados', 'grid-explorar'].forEach((id) => {
     document.getElementById(id).innerHTML = aviso;
   });
-}
-
-async function cargarLiquidaciones() {
-  const mount = document.getElementById('grid-liquidaciones');
-  try {
-    const { productos } = await obtenerProductos({ destacado: 'liquidacion', porPagina: 4, soloConStock: true });
-    mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No hay liquidaciones activas por el momento.</div>';
-  } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
-  }
 }
 
 async function cargarNuevos() {
@@ -47,16 +58,6 @@ async function cargarNuevos() {
   try {
     const { productos } = await obtenerProductos({ destacado: 'nuevo', porPagina: 4, soloConStock: true });
     mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">Aún no hay nuevos ingresos.</div>';
-  } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
-  }
-}
-
-async function cargarBestsellers() {
-  const mount = document.getElementById('grid-bestsellers');
-  try {
-    const { productos } = await obtenerProductos({ destacado: 'bestseller', porPagina: 4, soloConStock: true });
-    mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">Aún no hay best sellers.</div>';
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
@@ -87,24 +88,53 @@ function tarjetaConsolidado(c) {
   `;
 }
 
-async function cargarTestimonios() {
-  const mount = document.getElementById('grid-testimonios');
+/* ---------- "Sobre Maison Zadaca": stats con conteo animado ---------- */
+
+// El total de perfumes es el único dato real (viene de la BD); el resto de tarjetas ya
+// nacen con su data-count-to fijo en el HTML. porPagina:1 porque solo interesa el "count"
+// que devuelve Supabase, no la lista de productos en sí.
+async function cargarSobreNosotros() {
   try {
-    const resenas = await obtenerResenasDestacadas();
-    mount.innerHTML = resenas.length ? resenas.slice(0, 3).map(tarjetaTestimonio).join('') : '<div class="empty-state">Aún no hay reseñas publicadas.</div>';
-  } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    const { total } = await obtenerProductos({ porPagina: 1 });
+    if (total > 0) document.getElementById('stat-catalogo').dataset.countTo = total;
+  } catch {
+    /* si falla, la tarjeta se queda en 0 -- no es crítico para el resto de la página */
   }
+  activarContadoresStats();
 }
 
-function tarjetaTestimonio(r) {
-  return `
-    <div class="testimonial-card">
-      <div class="stars">${'★'.repeat(r.calificacion)}${'☆'.repeat(5 - r.calificacion)}</div>
-      <p>"${escapeHtml(r.comentario || '')}"</p>
-      <div class="testimonial-name">${escapeHtml(r.nombres)}${r.producto ? ` &middot; ${escapeHtml(r.producto)}` : ''}</div>
-    </div>
-  `;
+// Anima cada .stat-number de 0 a su data-count-to cuando entra en pantalla (una sola vez).
+// Easing "ease-out" (1 - (1-t)^3) para que arranque rápido y se asiente suave al final, en
+// vez de un conteo lineal que se siente mecánico.
+function activarContadoresStats() {
+  const numeros = document.querySelectorAll('.stat-number[data-count-to]');
+  if (!numeros.length) return;
+  const anima = (el) => {
+    const destino = Number(el.dataset.countTo) || 0;
+    const sufijo = el.dataset.suffix || '';
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = destino + sufijo;
+      return;
+    }
+    const duracion = 1200;
+    const inicio = performance.now();
+    const paso = (ahora) => {
+      const t = Math.min((ahora - inicio) / duracion, 1);
+      const facilitado = 1 - Math.pow(1 - t, 3);
+      el.textContent = Math.round(destino * facilitado) + sufijo;
+      if (t < 1) requestAnimationFrame(paso);
+    };
+    requestAnimationFrame(paso);
+  };
+  const observer = new IntersectionObserver((entradas) => {
+    entradas.forEach((entrada) => {
+      if (entrada.isIntersecting) {
+        anima(entrada.target);
+        observer.unobserve(entrada.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  numeros.forEach((el) => observer.observe(el));
 }
 
 /* ---------- "Explora Nuestro Catálogo": vista paginada, solo con stock real ---------- */

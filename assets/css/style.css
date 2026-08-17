@@ -165,10 +165,14 @@ h1, h2, h3, h4 {
   to { transform: translateY(0); }
 }
 .header-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; gap: 24px; }
-.brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.brand-icon { width: 26px; height: 18px; color: var(--color-gold); }
+.brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+/* El logo real (assets/img/brand/logo.png) ya trae su propio círculo plateado con esquinas
+   negras de fondo -- el border-radius:50% recorta esas esquinas para que quede el emblema
+   redondo solo, en vez de una foto cuadrada con fondo negro alrededor. */
+.brand-icon { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+.brand-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; }
-.brand-name { font-family: var(--font-heading); font-size: 1.35rem; letter-spacing: 0.03em; color: var(--color-text); }
+.brand-name { font-family: var(--font-heading); font-size: 1.55rem; letter-spacing: 0.03em; color: var(--color-text); }
 /* Brillo metálico: plata con reflejo sobre burdeos, reservado a los dos momentos de marca más
    protagonistas (wordmark del logo y la palabra destacada del titular). El resto de la
    interfaz usa el --color-gold (plata) plano para no saturar la página de brillo. */
@@ -191,7 +195,7 @@ h1, h2, h3, h4 {
 @media (prefers-reduced-motion: reduce) {
   .brand-name span, .hero-inner h1 em, .auth-card::before { animation: none; background-position: 30% center; }
 }
-.brand-tagline { font-size: 0.55rem; letter-spacing: 0.28em; color: var(--color-text-faint); margin-top: 3px; }
+.brand-tagline { font-size: 0.6rem; letter-spacing: 0.24em; color: var(--color-text-faint); margin-top: 4px; }
 .main-nav { display: flex; gap: 32px; }
 .main-nav a { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); transition: color 0.2s; position: relative; }
 .main-nav a:hover, .main-nav a.active { color: var(--color-gold); }
@@ -348,6 +352,13 @@ h1, h2, h3, h4 {
   .reveal-grid.is-visible > *:nth-child(2) { animation-delay: 0.11s; }
   .reveal-grid.is-visible > *:nth-child(3) { animation-delay: 0.17s; }
   .reveal-grid.is-visible > *:nth-child(4) { animation-delay: 0.23s; }
+  /* La grilla de "Explora Nuestro Catálogo" trae 8 productos (2 filas de 4 en desktop) --
+     sin esto, del 5to en adelante entraban todos de golpe en cuanto terminaba el de arriba,
+     rompiendo la cascada que sí se ve prolija en las grillas de 4. */
+  .reveal-grid.is-visible > *:nth-child(5) { animation-delay: 0.29s; }
+  .reveal-grid.is-visible > *:nth-child(6) { animation-delay: 0.35s; }
+  .reveal-grid.is-visible > *:nth-child(7) { animation-delay: 0.41s; }
+  .reveal-grid.is-visible > *:nth-child(8) { animation-delay: 0.47s; }
 }
 @keyframes entrada-suave {
   from { opacity: 0; transform: translateY(18px); }
@@ -411,6 +422,22 @@ h1, h2, h3, h4 {
   .hero-inner { min-height: unset; padding: 48px 0; }
   .hero-stats { flex-direction: column; align-items: center; gap: 12px; margin-top: 32px; padding-top: 22px; }
 }
+
+/* ---------- Franja de marcas ----------
+   Prueba social real (son las marcas que ya están en el catálogo, no una lista inventada),
+   en un ticker horizontal continuo -- sí, es una animación infinita, que en general conviene
+   evitar (ver nota de .site-header más arriba), pero acá el criterio es el mismo que el de
+   "hero-respiracion": lenta, en un color apagado (no el dorado que sí llama la atención) y se
+   pausa al pasar el mouse, así que registra como una franja de fondo con textura, no como
+   algo compitiendo por atención. Con foco de teclado también se pausa (accesibilidad). */
+.brand-marquee { overflow: hidden; border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-bg-alt); padding: 16px 0; }
+.marquee-track { display: flex; align-items: center; gap: 40px; width: max-content; animation: marquee-scroll 42s linear infinite; }
+.marquee-track span { font-family: var(--font-heading); font-size: 0.92rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--color-text-faint); white-space: nowrap; }
+.marquee-track .marquee-sep { color: var(--color-gold-dim); font-size: 0.5rem; }
+.marquee-track.marquee-static { animation: none; flex-wrap: wrap; justify-content: center; width: auto; padding: 0 24px; }
+.brand-marquee:hover .marquee-track, .brand-marquee:focus-within .marquee-track { animation-play-state: paused; }
+@keyframes marquee-scroll { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .marquee-track { animation: none; } }
 
 /* ---------- Category strip ---------- */
 .category-strip { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--color-border); }
@@ -534,13 +561,37 @@ h1, h2, h3, h4 {
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-gold-dim), var(--color-gold)); border-radius: 20px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--color-text-muted); margin-bottom: 18px; }
 
-/* ---------- Testimonials ---------- */
-.testimonial-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-@media (max-width: 900px) { .testimonial-grid { grid-template-columns: 1fr; } }
-.testimonial-card { background: var(--color-bg-card); border: 1px solid var(--color-border); padding: 28px 24px; border-radius: var(--radius); }
 .stars { color: var(--color-gold); letter-spacing: 2px; margin-bottom: 14px; font-size: 0.9rem; }
-.testimonial-card p { color: var(--color-text-muted); font-size: 0.92rem; margin-bottom: 16px; }
-.testimonial-name { font-size: 0.8rem; font-weight: 600; color: var(--color-text); }
+
+/* ---------- Sobre Nosotros ---------- */
+/* Fondo propio (en vez de negro plano como el resto de secciones) para que el bloque respire
+   como un quiebre narrativo entre "lo que vendemos" (Nuevos Ingresos) y "cómo comprarlo"
+   (Consolidados Activos) -- mismo radial que el hero, pero mucho más tenue. */
+.about-section { position: relative; background: radial-gradient(ellipse at 80% 0%, rgba(122,32,48,0.12) 0%, transparent 55%); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); }
+.about-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; align-items: center; }
+@media (max-width: 900px) { .about-layout { grid-template-columns: 1fr; gap: 36px; } }
+.about-copy p { color: var(--color-text-muted); font-size: 0.95rem; margin: 0 0 16px; }
+.about-copy p strong { color: var(--color-text); }
+.about-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.stat-card {
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius);
+  padding: 24px 20px; text-align: center; transition: border-color 0.25s, transform 0.25s;
+}
+.stat-card:hover { border-color: var(--color-gold-dim); transform: translateY(-3px); }
+.stat-number {
+  display: block; font-family: var(--font-heading); font-size: 2.1rem; font-weight: 600;
+  background: linear-gradient(100deg, var(--color-gold-dim) 0%, var(--color-gold) 25%, var(--color-gold-light) 50%, var(--color-gold) 75%, var(--color-gold-dim) 100%);
+  background-size: 250% auto; background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) { .stat-card:hover .stat-number { animation: brillo-plateado 2.5s ease-in-out; } }
+.stat-label { display: block; font-size: 0.72rem; color: var(--color-text-faint); margin-top: 8px; line-height: 1.4; }
+
+/* ---------- CTA de cierre (home) ---------- */
+.cta-band { padding: 56px 0; border-top: 1px solid var(--color-border); background: linear-gradient(135deg, rgba(122,32,48,0.14) 0%, transparent 60%); }
+.cta-band-inner { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+.cta-band-inner h2 { margin-bottom: 6px; }
+.cta-band-inner p { color: var(--color-text-muted); margin: 0; max-width: 460px; font-size: 0.92rem; }
+.cta-band-inner .btn { flex-shrink: 0; }
 
 /* ---------- Newsletter ---------- */
 .newsletter { background: var(--color-bg-alt); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); padding: 48px 0; }
@@ -650,8 +701,8 @@ h1, h2, h3, h4 {
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
 }
 .auth-visual-content { position: relative; }
-.auth-visual .brand-icon-lg { display: block; width: 40px; height: 28px; color: var(--color-gold); margin-bottom: 22px; }
-.auth-visual .brand-icon-lg svg { width: 100%; height: 100%; }
+.auth-visual .brand-icon-lg { display: block; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; margin-bottom: 22px; }
+.auth-visual .brand-icon-lg img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .auth-visual h2 { font-size: 1.55rem; margin-bottom: 14px; }
 .auth-visual p { color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 30px; }
 .auth-perks { display: flex; flex-direction: column; gap: 16px; }

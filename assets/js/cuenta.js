@@ -29,7 +29,7 @@ function renderAuthForms() {
       <div class="auth-shell">
         <div class="auth-visual">
           <div class="auth-visual-content">
-            <span class="brand-icon-lg">${ICONS.box}</span>
+            <span class="brand-icon-lg">${LOGO_IMG}</span>
             <h2>La casa de tus fragancias favoritas</h2>
             <p>Crea tu cuenta para reservar en consolidados, guardar favoritos y seguir tus pedidos.</p>
             <div class="auth-perks">

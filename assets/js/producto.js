@@ -32,7 +32,23 @@ function renderDetalle(data) {
   document.getElementById('page-description').setAttribute('content', descripcionPagina);
   document.getElementById('og-title').setAttribute('content', tituloPagina);
   document.getElementById('og-description').setAttribute('content', descripcionPagina);
-  if (p.imagen_url) document.getElementById('og-image').setAttribute('content', p.imagen_url);
+  // Si el producto no tiene foto propia todavía, cae al logo en vez de dejar el og:image
+  // vacío -- una tarjeta de WhatsApp/Facebook sin imagen se ve rota; con el logo al menos
+  // queda con cara de la marca mientras se le sube la foto real desde el panel admin.
+  const imagenPagina = p.imagen_url ? new URL(p.imagen_url, window.location.href).href : 'https://lincolnhm.github.io/Zadaca/assets/img/brand/logo-og.jpg';
+  document.getElementById('og-image').setAttribute('content', imagenPagina);
+  document.getElementById('twitter-title').setAttribute('content', tituloPagina);
+  document.getElementById('twitter-description').setAttribute('content', descripcionPagina);
+  document.getElementById('twitter-image').setAttribute('content', imagenPagina);
+  document.getElementById('twitter-card').setAttribute('content', 'summary_large_image');
+
+  // URL canónica por slug -- sin esto, todas las fichas de producto apuntaban implícitamente
+  // a la misma URL genérica "producto.html" en las señales de SEO (canonical/og:url), lo que
+  // para un buscador es indistinguible de contenido duplicado entre los 200 productos.
+  const urlProducto = new URL(`producto.html?slug=${p.slug}`, window.location.href).href;
+  document.getElementById('canonical-link').setAttribute('href', urlProducto);
+  document.getElementById('og-url').setAttribute('content', urlProducto);
+
   document.getElementById('crumb-nombre').textContent = p.nombre;
 
   const esLiquidacion = !!p.es_liquidacion;
@@ -41,6 +57,27 @@ function renderDetalle(data) {
   const agotado = p.estado === 'Agotado';
   const promedio = data.calificacionPromedio;
   const unidadMinima = esLiquidacion ? Math.max(Number(p.liquidacion_unidad_minima) || 1, 1) : 1;
+
+  // Datos estructurados Product -- lo que le permite a Google mostrar precio y estrellas
+  // directo en el resultado de búsqueda (rich result) en vez de solo título y descripción.
+  const productoLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: `${p.marca} ${p.nombre}`,
+    description: descripcionPagina,
+    sku: p.slug,
+    brand: { '@type': 'Brand', name: p.marca },
+    image: imagenPagina,
+    offers: {
+      '@type': 'Offer',
+      url: urlProducto,
+      priceCurrency: 'PEN',
+      price: final.toFixed(2),
+      availability: agotado ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+    },
+    ...(promedio ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: promedio.toFixed(1), reviewCount: data.resenas.length } } : {}),
+  };
+  document.getElementById('product-jsonld').textContent = JSON.stringify(productoLd);
 
   document.getElementById('detalle-mount').innerHTML = `
     <div class="container product-detail">
