@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('contacto.html');
+  await iniciarLayout('contacto/');
   document.getElementById('icon-mail').innerHTML = ICONS.mail;
   document.getElementById('icon-whatsapp').innerHTML = ICONS.whatsapp;
   document.getElementById('icon-envios').innerHTML = ICONS.truck;

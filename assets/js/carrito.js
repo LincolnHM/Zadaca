@@ -1,7 +1,7 @@
 let CARRITO_ITEMS = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('carrito.html');
+  await iniciarLayout('carrito/');
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('cart-mount').innerHTML = '<div class="container"><div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div></div>';
     return;
@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('cart-mount').innerHTML = `
       <div class="container"><div class="empty-state">
         <p>Inicia sesión para ver tu carrito.</p>
-        <a href="cuenta.html?retorno=carrito.html" class="btn btn-primary" style="margin-top:16px;">Ingresar</a>
+        <a href="${SITE_ROOT}cuenta/?retorno=${encodeURIComponent(SITE_ROOT + 'carrito/')}" class="btn btn-primary" style="margin-top:16px;">Ingresar</a>
       </div></div>`;
     return;
   }
@@ -31,7 +31,7 @@ async function cargarCarrito() {
 function renderCarrito() {
   const mount = document.getElementById('cart-mount');
   if (CARRITO_ITEMS.length === 0) {
-    mount.innerHTML = `<div class="container"><div class="empty-state"><p>Tu carrito está vacío.</p><a href="catalogo.html" class="btn btn-primary" style="margin-top:16px;">Ir al catálogo</a></div></div>`;
+    mount.innerHTML = `<div class="container"><div class="empty-state"><p>Tu carrito está vacío.</p><a href="${SITE_ROOT}catalogo/" class="btn btn-primary" style="margin-top:16px;">Ir al catálogo</a></div></div>`;
     return;
   }
 
@@ -52,8 +52,8 @@ function renderCarrito() {
 
   CARRITO_ITEMS.forEach((item) => {
     const minimo = item.es_liquidacion ? Math.max(Number(item.liquidacion_unidad_minima) || 1, 1) : 1;
-    document.getElementById(`menos-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad - 1, minimo));
-    document.getElementById(`mas-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad + 1, minimo));
+    document.getElementById(`menos-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad - 1, minimo, item.stock_disponible));
+    document.getElementById(`mas-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad + 1, minimo, item.stock_disponible));
     document.getElementById(`eliminar-${item.id}`).addEventListener('click', () => eliminarItem(item.id));
   });
 
@@ -84,8 +84,16 @@ function filaCarrito(item) {
   `;
 }
 
-async function cambiarCantidad(id, nuevaCantidad, minimo = 1) {
+// El botón "+" no tenía techo -- se podía seguir sumando unidades del carrito más allá del
+// stock real, porque acá nunca se miraba stock_disponible (a diferencia de producto.html,
+// que sí lo usa para el máximo del selector). "maximo" default 99 solo aplica si el item no
+// trae stock_disponible por alguna razón, para no bloquear de más.
+async function cambiarCantidad(id, nuevaCantidad, minimo = 1, maximo = 99) {
   if (nuevaCantidad < minimo) return eliminarItem(id);
+  if (nuevaCantidad > maximo) {
+    mostrarToast(`Solo hay ${maximo} unidad${maximo === 1 ? '' : 'es'} disponible${maximo === 1 ? '' : 's'}`, 'error');
+    return;
+  }
   try {
     await actualizarCantidadCarrito(id, nuevaCantidad);
     await cargarCarrito();
@@ -112,7 +120,7 @@ async function cargarDirecciones() {
     const direcciones = await obtenerDirecciones();
     if (direcciones.length === 0) {
       mount.innerHTML = `<p class="form-hint" style="margin-bottom:14px;">Aún no tienes direcciones guardadas.</p>
-        <a href="cuenta.html?tab=direcciones&retorno=carrito.html" class="btn btn-outline btn-block btn-sm">Agregar dirección</a>`;
+        <a href="${SITE_ROOT}cuenta/?tab=direcciones&retorno=${encodeURIComponent(SITE_ROOT + 'carrito/')}" class="btn btn-outline btn-block btn-sm">Agregar dirección</a>`;
       return;
     }
     mount.innerHTML = `
@@ -142,7 +150,7 @@ async function confirmarPedido() {
     // cliente coordine el pago ahí mismo (ver enlaceWhatsappConfirmarPedido en api.js).
     window.open(enlaceWhatsappConfirmarPedido({ idPedido, items: CARRITO_ITEMS, montoTotal }), '_blank', 'noopener');
     mostrarToast('¡Pedido creado! Confirma el pago por WhatsApp.');
-    window.location.href = `cuenta.html?tab=pedidos&pedido=${idPedido}`;
+    window.location.href = `${SITE_ROOT}cuenta/?tab=pedidos&pedido=${idPedido}`;
   } catch (err) {
     mostrarToast(err.message, 'error');
     btn.disabled = false;

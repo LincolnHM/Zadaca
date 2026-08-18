@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('index.html');
+  await iniciarLayout('');
 
   document.getElementById('hero-icon-truck').innerHTML = ICONS.truck;
   document.getElementById('hero-icon-shield').innerHTML = ICONS.shield;
@@ -77,7 +77,7 @@ async function cargarConsolidados() {
 function tarjetaConsolidado(c) {
   const cierre = new Date(c.fecha_cierre_programada).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' });
   return `
-    <a href="consolidado.html?id=${c.id}" class="consolidado-card">
+    <a href="${SITE_ROOT}consolidado/?id=${c.id}" class="consolidado-card">
       <span class="status-pill">${c.estado}</span>
       <h3>${escapeHtml(c.codigo_campana)}</h3>
       <div class="cc-dates">Cierra el ${cierre}</div>

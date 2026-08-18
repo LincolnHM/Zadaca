@@ -4,7 +4,7 @@ const PEDIDO_A_RESALTAR = PARAMS.get('pedido');
 let TAB_ACTIVA = PARAMS.get('tab') || 'pedidos';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('cuenta.html');
+  await iniciarLayout('cuenta/');
 
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('cuenta-mount').innerHTML = '<div class="container"><div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div></div>';
@@ -131,7 +131,7 @@ function renderAuthForms() {
     const data = Object.fromEntries(new FormData(e.target));
     try {
       await iniciarSesion(data);
-      window.location.href = RETORNO || 'cuenta.html';
+      window.location.href = RETORNO || `${SITE_ROOT}cuenta/`;
     } catch (err) {
       mostrarAlerta(err.message);
     }
@@ -150,7 +150,7 @@ function renderAuthForms() {
       const resultado = await registrarUsuario(data);
       if (resultado.session) {
         mostrarToast('¡Cuenta creada con éxito!');
-        window.location.href = RETORNO || 'cuenta.html';
+        window.location.href = RETORNO || `${SITE_ROOT}cuenta/`;
       } else {
         mostrarAlertaExito('Cuenta creada. Revisa tu correo para confirmar tu cuenta antes de iniciar sesión.');
         e.target.reset();
@@ -272,7 +272,7 @@ async function cargarPedidos() {
   mount.innerHTML = '<div class="loading-state">Cargando pedidos…</div>';
   try {
     const pedidos = await obtenerPedidos();
-    if (!pedidos.length) { mount.innerHTML = '<div class="empty-state">Aún no tienes pedidos. <a href="catalogo.html" class="link-arrow">Ir al catálogo</a></div>'; return; }
+    if (!pedidos.length) { mount.innerHTML = `<div class="empty-state">Aún no tienes pedidos. <a href="${SITE_ROOT}catalogo/" class="link-arrow">Ir al catálogo</a></div>`; return; }
     mount.innerHTML = `
       <table class="data-table">
         <thead><tr><th>Pedido</th><th>Fecha</th><th>Total</th><th>Pago</th><th>Envío</th><th></th></tr></thead>
@@ -370,7 +370,7 @@ async function cargarReservas() {
   mount.innerHTML = '<div class="loading-state">Cargando reservas…</div>';
   try {
     const reservas = await obtenerMisReservas();
-    if (!reservas.length) { mount.innerHTML = '<div class="empty-state">Aún no tienes reservas en consolidados. <a href="consolidados.html" class="link-arrow">Ver campañas activas</a></div>'; return; }
+    if (!reservas.length) { mount.innerHTML = `<div class="empty-state">Aún no tienes reservas en consolidados. <a href="${SITE_ROOT}consolidados/" class="link-arrow">Ver campañas activas</a></div>`; return; }
     mount.innerHTML = `
       <p class="form-hint" style="margin-bottom:16px;">El estado de la campaña (columna "Envío") se actualiza solo, y también te llega como notificación arriba.</p>
       <table class="data-table">
@@ -378,8 +378,8 @@ async function cargarReservas() {
         <tbody>
           ${reservas.map((r) => `
             <tr>
-              <td><a href="producto.html?slug=${r.slug}" style="color:var(--color-text)">${escapeHtml(r.marca)} — ${escapeHtml(r.nombre)}</a></td>
-              <td><a href="consolidado.html?id=${r.id_consolidado}" style="color:var(--color-gold)">${escapeHtml(r.codigo_campana)}</a></td>
+              <td><a href="${SITE_ROOT}producto/?slug=${r.slug}" style="color:var(--color-text)">${escapeHtml(r.marca)} — ${escapeHtml(r.nombre)}</a></td>
+              <td><a href="${SITE_ROOT}consolidado/?id=${r.id_consolidado}" style="color:var(--color-gold)">${escapeHtml(r.codigo_campana)}</a></td>
               <td>${r.cantidad}</td>
               <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
               <td><span class="status-tag"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(188,186,194,0.15); color:var(--color-gold);"' : ''}>${escapeHtml(ESTADOS_ITEM_LEGIBLES[r.estado_item] || r.estado_item)}</span></td>
@@ -411,7 +411,7 @@ async function cargarNotificacionesTab() {
               <p style="margin:6px 0 0; font-size:0.85rem; color:var(--color-text-muted);">${escapeHtml(n.mensaje)}</p>
               <p style="margin:4px 0 0; font-size:0.72rem; color:var(--color-text-faint);">${new Date(n.fecha_creacion).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
-            ${n.url_destino ? `<a href="${n.url_destino}" class="btn btn-ghost btn-sm">Ver</a>` : ''}
+            ${n.url_destino ? `<a href="${SITE_ROOT}${n.url_destino}" class="btn btn-ghost btn-sm">Ver</a>` : ''}
           </div>
         `).join('')}
       </div>
@@ -555,7 +555,7 @@ async function cargarFavoritos() {
     const favoritos = await obtenerFavoritos();
     mount.innerHTML = favoritos.length
       ? `<div class="fav-grid">${favoritos.map(tarjetaProducto).join('')}</div>`
-      : '<div class="empty-state">Aún no tienes favoritos. <a href="catalogo.html" class="link-arrow">Explorar catálogo</a></div>';
+      : `<div class="empty-state">Aún no tienes favoritos. <a href="${SITE_ROOT}catalogo/" class="link-arrow">Explorar catálogo</a></div>`;
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
@@ -568,7 +568,7 @@ async function cargarCotizaciones() {
   try {
     const cotizaciones = await obtenerCotizaciones();
     mount.innerHTML = `
-      <p class="form-hint" style="margin-bottom:20px;">¿Buscas un perfume que no está en catálogo? <a href="contacto.html" class="link-arrow">Solicita una cotización</a>.</p>
+      <p class="form-hint" style="margin-bottom:20px;">¿Buscas un perfume que no está en catálogo? <a href="${SITE_ROOT}contacto/" class="link-arrow">Solicita una cotización</a>.</p>
       ${cotizaciones.length
         ? `<table class="data-table"><thead><tr><th>Perfume</th><th>Marca</th><th>Estado</th><th>Precio Cotizado</th></tr></thead><tbody>
             ${cotizaciones.map((c) => `<tr><td>${escapeHtml(c.nombre_perfume_solicitado)}</td><td>${escapeHtml(c.marca_solicitada)}</td><td><span class="status-tag">${escapeHtml(c.estado)}</span></td><td>${c.precio_cotizado_tienda ? formatoMoneda(c.precio_cotizado_tienda) : '—'}</td></tr>`).join('')}

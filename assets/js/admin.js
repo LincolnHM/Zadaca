@@ -203,7 +203,8 @@ function manejarErrorImagenProductoAdmin(img) {
 
 function imagenProductoAdmin(p) {
   if (p.imagen_url) {
-    return `<img src="${p.imagen_url}" alt="${escapeHtml(p.marca)} ${escapeHtml(p.nombre)}" loading="lazy" onerror="manejarErrorImagenProductoAdmin(this)" />`;
+    // Igual que imagenProducto() en main.js: imagen_url es relativa a la raíz del sitio.
+    return `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="${escapeHtml(p.marca)} ${escapeHtml(p.nombre)}" loading="lazy" onerror="manejarErrorImagenProductoAdmin(this)" />`;
   }
   return `<span style="color:var(--color-text-faint);">${ICONO_PRODUCTO_FALLBACK}</span>`;
 }
@@ -992,7 +993,7 @@ async function cargarTodasLasReservas() {
       <tr data-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(188,186,194,0.08);"' : ''}>
         <td>${escapeHtml(r.cliente)}</td>
         <td>${escapeHtml(r.producto)}</td>
-        <td><a href="consolidado.html?id=${r.id_consolidado}" target="_blank" style="color:var(--color-gold)">${escapeHtml(r.campana || '—')}</a></td>
+        <td><a href="${SITE_ROOT}consolidado/?id=${r.id_consolidado}" target="_blank" style="color:var(--color-gold)">${escapeHtml(r.campana || '—')}</a></td>
         <td>${r.cantidad}</td>
         <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
         <td><select class="status-select select-estado-reserva-global">${ESTADOS_RESERVA.map((e) => `<option value="${e}" ${r.estado_item === e ? 'selected' : ''}>${e}</option>`).join('')}</select></td>

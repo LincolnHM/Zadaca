@@ -1,5 +1,13 @@
 const WHATSAPP_NUMERO = '51990278017';
 
+// Cada página vive ahora en su propia carpeta (cuenta/, catalogo/, etc. en vez de cuenta.html,
+// catalogo.html) a distintas profundidades, así que un link relativo simple ("catalogo.html")
+// ya no apunta al mismo lugar desde todas partes. Se usa esta base absoluta para toda la
+// navegación interna generada por JS, y también para resolver imágenes con ruta relativa que
+// vienen de la base de datos (columna imagen_url, ej. "assets/img/perfumes/x.jpg") y las URLs
+// de notificaciones (columna url_destino, ver supabase/migrations/0009_urls_limpias.sql).
+const SITE_ROOT = 'https://lincolnhm.github.io/Zadaca/';
+
 /* ---------------- Sesión ---------------- */
 
 async function obtenerSesion() {
@@ -38,7 +46,7 @@ async function iniciarSesion({ correo, contrasena }) {
 
 async function cerrarSesion() {
   await supabaseClient.auth.signOut();
-  window.location.href = 'index.html';
+  window.location.href = SITE_ROOT;
 }
 
 function traducirErrorAuth(error) {
@@ -49,9 +57,12 @@ function traducirErrorAuth(error) {
   return msg || 'Ocurrió un error inesperado';
 }
 
+// "retorno" siempre viaja como URL absoluta completa (no un nombre de archivo suelto) --
+// con las páginas repartidas en carpetas a distinta profundidad, reconstruir el destino a
+// mano (ej. tomar el último segmento del path) ya no alcanza para volver al lugar correcto.
+// cuenta.js hace "window.location.href = RETORNO" directo, así que tiene que ser absoluta.
 function irALoginConRetorno() {
-  const destino = window.location.pathname.split('/').pop() + window.location.search;
-  window.location.href = `cuenta.html?retorno=${encodeURIComponent(destino)}`;
+  window.location.href = `${SITE_ROOT}cuenta/?retorno=${encodeURIComponent(window.location.href)}`;
 }
 
 /* ---------------- Catálogo ---------------- */

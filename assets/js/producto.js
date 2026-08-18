@@ -2,7 +2,7 @@ let PRODUCTO_ACTUAL = null;
 let CALIFICACION_SELECCIONADA = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('catalogo.html');
+  await iniciarLayout('catalogo/');
 
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('detalle-mount').innerHTML = '<div class="container"><div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div></div>';
@@ -35,17 +35,20 @@ function renderDetalle(data) {
   // Si el producto no tiene foto propia todavía, cae al logo en vez de dejar el og:image
   // vacío -- una tarjeta de WhatsApp/Facebook sin imagen se ve rota; con el logo al menos
   // queda con cara de la marca mientras se le sube la foto real desde el panel admin.
-  const imagenPagina = p.imagen_url ? new URL(p.imagen_url, window.location.href).href : 'https://lincolnhm.github.io/Zadaca/assets/img/brand/logo-og.jpg';
+  // La base para resolver imagen_url tiene que ser SITE_ROOT, no window.location.href: la
+  // página vive en producto/index.html, así que resolver contra la URL actual (producto/?slug=x)
+  // apuntaría a "producto/assets/img/..." en vez de la ruta real del archivo.
+  const imagenPagina = p.imagen_url ? new URL(p.imagen_url, SITE_ROOT).href : `${SITE_ROOT}assets/img/brand/logo-og.jpg`;
   document.getElementById('og-image').setAttribute('content', imagenPagina);
   document.getElementById('twitter-title').setAttribute('content', tituloPagina);
   document.getElementById('twitter-description').setAttribute('content', descripcionPagina);
   document.getElementById('twitter-image').setAttribute('content', imagenPagina);
   document.getElementById('twitter-card').setAttribute('content', 'summary_large_image');
 
-  // URL canónica por slug -- sin esto, todas las fichas de producto apuntaban implícitamente
-  // a la misma URL genérica "producto.html" en las señales de SEO (canonical/og:url), lo que
-  // para un buscador es indistinguible de contenido duplicado entre los 200 productos.
-  const urlProducto = new URL(`producto.html?slug=${p.slug}`, window.location.href).href;
+  // URL canónica -- ahora que la página vive en producto/index.html, la URL actual del
+  // navegador (origen + path + query, sin el hash) YA es la canónica correcta: no hace falta
+  // reconstruirla a mano como antes (cuando el archivo era producto.html suelto en la raíz).
+  const urlProducto = window.location.origin + window.location.pathname + window.location.search;
   document.getElementById('canonical-link').setAttribute('href', urlProducto);
   document.getElementById('og-url').setAttribute('content', urlProducto);
 
@@ -54,7 +57,14 @@ function renderDetalle(data) {
   const esLiquidacion = !!p.es_liquidacion;
   const final = esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
   const tieneDescuento = !esLiquidacion && Number(p.descuento_tienda_porcentaje) > 0;
-  const agotado = p.estado === 'Agotado';
+  // "estado" es un campo que el admin llena a mano y en la práctica nunca usa (ningún
+  // producto del catálogo real está marcado "Agotado" hoy) -- stock_disponible es el número
+  // que sí se mantiene al día automáticamente (columna generada, ver schema.sql). Antes esto
+  // solo miraba "estado", así que un producto con stock_disponible=0 pero estado='Disponible'
+  // (bastante común: 118 de 200 productos activos hoy) mostraba el botón "Agregar al
+  // Carrito" habilitado y, peor, el selector de cantidad quedaba con max=1 desde el
+  // arranque -- el botón "+" no tenía a dónde subir y parecía roto.
+  const agotado = p.estado === 'Agotado' || p.stock_disponible <= 0;
   const promedio = data.calificacionPromedio;
   const unidadMinima = esLiquidacion ? Math.max(Number(p.liquidacion_unidad_minima) || 1, 1) : 1;
 
@@ -95,7 +105,7 @@ function renderDetalle(data) {
         </div>
         ${esLiquidacion
           ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
-          : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="consolidados.html" class="link-arrow">ver campañas activas</a></div>`}
+          : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="${SITE_ROOT}consolidados/" class="link-arrow">ver campañas activas</a></div>`}
 
         <div class="pd-meta-row">
           <div><strong>Concentración</strong>${escapeHtml(p.concentracion || '—')}</div>
@@ -106,9 +116,9 @@ function renderDetalle(data) {
 
         <div class="pd-actions">
           <div class="qty-selector">
-            <button type="button" id="qty-menos">${ICONS.minus}</button>
-            <input type="number" id="qty-input" value="${unidadMinima}" min="${unidadMinima}" max="${Math.max(p.stock_disponible, unidadMinima)}" />
-            <button type="button" id="qty-mas">${ICONS.plus}</button>
+            <button type="button" id="qty-menos" ${agotado ? 'disabled' : ''}>${ICONS.minus}</button>
+            <input type="number" id="qty-input" value="${unidadMinima}" min="${unidadMinima}" max="${Math.max(p.stock_disponible, unidadMinima)}" ${agotado ? 'disabled' : ''} />
+            <button type="button" id="qty-mas" ${agotado ? 'disabled' : ''}>${ICONS.plus}</button>
           </div>
           <button class="btn btn-primary" id="btn-agregar-carrito" ${agotado ? 'disabled' : ''}>${agotado ? 'Agotado' : 'Agregar al Carrito'}</button>
           <button class="heart-toggle" id="btn-favorito" aria-label="Agregar a favoritos" aria-pressed="false">${ICONS.heart}</button>
@@ -162,7 +172,17 @@ function ajustarCantidad(delta) {
 }
 
 async function agregarAlCarritoUI() {
-  const cantidad = Number(document.getElementById('qty-input').value);
+  const input = document.getElementById('qty-input');
+  const cantidad = Number(input.value);
+  const minimo = Number(input.min) || 1;
+  const maximo = Number(input.max) || 1;
+  // El min/max del <input type="number"> son solo una sugerencia visual del navegador -- no
+  // impiden que alguien borre el campo y escriba a mano un número fuera de rango, así que se
+  // vuelve a validar acá antes de mandarlo al carrito.
+  if (!Number.isInteger(cantidad) || cantidad < minimo || cantidad > maximo) {
+    mostrarToast(`Elige una cantidad entre ${minimo} y ${maximo}`, 'error');
+    return;
+  }
   try {
     await agregarAlCarrito(PRODUCTO_ACTUAL.id, cantidad);
     animarAgregarCarrito(document.getElementById('btn-agregar-carrito'));
@@ -204,7 +224,7 @@ async function renderFormularioReseña() {
   const mount = document.getElementById('reviews-form-mount');
   const session = await obtenerSesion();
   if (!session) {
-    mount.innerHTML = `<p style="font-size:0.85rem; color:var(--color-text-faint); margin-bottom:24px;"><a href="cuenta.html" class="link-arrow">Inicia sesión</a> para dejar tu reseña.</p>`;
+    mount.innerHTML = `<p style="font-size:0.85rem; color:var(--color-text-faint); margin-bottom:24px;"><a href="${SITE_ROOT}cuenta/" class="link-arrow">Inicia sesión</a> para dejar tu reseña.</p>`;
     return;
   }
   mount.innerHTML = `

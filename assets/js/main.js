@@ -25,14 +25,18 @@ const ICONS = {
 // Logo real de la marca (assets/img/brand/logo.png) -- reemplaza el ícono de caja genérico
 // en header, footer y el panel de la página de cuenta. alt="" porque es puramente decorativo
 // junto al nombre "Maison Zadaca" en texto (evita que un lector de pantalla lo anuncie dos veces).
-const LOGO_IMG = '<img src="assets/img/brand/logo.png" alt="" width="40" height="40" />';
+const LOGO_IMG = `<img src="${SITE_ROOT}assets/img/brand/logo.png" alt="" width="40" height="40" />`;
 
+// Los href son relativos a SITE_ROOT (no a la página actual) -- así el mismo NAV_LINKS sirve
+// para el header sin importar si la página que lo carga está en la raíz (index.html) o una
+// carpeta adentro (catalogo/, contacto/, etc.). "activo" (parámetro de iniciarLayout) se
+// compara contra estos mismos strings para marcar el link actual.
 const NAV_LINKS = [
-  { href: 'index.html', label: 'Inicio' },
-  { href: 'catalogo.html', label: 'Tienda' },
-  { href: 'catalogo-consolidado.html', label: 'Consolidado' },
-  { href: 'liquidaciones.html', label: 'Liquidaciones' },
-  { href: 'contacto.html', label: 'Contacto' },
+  { href: '', label: 'Inicio' },
+  { href: 'catalogo/', label: 'Tienda' },
+  { href: 'catalogo-consolidado/', label: 'Consolidado' },
+  { href: 'liquidaciones/', label: 'Liquidaciones' },
+  { href: 'contacto/', label: 'Contacto' },
 ];
 
 async function iniciarLayout(activo) {
@@ -109,7 +113,7 @@ function renderHeaderEstatico(activo) {
     <div class="announce-bar">ENVÍOS A TODO EL PERÚ &mdash; RESERVA TU PERFUME EN NUESTROS CONSOLIDADOS</div>
     <header class="site-header">
       <div class="header-inner container">
-        <a href="index.html" class="brand">
+        <a href="${SITE_ROOT}" class="brand">
           <span class="brand-icon">${LOGO_IMG}</span>
           <span class="brand-text">
             <span class="brand-name">Maison <span>Zadaca</span></span>
@@ -118,7 +122,7 @@ function renderHeaderEstatico(activo) {
         </a>
         <div class="nav-backdrop" id="nav-backdrop" hidden></div>
         <nav class="main-nav" id="main-nav">
-          ${NAV_LINKS.map((l) => `<a href="${l.href}" class="${activo === l.href ? 'active' : ''}">${l.label}</a>`).join('')}
+          ${NAV_LINKS.map((l) => `<a href="${SITE_ROOT}${l.href}" class="${activo === l.href ? 'active' : ''}">${l.label}</a>`).join('')}
         </nav>
         <div class="header-actions">
           <div class="notif-wrap" id="notif-wrap" hidden>
@@ -131,7 +135,7 @@ function renderHeaderEstatico(activo) {
               <div id="notif-lista"><div class="notif-empty">Cargando…</div></div>
             </div>
           </div>
-          <a href="cuenta.html" class="icon-btn account-label" id="nav-account-link">${ICONS.user}<span id="nav-account-label">Ingresar</span></a>
+          <a href="${SITE_ROOT}cuenta/" class="icon-btn account-label" id="nav-account-link">${ICONS.user}<span id="nav-account-label">Ingresar</span></a>
           <div class="cart-wrap" id="cart-wrap">
             <button class="icon-btn" id="cart-toggle" aria-label="Carrito" aria-haspopup="true" aria-expanded="false">${ICONS.bag}<span class="cart-badge" id="cart-badge" hidden>0</span></button>
             <div class="cart-dropdown" id="cart-dropdown" hidden>
@@ -139,7 +143,7 @@ function renderHeaderEstatico(activo) {
               <div id="cart-dropdown-lista"><div class="notif-empty">Cargando…</div></div>
               <div class="cart-dropdown-foot" id="cart-dropdown-foot" hidden>
                 <div class="cart-dropdown-total"><span>Subtotal</span><span id="cart-dropdown-subtotal"></span></div>
-                <a href="carrito.html" class="btn btn-primary btn-block btn-sm">Ir al Carrito</a>
+                <a href="${SITE_ROOT}carrito/" class="btn btn-primary btn-block btn-sm">Ir al Carrito</a>
               </div>
             </div>
           </div>
@@ -271,7 +275,7 @@ async function cargarNotificacionesDropdown() {
   try {
     const notificaciones = await obtenerNotificaciones({ limite: 10 });
     mount.innerHTML = notificaciones.length ? notificaciones.map((n) => `
-      <button type="button" class="notif-item ${n.leido ? '' : 'notif-item-nuevo'}" data-id="${n.id}" data-url="${n.url_destino || ''}">
+      <button type="button" class="notif-item ${n.leido ? '' : 'notif-item-nuevo'}" data-id="${n.id}" data-url="${n.url_destino ? SITE_ROOT + n.url_destino : ''}">
         <strong>${escapeHtml(n.titulo)}</strong>
         <span>${escapeHtml(n.mensaje)}</span>
         <time>${new Date(n.fecha_creacion).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}</time>
@@ -394,7 +398,7 @@ function renderFooter() {
       <div class="container">
         <div class="footer-grid">
           <div class="footer-brand">
-            <a href="index.html" class="brand">
+            <a href="${SITE_ROOT}" class="brand">
               <span class="brand-icon">${LOGO_IMG}</span>
               <span class="brand-text">
                 <span class="brand-name">Maison <span>Zadaca</span></span>
@@ -410,27 +414,27 @@ function renderFooter() {
           </div>
           <div class="footer-col">
             <h4>Tienda</h4>
-            <a href="catalogo.html">Catálogo en stock</a>
-            <a href="catalogo.html?genero=Hombre">Para Hombre</a>
-            <a href="catalogo.html?genero=Mujer">Para Mujer</a>
-            <a href="liquidaciones.html">Liquidaciones</a>
+            <a href="${SITE_ROOT}catalogo/">Catálogo en stock</a>
+            <a href="${SITE_ROOT}catalogo/?genero=Hombre">Para Hombre</a>
+            <a href="${SITE_ROOT}catalogo/?genero=Mujer">Para Mujer</a>
+            <a href="${SITE_ROOT}liquidaciones/">Liquidaciones</a>
           </div>
           <div class="footer-col">
             <h4>Consolidado</h4>
-            <a href="catalogo-consolidado.html">Catálogo consolidado</a>
-            <a href="consolidados.html">Campañas activas</a>
-            <a href="contacto.html">Cómo funciona</a>
+            <a href="${SITE_ROOT}catalogo-consolidado/">Catálogo consolidado</a>
+            <a href="${SITE_ROOT}consolidados/">Campañas activas</a>
+            <a href="${SITE_ROOT}contacto/">Cómo funciona</a>
           </div>
           <div class="footer-col">
             <h4>Empresa</h4>
-            <a href="contacto.html">Solicitar cotización</a>
-            <a href="contacto.html">Contacto</a>
-            <a href="cuenta.html">Mi cuenta</a>
+            <a href="${SITE_ROOT}contacto/">Solicitar cotización</a>
+            <a href="${SITE_ROOT}contacto/">Contacto</a>
+            <a href="${SITE_ROOT}cuenta/">Mi cuenta</a>
           </div>
           <div class="footer-col">
             <h4>Ayuda</h4>
-            <a href="contacto.html#tiendas">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
-            <a href="contacto.html#tiendas">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>
+            <a href="${SITE_ROOT}contacto/#tiendas">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
+            <a href="${SITE_ROOT}contacto/#tiendas">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>
             <p>Envíos vía Shalom / Olva a todo el Perú</p>
             <p>Pagos: Yape, Plin, transferencia y tarjeta</p>
           </div>
@@ -481,7 +485,11 @@ function manejarErrorImagenProducto(img) {
 
 function imagenProducto(p, claseExtra = '') {
   if (p.imagen_url) {
-    return `<img src="${p.imagen_url}" alt="${escapeHtml(p.marca)} ${escapeHtml(p.nombre)}" loading="lazy" class="${claseExtra}" onerror="manejarErrorImagenProducto(this)" />`;
+    // imagen_url en la base de datos es una ruta relativa (ej. "assets/img/perfumes/x.jpg"),
+    // pensada para resolverse desde la raíz del sitio -- con new URL(..., SITE_ROOT) queda
+    // absoluta y funciona igual sin importar en qué carpeta (catalogo/, producto/, etc.) se
+    // esté pintando esta tarjeta.
+    return `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="${escapeHtml(p.marca)} ${escapeHtml(p.nombre)}" loading="lazy" class="${claseExtra}" onerror="manejarErrorImagenProducto(this)" />`;
   }
   return `<span class="fallback-icon">${ICONS.box}</span>`;
 }
@@ -490,9 +498,13 @@ function tarjetaProducto(p) {
   const esLiquidacion = !!p.es_liquidacion;
   const final = esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
   const tieneDescuento = !esLiquidacion && Number(p.descuento_tienda_porcentaje) > 0;
-  const agotado = p.estado === 'Agotado';
+  // "estado" es un campo manual que el admin no mantiene al día (ver misma nota en
+  // producto.js) -- stock_disponible es el dato real, así que la badge "Agotado" también
+  // tiene que mirarlo, o quedan productos sin stock mostrándose como disponibles en la
+  // grilla del catálogo.
+  const agotado = p.estado === 'Agotado' || p.stock_disponible <= 0;
   return `
-    <a href="producto.html?slug=${p.slug}" class="product-card">
+    <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="product-card">
       <div class="product-media">
         ${imagenProducto(p)}
         <div class="product-badges">
@@ -522,7 +534,7 @@ function tarjetaProducto(p) {
 // las badges de tienda.
 function tarjetaProductoConsolidado(p) {
   return `
-    <a href="producto.html?slug=${p.slug}" class="product-card">
+    <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="product-card">
       <div class="product-media">
         ${imagenProducto(p)}
         <div class="product-badges">

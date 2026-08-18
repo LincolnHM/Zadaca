@@ -7,7 +7,7 @@ const ESTADOS_LEGIBLES = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('consolidados.html');
+  await iniciarLayout('catalogo-consolidado/');
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('detalle-mount').innerHTML = '<div class="container"><div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div></div>';
     return;
@@ -92,7 +92,7 @@ async function renderFormularioReserva() {
   const mount = document.getElementById('reserva-form-mount');
   const session = await obtenerSesion();
   if (!session) {
-    mount.innerHTML = `<a href="cuenta.html?retorno=${encodeURIComponent('consolidado.html?id=' + CONSOLIDADO_ID)}" class="btn btn-primary btn-block">Inicia sesión para reservar</a>`;
+    mount.innerHTML = `<a href="${SITE_ROOT}cuenta/?retorno=${encodeURIComponent(SITE_ROOT + 'consolidado/?id=' + CONSOLIDADO_ID)}" class="btn btn-primary btn-block">Inicia sesión para reservar</a>`;
     return;
   }
   mount.innerHTML = '<div class="loading-state">Cargando…</div>';
@@ -123,7 +123,7 @@ async function renderFormularioReserva() {
           <label>Entrega</label>
           ${direcciones.length
             ? `<select name="id_direccion" required>${direcciones.map((d) => `<option value="${d.id}" ${d.predeterminada ? 'selected' : ''}>${escapeHtml(d.etiqueta || 'Dirección')} — ${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? 'Recojo en almacén (Lima)' : (d.tipo_despacho || '').replace(/_/g, ' '))}${d.agencia_nombre ? ' (' + escapeHtml(d.agencia_nombre) + ')' : ''}</option>`).join('')}</select>`
-            : `<p class="form-hint">No tienes direcciones guardadas. <a href="cuenta.html?tab=direcciones&retorno=${encodeURIComponent('consolidado.html?id=' + CONSOLIDADO_ID)}" class="link-arrow">Agregar una</a></p>`}
+            : `<p class="form-hint">No tienes direcciones guardadas. <a href="${SITE_ROOT}cuenta/?tab=direcciones&retorno=${encodeURIComponent(SITE_ROOT + 'consolidado/?id=' + CONSOLIDADO_ID)}" class="link-arrow">Agregar una</a></p>`}
         </div>
         <button type="submit" class="btn btn-primary btn-block" ${direcciones.length ? '' : 'disabled'}>Reservar Ahora</button>
       </form>

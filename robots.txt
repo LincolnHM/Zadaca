@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
-Disallow: /admin.html
-Disallow: /cuenta.html
-Disallow: /carrito.html
+Disallow: /admin/
+Disallow: /cuenta/
+Disallow: /carrito/
 
 Sitemap: https://lincolnhm.github.io/Zadaca/sitemap.xml

@@ -3,29 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Catálogo de Perfumes — Maison Zadaca</title>
-  <meta name="description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
-  <link rel="canonical" href="https://lincolnhm.github.io/Zadaca/catalogo.html" />
-  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg" />
+  <title>Catálogo Consolidado — Maison Zadaca</title>
+  <meta name="description" content="Todo lo que traemos por consolidado, a precio preferencial: reserva tu perfume y se importa al alcanzar el mínimo de la campaña." />
+  <link rel="canonical" href="https://lincolnhm.github.io/Zadaca/catalogo-consolidado/" />
+  <link rel="icon" type="image/png" href="https://lincolnhm.github.io/Zadaca/assets/img/brand/favicon.png" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Maison Zadaca" />
-  <meta property="og:title" content="Catálogo de Perfumes — Maison Zadaca" />
-  <meta property="og:description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
-  <meta property="og:url" content="https://lincolnhm.github.io/Zadaca/catalogo.html" />
+  <meta property="og:title" content="Catálogo Consolidado — Maison Zadaca" />
+  <meta property="og:description" content="Todo lo que traemos por consolidado, a precio preferencial: reserva tu perfume y se importa al alcanzar el mínimo de la campaña." />
+  <meta property="og:url" content="https://lincolnhm.github.io/Zadaca/catalogo-consolidado/" />
   <meta property="og:image" content="https://lincolnhm.github.io/Zadaca/assets/img/brand/logo-og.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Catálogo de Perfumes — Maison Zadaca" />
-  <meta name="twitter:description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
+  <meta name="twitter:title" content="Catálogo Consolidado — Maison Zadaca" />
+  <meta name="twitter:description" content="Todo lo que traemos por consolidado, a precio preferencial: reserva tu perfume y se importa al alcanzar el mínimo de la campaña." />
   <meta name="twitter:image" content="https://lincolnhm.github.io/Zadaca/assets/img/brand/logo-og.jpg" />
-  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="https://lincolnhm.github.io/Zadaca/assets/css/style.css" />
   <style>
-    /* ---------- Barra de filtros compacta ----------
-       Antes: sidebar fijo de 240px con TODAS las marcas (29) y familias como radios
-       siempre expandidos — en PC quedaba más alto que la grilla de productos, y en
-       móvil (donde pasaba a position:static) se renderizaba entero antes de ver un
-       solo perfume. Ahora los filtros viven colapsados en botones tipo dropdown
-       dentro de una sola barra de herramientas; el mismo componente funciona igual
-       en PC y en móvil (el panel flotante se ajusta al ancho de pantalla). */
+    /* Mismo componente de barra de filtros compacta que https://lincolnhm.github.io/Zadaca/catalogo/ (ver ese archivo para
+       el porqué del diseño) — se repite acá porque son dos páginas HTML independientes. */
     .catalog-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
     .toolbar-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1 1 auto; }
     .toolbar-right { display: flex; align-items: center; gap: 14px; margin-left: auto; }
@@ -38,7 +33,6 @@
     }
     .search-compact input:focus { border-color: var(--color-gold); }
 
-    /* ---------- Sugerencias en vivo del buscador ---------- */
     .search-suggest {
       position: absolute; top: calc(100% + 8px); left: 0; right: 0; min-width: 280px;
       background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius);
@@ -117,16 +111,16 @@
   <main>
     <div class="page-header">
       <div class="container">
-        <div class="breadcrumb"><a href="index.html">Inicio</a> / Tienda</div>
-        <h1>Catálogo de Tienda</h1>
+        <div class="breadcrumb"><a href="https://lincolnhm.github.io/Zadaca/">Inicio</a> / Catálogo Consolidado</div>
+        <h1>Catálogo Consolidado</h1>
       </div>
     </div>
 
     <section class="section-tight">
       <div class="container">
         <p style="max-width:680px; color:var(--color-text-muted); font-size:0.95rem; margin-bottom:0;">
-          Solo perfumes con <strong style="color:var(--color-gold)">stock físico real</strong> en nuestra tienda: los compras y los recibes de inmediato, sin esperar a ningún consolidado.
-          <a href="catalogo-consolidado.html" class="link-arrow">Ver catálogo consolidado &rarr;</a>
+          Todo lo que traemos por <strong style="color:var(--color-gold)">consolidado</strong>, sin importar el stock físico de la tienda: reserva al precio preferencial y se importa al alcanzar el mínimo de la campaña.
+          <a href="https://lincolnhm.github.io/Zadaca/consolidados/" class="link-arrow">Ver campañas activas y fechas de cierre &rarr;</a>
         </p>
       </div>
     </section>
@@ -194,9 +188,9 @@
   <div id="site-footer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/js/supabase-config.js"></script>
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/main.js"></script>
-  <script src="assets/js/catalogo.js"></script>
+  <script src="https://lincolnhm.github.io/Zadaca/assets/js/supabase-config.js"></script>
+  <script src="https://lincolnhm.github.io/Zadaca/assets/js/api.js"></script>
+  <script src="https://lincolnhm.github.io/Zadaca/assets/js/main.js"></script>
+  <script src="https://lincolnhm.github.io/Zadaca/assets/js/catalogo-consolidado.js"></script>
 </body>
 </html>

@@ -6,7 +6,7 @@ let paginaActual = 1;
 let generoActivo = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('catalogo-consolidado.html');
+  await iniciarLayout('catalogo-consolidado/');
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('grid-catalogo').innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>';
     return;
@@ -154,10 +154,10 @@ function renderSugerencias(lista, texto) {
   const filas = lista.map((p) => {
     const precio = formatoMoneda(p.precio_consolidado_fijo);
     const miniatura = p.imagen_url
-      ? `<img src="${p.imagen_url}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
+      ? `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
       : `<span class="fallback-icon">${ICONS.box}</span>`;
     return `
-      <a href="producto.html?slug=${p.slug}" class="search-suggest-item">
+      <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="search-suggest-item">
         ${miniatura}
         <span class="ss-info">
           <span class="ss-marca">${escapeHtml(p.marca)}</span>
