@@ -108,8 +108,20 @@ create table perfumes (
     es_nuevo boolean default false,
     es_bestseller boolean default false,
     imagen_url text,
+    -- Liquidaciones: stock que cae directo a stock, vendido por mayor y por unidad, con
+    -- cantidad mínima de compra configurable por producto (ver migración 0004).
+    es_liquidacion boolean default false,
+    precio_liquidacion numeric(10,2) check (precio_liquidacion is null or precio_liquidacion > 0),
+    liquidacion_unidad_minima int default 1 check (liquidacion_unidad_minima >= 1),
+    -- Tipo de casa de perfumería (Árabe/Diseñador/Nicho) -- filtro del catálogo público, ver
+    -- migración 0007. Clasificación editorial por marca, corregible desde el panel admin.
+    tipo_casa varchar(20) check (tipo_casa in ('Árabe', 'Diseñador', 'Nicho')),
+    -- false = no aparece en catálogo de tienda ni de consolidado ni en el buscador, pero la
+    -- fila sigue existiendo con todo su historial intacto (ver migración 0008).
+    activo boolean not null default true,
     fecha_creacion timestamp default now(),
-    constraint chk_precio_consolidado_menor check (precio_consolidado_fijo <= precio_tienda_regular)
+    constraint chk_precio_consolidado_menor check (precio_consolidado_fijo <= precio_tienda_regular),
+    constraint chk_liquidacion_precio check (es_liquidacion = false or precio_liquidacion is not null)
 );
 
 create table imagenes_perfume (
@@ -124,7 +136,11 @@ create table inventario (
     id_producto bigint primary key references perfumes(id) on delete cascade,
     stock_fisico int default 0 check (stock_fisico >= 0),
     stock_reservado_consolidados int default 0 check (stock_reservado_consolidados >= 0),
-    stock_disponible int generated always as (stock_fisico - stock_reservado_consolidados) stored,
+    -- Stock de TIENDA = solo lo físico. Un consolidado se importa bajo pedido y no depende del
+    -- stock actual, así que reservarlo no debe restarle disponibilidad a la tienda directa
+    -- (antes sí lo hacía; ver migración 0006). stock_reservado_consolidados se sigue llevando
+    -- aparte para que el admin vea cuánto hay comprometido en consolidados.
+    stock_disponible int generated always as (stock_fisico) stored,
     stock_minimo_alerta int default 5
 );
 
@@ -164,6 +180,33 @@ create table carrito_items (
     fecha_agregado timestamp default now(),
     constraint uq_carrito_item unique (id_cliente, id_producto)
 );
+
+-- Rechaza el insert/update entero si la cantidad de un producto de liquidación no llega a su
+-- unidad mínima (ver migración 0004) -- el sitio escribe carrito_items directo vía
+-- supabase-js sin pasar por ninguna función, así que sin este trigger cualquiera podría mandar
+-- cantidad=1 a un producto que exige mínimo 6 llamando a la REST API directo.
+create function fn_validar_minimo_liquidacion() returns trigger as $$
+declare
+    v_es_liquidacion boolean;
+    v_minimo int;
+    v_nombre varchar(150);
+begin
+    select es_liquidacion, liquidacion_unidad_minima, nombre
+      into v_es_liquidacion, v_minimo, v_nombre
+      from perfumes
+      where id = new.id_producto;
+
+    if v_es_liquidacion and new.cantidad < v_minimo then
+        raise exception 'Este producto de liquidación requiere un mínimo de % unidades (%)', v_minimo, v_nombre;
+    end if;
+
+    return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+create trigger trg_validar_minimo_liquidacion
+before insert or update on carrito_items
+for each row execute function fn_validar_minimo_liquidacion();
 
 create table newsletter_suscriptores (
     id bigint generated always as identity primary key,
@@ -227,7 +270,10 @@ create table detalle_consolidado (
     -- arrastra al pedido real cuando el admin cierra la campaña (generar_pedidos_de_consolidado)
     id_direccion_entrega bigint references direcciones_cliente(id),
     fecha_reserva timestamp default now(),
-    estado_item varchar(30) default 'Reservado' check (estado_item in ('Reservado', 'Confirmado', 'Cancelado', 'Convertido_A_Pedido'))
+    -- 'Pendiente_Aprobacion': reservas de 10+ unidades de un mismo perfume quedan acá hasta que
+    -- el Admin las aprueba (ver migración 0006) -- no cuentan en el progreso de la campaña ni
+    -- en el stock reservado hasta entonces.
+    estado_item varchar(30) default 'Reservado' check (estado_item in ('Reservado', 'Pendiente_Aprobacion', 'Confirmado', 'Cancelado', 'Convertido_A_Pedido'))
 );
 
 create function fn_actualizar_total_consolidado() returns trigger as $$
@@ -236,7 +282,7 @@ begin
     set total_unidades_acumuladas = coalesce((
         select sum(cantidad) from detalle_consolidado
         where id_consolidado = coalesce(new.id_consolidado, old.id_consolidado)
-          and estado_item <> 'Cancelado'
+          and estado_item not in ('Cancelado', 'Pendiente_Aprobacion')
     ), 0)
     where id = coalesce(new.id_consolidado, old.id_consolidado);
     return null;
@@ -254,12 +300,71 @@ begin
     update inventario
     set stock_reservado_consolidados = coalesce((
         select sum(cantidad) from detalle_consolidado
-        where id_producto = v_producto and estado_item <> 'Cancelado'
+        where id_producto = v_producto and estado_item not in ('Cancelado', 'Pendiente_Aprobacion')
     ), 0)
     where id_producto = v_producto;
     return null;
 end;
 $$ language plpgsql security definer set search_path = public;
+
+-- Descuento por volumen en consolidados: cuánto más lleva un cliente acumulado (en soles,
+-- sumando todos los perfumes que reservó en esa campaña) más barata sale la unidad -- monto
+-- fijo por unidad en cada escalón, editable desde acá sin tocar código (ver migración 0005).
+create table descuentos_volumen_consolidado (
+    id bigint generated always as identity primary key,
+    umbral_soles numeric(10,2) not null unique check (umbral_soles > 0),
+    descuento_por_unidad numeric(10,2) not null check (descuento_por_unidad >= 0)
+);
+
+insert into descuentos_volumen_consolidado (umbral_soles, descuento_por_unidad) values
+    (1000, 2), (5000, 4), (10000, 6), (30000, 8);
+
+create function fn_descuento_por_monto(p_monto numeric) returns numeric as $$
+    select coalesce(max(descuento_por_unidad), 0)
+    from descuentos_volumen_consolidado
+    where umbral_soles <= p_monto;
+$$ language sql stable set search_path = public;
+
+-- Cuánto lleva acumulado el cliente en esta campaña, su descuento actual, y cuánto le falta
+-- para el próximo escalón (panel de reserva en consolidado.js).
+create function progreso_volumen_consolidado(p_id_consolidado bigint)
+returns table (
+    total_acumulado numeric,
+    descuento_actual numeric,
+    siguiente_umbral numeric,
+    siguiente_descuento numeric,
+    falta_para_siguiente numeric
+) as $$
+declare
+    v_total numeric(10,2);
+begin
+    if auth.uid() is null then
+        raise exception 'Debes iniciar sesión';
+    end if;
+
+    select coalesce(sum(cantidad * precio_consolidado_aplicado), 0) into v_total
+    from detalle_consolidado
+    where id_consolidado = p_id_consolidado and id_cliente = auth.uid() and estado_item = 'Reservado';
+
+    return query
+    select
+        v_total,
+        fn_descuento_por_monto(v_total),
+        u.umbral_soles,
+        u.descuento_por_unidad,
+        u.umbral_soles - v_total
+    from descuentos_volumen_consolidado u
+    where u.umbral_soles > v_total
+    order by u.umbral_soles asc
+    limit 1;
+
+    if not found then
+        return query select v_total, fn_descuento_por_monto(v_total), null::numeric, null::numeric, null::numeric;
+    end if;
+end;
+$$ language plpgsql security definer stable set search_path = public;
+
+grant execute on function progreso_volumen_consolidado(bigint) to authenticated;
 
 create trigger trg_actualizar_stock_reservado
 after insert or update or delete on detalle_consolidado
@@ -286,7 +391,7 @@ select
     max(dc.precio_consolidado_aplicado) as precio_consolidado_aplicado
 from detalle_consolidado dc
 join perfumes p on p.id = dc.id_producto
-where dc.estado_item <> 'Cancelado'
+where dc.estado_item not in ('Cancelado', 'Pendiente_Aprobacion')
 group by dc.id_consolidado, p.id, p.slug, p.nombre, p.marca, p.imagen_url;
 
 grant select on consolidado_resumen_publico to anon, authenticated;
@@ -400,7 +505,8 @@ begin
 
     for v_item in
         select ci.id_producto, ci.cantidad,
-               round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2) as precio_final,
+               case when p.es_liquidacion then p.precio_liquidacion
+                    else round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2) end as precio_final,
                coalesce(i.stock_disponible, 0) as stock_disponible,
                p.nombre
         from carrito_items ci
@@ -420,7 +526,8 @@ begin
 
     for v_item in
         select ci.id_producto, ci.cantidad,
-               round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2) as precio_final
+               case when p.es_liquidacion then p.precio_liquidacion
+                    else round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2) end as precio_final
         from carrito_items ci join perfumes p on p.id = ci.id_producto
         where ci.id_cliente = auth.uid()
     loop
@@ -441,8 +548,9 @@ $$ language plpgsql security definer set search_path = public;
 -- que mande el cliente) y se valida que la campaña siga abierta Y dentro de su fecha límite
 -- antes de aceptar la reserva (antes solo miraba el estado, así que si el admin se olvidaba
 -- de cerrarla el día programado, el sitio seguía aceptando reservas indefinidamente). También
--- exige una dirección de entrega del cliente y, si ya tenía una reserva viva del mismo
--- perfume en esta campaña, suma la cantidad a esa fila en vez de crear una fila aparte.
+-- exige una dirección de entrega del cliente, calcula el descuento por volumen acumulado
+-- (ver descuentos_volumen_consolidado) y, si una reserva de UN mismo perfume llega a 10
+-- unidades o más, la deja en 'Pendiente_Aprobacion' hasta que el Admin la revisa.
 create function reservar_en_consolidado(
     p_id_consolidado bigint,
     p_id_producto bigint,
@@ -451,7 +559,14 @@ create function reservar_en_consolidado(
 ) returns bigint as $$
 declare
     v_id_detalle bigint;
-    v_precio numeric(10,2);
+    v_precio_base numeric(10,2);
+    v_precio_final numeric(10,2);
+    v_acumulado_previo numeric(10,2);
+    v_descuento numeric(10,2);
+    v_cantidad_previa int;
+    v_cantidad_total int;
+    v_nuevo_estado varchar(30);
+    c_umbral_aprobacion constant int := 10;
 begin
     if p_cantidad is null or p_cantidad <= 0 then
         raise exception 'La cantidad debe ser mayor a 0';
@@ -466,23 +581,36 @@ begin
         raise exception 'Selecciona una dirección de entrega válida';
     end if;
 
-    select precio_consolidado_fijo into v_precio from perfumes where id = p_id_producto;
-    if v_precio is null then
+    select precio_consolidado_fijo into v_precio_base from perfumes where id = p_id_producto;
+    if v_precio_base is null then
         raise exception 'Producto no encontrado';
     end if;
 
-    select id into v_id_detalle
+    -- El volumen acumulado (para el descuento por escalones) solo cuenta reservas ya
+    -- aprobadas ('Reservado') -- una reserva pendiente de aprobación no ayuda a bajar de
+    -- precio todavía.
+    select coalesce(sum(cantidad * precio_consolidado_aplicado), 0) into v_acumulado_previo
+    from detalle_consolidado
+    where id_consolidado = p_id_consolidado and id_cliente = auth.uid() and estado_item = 'Reservado';
+
+    v_descuento := fn_descuento_por_monto(v_acumulado_previo + (v_precio_base * p_cantidad));
+    v_precio_final := greatest(v_precio_base - v_descuento, 0.01);
+
+    select id, cantidad into v_id_detalle, v_cantidad_previa
     from detalle_consolidado
     where id_consolidado = p_id_consolidado and id_cliente = auth.uid() and id_producto = p_id_producto
-      and estado_item = 'Reservado';
+      and estado_item in ('Reservado', 'Pendiente_Aprobacion') and precio_consolidado_aplicado = v_precio_final;
+
+    v_cantidad_total := coalesce(v_cantidad_previa, 0) + p_cantidad;
+    v_nuevo_estado := case when v_cantidad_total >= c_umbral_aprobacion then 'Pendiente_Aprobacion' else 'Reservado' end;
 
     if v_id_detalle is not null then
         update detalle_consolidado
-        set cantidad = cantidad + p_cantidad, id_direccion_entrega = p_id_direccion
+        set cantidad = v_cantidad_total, id_direccion_entrega = p_id_direccion, estado_item = v_nuevo_estado
         where id = v_id_detalle;
     else
-        insert into detalle_consolidado (id_consolidado, id_cliente, id_producto, cantidad, precio_consolidado_aplicado, id_direccion_entrega)
-        values (p_id_consolidado, auth.uid(), p_id_producto, p_cantidad, v_precio, p_id_direccion)
+        insert into detalle_consolidado (id_consolidado, id_cliente, id_producto, cantidad, precio_consolidado_aplicado, id_direccion_entrega, estado_item)
+        values (p_id_consolidado, auth.uid(), p_id_producto, p_cantidad, v_precio_final, p_id_direccion, v_nuevo_estado)
         returning id into v_id_detalle;
     end if;
 
@@ -589,6 +717,31 @@ create table notificaciones (
 
 create index idx_notificaciones_cliente on notificaciones(id_cliente, leido);
 
+-- SEGURIDAD: la policy de update ("notificaciones marcar leidas", más abajo) deja a cada
+-- cliente actualizar SU propia notificación, pero no restringe qué columna -- sin este
+-- trigger, cualquiera con la anon key podría reescribir el título/mensaje de su propia
+-- notificación (ej. hacerse pasar una confirmación de pago falsa, ya que el comprobante real
+-- se resuelve por WhatsApp y no queda nada más que contrastar). Mismo patrón que
+-- fn_bloquear_autoascenso_admin: revierte cualquier columna que no sea "leido" a su valor
+-- anterior, sin bloquear el update entero.
+create function fn_bloquear_reescritura_notificacion() returns trigger as $$
+begin
+    if auth.uid() is not null and not is_admin() then
+        new.tipo := old.tipo;
+        new.titulo := old.titulo;
+        new.mensaje := old.mensaje;
+        new.url_destino := old.url_destino;
+        new.id_cliente := old.id_cliente;
+        new.fecha_creacion := old.fecha_creacion;
+    end if;
+    return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+create trigger trg_bloquear_reescritura_notificacion
+before update on notificaciones
+for each row execute function fn_bloquear_reescritura_notificacion();
+
 -- Avisa a todo cliente con reserva activa en el consolidado cuando cambia de estado
 -- (ej. "en tránsito", "en aduanas") — hoy solo se veía si el cliente entraba a la campaña.
 create function fn_notificar_cambio_consolidado() returns trigger as $$
@@ -598,7 +751,7 @@ begin
            'Consolidado',
            'Tu consolidado ' || c.codigo_campana || ' cambió de estado',
            coalesce(new.descripcion_publica, 'Nuevo estado: ' || new.estado),
-           'consolidado.html?id=' || new.id_consolidado
+           'consolidado/?id=' || new.id_consolidado
     from detalle_consolidado dc
     join consolidados c on c.id = dc.id_consolidado
     where dc.id_consolidado = new.id_consolidado
@@ -622,7 +775,7 @@ begin
             'Cotizacion',
             'Tu cotización fue actualizada',
             new.marca_solicitada || ' — ' || new.nombre_perfume_solicitado || ': ' || replace(new.estado, '_', ' '),
-            'cuenta.html?tab=cotizaciones'
+            'cuenta/?tab=cotizaciones'
         );
     end if;
     return new;
@@ -653,7 +806,7 @@ begin
                       || case when v_saldo > 0 then ' Saldo pendiente: ' || to_char(v_saldo, 'FM999999990.00') || '.' else ' Pedido pagado por completo.' end
                  else 'Anulamos un pago registrado en tu pedido #' || new.id_pedido || '. Si tienes dudas, escríbenos por WhatsApp.'
             end,
-            'cuenta.html?tab=pedidos'
+            'cuenta/?tab=pedidos'
         );
     end if;
     return new;
@@ -686,6 +839,8 @@ create index idx_pedidos_cliente on pedidos(id_cliente);
 create index idx_detalle_consolidado_consolidado on detalle_consolidado(id_consolidado);
 create index idx_detalle_consolidado_cliente on detalle_consolidado(id_cliente);
 create index idx_resenas_producto on resenas(id_producto);
+create index idx_perfumes_tipo_casa on perfumes(tipo_casa);
+create index idx_perfumes_activo on perfumes(activo);
 
 -- ==========================================
 -- 8. ROW LEVEL SECURITY
@@ -709,6 +864,7 @@ alter table pagos enable row level security;
 alter table envios enable row level security;
 alter table ubigeo enable row level security;
 alter table notificaciones enable row level security;
+alter table descuentos_volumen_consolidado enable row level security;
 -- rate_limits: RLS habilitado a propósito SIN políticas — nadie con anon/authenticated puede
 -- leer ni escribir aquí. Solo la Edge Function (con la service role, que ignora RLS) la usa.
 alter table rate_limits enable row level security;
@@ -736,6 +892,8 @@ create policy "consolidados publico" on consolidados for select using (true);
 create policy "consolidados admin escribe" on consolidados for all using (is_admin()) with check (is_admin());
 create policy "historial publico" on historial_estados_consolidado for select using (true);
 create policy "historial admin escribe" on historial_estados_consolidado for all using (is_admin()) with check (is_admin());
+create policy "descuentos volumen publico" on descuentos_volumen_consolidado for select using (true);
+create policy "descuentos volumen admin escribe" on descuentos_volumen_consolidado for all using (is_admin()) with check (is_admin());
 
 -- Reseñas: lectura pública de aprobadas, cada quien crea las suyas
 create policy "resenas aprobadas publicas" on resenas for select using (aprobado = true or id_cliente = auth.uid() or is_admin());

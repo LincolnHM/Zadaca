@@ -20,7 +20,7 @@ async function obtenerEstadisticasDashboard() {
   // Tienda Directa"): si sumaran también los de Consolidado, el número no cuadraría con lo
   // que el admin ve al hacer clic en "Ver todos" desde acá.
   const [pedidos, pedidosHoy, pagosSemana, pedidosPorConfirmar, consolidados, reservasPendientes, cotizacionesPendientes, resenasPendientes, stockBajo, productosSinMargen] = await Promise.all([
-    supabaseClient.from('pedidos').select('monto_total, estado_pago', { count: 'exact' }).eq('tipo_pedido', 'Directo_Tienda'),
+    supabaseClient.from('pedidos').select('monto_adelanto_pagado', { count: 'exact' }).eq('tipo_pedido', 'Directo_Tienda'),
     supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').gte('fecha_creacion', inicioHoy.toISOString()),
     supabaseClient.from('pagos').select('monto').eq('estado_pago', 'Aprobado').gte('fecha_pago', inicioSemana.toISOString()),
     supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').in('estado_pago', ['Pendiente', 'Parcial']),
@@ -32,9 +32,10 @@ async function obtenerEstadisticasDashboard() {
     supabaseClient.from('perfumes').select('id', { count: 'exact' }).eq('margen_aplicado', false),
   ]);
 
-  const ingresos = (pedidos.data || [])
-    .filter((p) => p.estado_pago === 'Completado')
-    .reduce((acc, p) => acc + Number(p.monto_total), 0);
+  // Suma lo realmente cobrado (monto_adelanto_pagado), no monto_total filtrado a "Completado"
+  // -- así los pedidos con pago Parcial también aportan al total en vez de contar como 0 (ver
+  // el mismo criterio ya usado en obtenerContabilidadConsolidado más abajo).
+  const ingresos = (pedidos.data || []).reduce((acc, p) => acc + Number(p.monto_adelanto_pagado || 0), 0);
 
   const ingresosSemana = (pagosSemana.data || []).reduce((acc, p) => acc + Number(p.monto), 0);
 
@@ -415,11 +416,12 @@ function formatearEntrega(dir) {
 }
 
 async function obtenerFilasImpresionConsolidado(idConsolidado) {
-  const { count: pedidosCount } = await supabaseClient
+  const { count: pedidosCount, error: errorConteo } = await supabaseClient
     .from('pedidos')
     .select('id', { count: 'exact', head: true })
     .eq('id_consolidado_asociado', idConsolidado)
     .eq('tipo_pedido', 'Consolidado');
+  if (errorConteo) throw new Error(errorConteo.message);
 
   if (pedidosCount > 0) {
     const { data, error } = await supabaseClient

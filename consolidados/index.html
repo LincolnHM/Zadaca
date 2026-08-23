@@ -52,41 +52,17 @@
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/api.js"></script>
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/main.js"></script>
   <script>
-    const ESTADOS_LEGIBLES = {
-      Borrador: 'Próximamente', Abierto: 'Abierto', Cerrado_Procesando: 'Cerrado — Procesando',
-      Comprado_En_Transito: 'En tránsito', En_Aduanas: 'En aduanas', En_Almacen_Local: 'En almacén local',
-      Finalizado: 'Finalizado', Cancelado: 'Cancelado',
-    };
     document.addEventListener('DOMContentLoaded', async () => {
       await iniciarLayout('consolidados/');
       const mount = document.getElementById('grid-consolidados');
       if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>'; return; }
       try {
         const consolidados = (await obtenerConsolidados()).filter((c) => c.estado === 'Abierto');
-        mount.innerHTML = consolidados.length ? consolidados.map(tarjetaConsolidadoCompleta).join('') : '<div class="empty-state">No hay consolidados abiertos por el momento. Vuelve pronto.</div>';
+        mount.innerHTML = consolidados.length ? consolidados.map(tarjetaConsolidado).join('') : '<div class="empty-state">No hay consolidados abiertos por el momento. Vuelve pronto.</div>';
       } catch (err) {
         mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
       }
     });
-    function tarjetaConsolidadoCompleta(c) {
-      const fechaCierre = new Date(c.fecha_cierre_programada);
-      const cierre = fechaCierre.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
-      const diasRestantes = Math.ceil((fechaCierre.getTime() - Date.now()) / 86400000);
-      const vigente = c.estado === 'Abierto' && diasRestantes > 0;
-      const cuentaRegresiva = vigente
-        ? ` &middot; <strong style="color:var(--color-gold)">${diasRestantes === 1 ? 'Cierra mañana' : `Quedan ${diasRestantes} días`}</strong>`
-        : '';
-      return `
-        <a href="https://lincolnhm.github.io/Zadaca/consolidado/?id=${c.id}" class="consolidado-card">
-          <span class="status-pill">${ESTADOS_LEGIBLES[c.estado] || c.estado}</span>
-          <h3>${escapeHtml(c.codigo_campana)}</h3>
-          <div class="cc-dates">Cierra el ${cierre}${cuentaRegresiva}</div>
-          <div class="progress-track"><div class="progress-fill" style="width:${c.porcentaje_avance}%"></div></div>
-          <div class="progress-label"><span>${c.porcentaje_avance}% del mínimo alcanzado</span></div>
-          <span class="link-arrow">Ver detalle &rarr;</span>
-        </a>
-      `;
-    }
   </script>
 </body>
 </html>

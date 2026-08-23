@@ -45,7 +45,82 @@ async function iniciarLayout(activo) {
   renderWhatsappFloat();
   activarRevelado();
   activarScrollHeader();
+  actualizarAnnounceBar();
   await actualizarEstadoSesionHeader();
+}
+
+const ESTADOS_CONSOLIDADO_LEGIBLES = {
+  Borrador: 'Próximamente', Abierto: 'Abierto', Cerrado_Procesando: 'Cerrado — Procesando',
+  Comprado_En_Transito: 'En tránsito', En_Aduanas: 'En aduanas', En_Almacen_Local: 'En almacén local',
+  Finalizado: 'Finalizado', Cancelado: 'Cancelado',
+};
+
+// El negocio no quiere mostrarle al público cuántas unidades lleva reservadas un consolidado
+// (antes cada tarjeta mostraba una barra de progreso + "% del mínimo alcanzado"). De cara al
+// cliente el único indicador de qué tan viva sigue una campaña ahora es si está Abierta y
+// cuánto tiempo le queda -- la cantidad real solo se ve en el panel admin (admin.js sigue
+// mostrando unidades/porcentaje ahí, ese cálculo no se tocó).
+function calcularTiempoRestanteConsolidado(fechaCierreProgramada) {
+  const cierre = new Date(fechaCierreProgramada);
+  const msRestante = cierre.getTime() - Date.now();
+  const vencido = msRestante <= 0;
+  const dias = Math.floor(msRestante / 86400000);
+  const horas = Math.max(1, Math.round(msRestante / 3600000));
+  const texto = vencido
+    ? 'Cerrado'
+    : dias >= 1
+      ? `Queda${dias === 1 ? '' : 'n'} ${dias} día${dias === 1 ? '' : 's'}`
+      : `Queda${horas === 1 ? '' : 'n'} ${horas} hora${horas === 1 ? '' : 's'}`;
+  return { cierre, vencido, dias, horas, texto };
+}
+
+// Lo que de verdad cierra una campaña es la fecha límite, no solo el estado que el admin le
+// puso -- si se olvida de cambiar el estado el día del cierre programado, esto igual la trata
+// como cerrada de cara al cliente (el servidor la rechazaría de todos modos, ver api.js).
+function consolidadoEstaAbierto(c) {
+  return c.estado === 'Abierto' && !calcularTiempoRestanteConsolidado(c.fecha_cierre_programada).vencido;
+}
+
+// Tarjeta de consolidado compartida por home.js y consolidados/index.html (antes cada página
+// tenía su propia copia casi idéntica, y habían divergido: una mostraba el estado crudo de la
+// base de datos y la otra ya lo traducía con ESTADOS_LEGIBLES). Sin barra de progreso ni %:
+// solo el estado y el tiempo que le queda.
+function tarjetaConsolidado(c) {
+  const abierto = consolidadoEstaAbierto(c);
+  const { cierre, texto: cuentaRegresiva } = calcularTiempoRestanteConsolidado(c.fecha_cierre_programada);
+  const cierreTexto = cierre.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
+  return `
+    <a href="${SITE_ROOT}consolidado/?id=${c.id}" class="consolidado-card">
+      <span class="status-pill">${ESTADOS_CONSOLIDADO_LEGIBLES[c.estado] || c.estado}</span>
+      <h3>${escapeHtml(c.codigo_campana)}</h3>
+      <div class="cc-dates">Cierra el ${cierreTexto}</div>
+      ${abierto ? `<div class="cc-countdown">${cuentaRegresiva} para reservar</div>` : ''}
+      <span class="link-arrow">Ver detalle &rarr;</span>
+    </a>
+  `;
+}
+
+// Franja superior del header: por defecto un mensaje genérico, pero si hay algún consolidado
+// Abierto lo reemplaza por un anuncio con el nombre de la campaña y el tiempo que le queda,
+// linkeado directo a esa campaña -- así el cliente ve de entrada, en cualquier página del
+// sitio, que hay una compra grupal activa sin tener que navegar a buscarla. Si falla la
+// consulta o no hay ninguna abierta, se queda con el mensaje genérico (no es crítico).
+async function actualizarAnnounceBar() {
+  const bar = document.getElementById('announce-bar');
+  if (!bar || !SUPABASE_CONFIGURADO) return;
+  try {
+    const consolidados = await obtenerConsolidados();
+    const activos = consolidados
+      .filter(consolidadoEstaAbierto)
+      .sort((a, b) => new Date(a.fecha_cierre_programada) - new Date(b.fecha_cierre_programada));
+    if (!activos.length) return;
+    const c = activos[0];
+    const { texto } = calcularTiempoRestanteConsolidado(c.fecha_cierre_programada);
+    const extra = activos.length > 1 ? ` (y ${activos.length - 1} campaña${activos.length - 1 === 1 ? '' : 's'} más abierta${activos.length - 1 === 1 ? '' : 's'})` : '';
+    bar.innerHTML = `<a href="${SITE_ROOT}consolidado/?id=${c.id}">CONSOLIDADO ABIERTO: ${escapeHtml(c.codigo_campana)}${extra} &mdash; ${texto} para reservar &rarr;</a>`;
+  } catch {
+    /* se queda con el mensaje genérico del HTML -- no es crítico para el resto del header */
+  }
 }
 
 // Le agrega la clase "is-scrolled" al header apenas se baja de los primeros ~30px (más blur y
@@ -110,7 +185,7 @@ function renderHeaderEstatico(activo) {
   const mount = document.getElementById('site-header');
   if (!mount) return;
   mount.innerHTML = `
-    <div class="announce-bar">ENVÍOS A TODO EL PERÚ &mdash; RESERVA TU PERFUME EN NUESTROS CONSOLIDADOS</div>
+    <div class="announce-bar" id="announce-bar">ENVÍOS A TODO EL PERÚ &mdash; RESERVA TU PERFUME EN NUESTROS CONSOLIDADOS</div>
     <header class="site-header">
       <div class="header-inner container">
         <a href="${SITE_ROOT}" class="brand">
@@ -275,7 +350,7 @@ async function cargarNotificacionesDropdown() {
   try {
     const notificaciones = await obtenerNotificaciones({ limite: 10 });
     mount.innerHTML = notificaciones.length ? notificaciones.map((n) => `
-      <button type="button" class="notif-item ${n.leido ? '' : 'notif-item-nuevo'}" data-id="${n.id}" data-url="${n.url_destino ? SITE_ROOT + n.url_destino : ''}">
+      <button type="button" class="notif-item ${n.leido ? '' : 'notif-item-nuevo'}" data-id="${n.id}" data-url="${n.url_destino ? escapeHtml(SITE_ROOT + n.url_destino) : ''}">
         <strong>${escapeHtml(n.titulo)}</strong>
         <span>${escapeHtml(n.mensaje)}</span>
         <time>${new Date(n.fecha_creacion).toLocaleDateString('es-PE', { day: 'numeric', month: 'short' })}</time>

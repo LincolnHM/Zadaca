@@ -49,11 +49,31 @@ async function cerrarSesion() {
   window.location.href = SITE_ROOT;
 }
 
+// Dispara el correo de recuperación que ya trae Supabase por defecto (no necesita SMTP ni
+// Resend configurado aparte -- eso es solo para notify-email, ver README). El link del correo
+// vuelve acá con un token que dispara el evento 'PASSWORD_RECOVERY' (ver cuenta.js), donde se
+// pide la contraseña nueva.
+async function solicitarRecuperacionContrasena(correo) {
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(correo, {
+    redirectTo: `${SITE_ROOT}cuenta/?modo=restablecer`,
+  });
+  if (error) throw new Error(traducirErrorAuth(error));
+}
+
+// Sirve para dos casos: completar la recuperación (sesión temporal que crea Supabase al abrir
+// el link del correo) y cambiar la contraseña estando ya logueado normalmente -- en ambos
+// casos es la misma llamada, Supabase no pide la contraseña anterior.
+async function cambiarContrasena(nuevaContrasena) {
+  const { error } = await supabaseClient.auth.updateUser({ password: nuevaContrasena });
+  if (error) throw new Error(traducirErrorAuth(error));
+}
+
 function traducirErrorAuth(error) {
   const msg = error.message || '';
   if (msg.includes('Invalid login credentials')) return 'Correo o contraseña incorrectos';
   if (msg.includes('User already registered')) return 'Ya existe una cuenta con ese correo';
   if (msg.includes('Password should be at least')) return 'La contraseña debe tener al menos 6 caracteres';
+  if (msg.includes('security purposes') || msg.includes('rate limit')) return 'Ya pediste esto hace poco -- espera unos minutos antes de volver a intentar.';
   return msg || 'Ocurrió un error inesperado';
 }
 
@@ -75,6 +95,14 @@ function escaparFiltroSupabase(texto) {
   return String(texto).replace(/[,()]/g, (c) => `\\${c}`);
 }
 
+// Columnas que puede ver CUALQUIERA (anon incluido) en las consultas públicas de catálogo.
+// A propósito NO incluye costo_importacion_pen/usd ni margen_aplicado -- esos son datos
+// internos del admin (ver comentario en schema.sql), pero un `select('*')` los manda igual en
+// la respuesta JSON aunque la UI nunca los pinte: cualquiera que abra el Network tab del
+// navegador los puede leer. RLS es a nivel de fila, no de columna, así que la única forma de
+// no filtrarlos es no pedirlos.
+const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa';
+
 // soloConStock=true es el catálogo de TIENDA FÍSICA: solo perfumes con stock_fisico > 0 (lo
 // que el admin cargó en "Stock físico" por producto). Usa !inner para forzar el join con
 // inventario, así el .gt() puede filtrar filas del catálogo, no solo del inventario embebido
@@ -85,7 +113,7 @@ function escaparFiltroSupabase(texto) {
 async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12, soloConStock = false } = {}) {
   let query = supabaseClient
     .from('perfumes')
-    .select(soloConStock ? '*, inventario!inner(stock_disponible)' : '*, inventario(stock_disponible)', { count: 'exact' })
+    .select(soloConStock ? `${CAMPOS_PRODUCTO_PUBLICO}, inventario!inner(stock_disponible)` : `${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`, { count: 'exact' })
     .eq('activo', true);
 
   if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
@@ -129,7 +157,7 @@ function aplicarOrden(query, orden, columnaPrecio) {
 // precio_tienda_regular — son dos catálogos con precios independientes (ver schema.sql,
 // precio_consolidado_fijo <= precio_tienda_regular no implica que sean el mismo número).
 async function obtenerProductosConsolidado({ genero, marca, familia, tipo_casa, busqueda, orden, pagina = 1, porPagina = 12 } = {}) {
-  let query = supabaseClient.from('perfumes').select('*', { count: 'exact' }).eq('activo', true);
+  let query = supabaseClient.from('perfumes').select(CAMPOS_PRODUCTO_PUBLICO, { count: 'exact' }).eq('activo', true);
 
   if (genero) query = query.eq('genero', genero);
   if (marca) query = query.eq('marca', marca);
@@ -157,7 +185,10 @@ async function obtenerFiltrosCatalogo() {
   const { data: marcasData } = await supabaseClient.from('perfumes').select('marca').eq('activo', true);
   const { data: familiasData } = await supabaseClient.from('perfumes').select('familia_olfativa').eq('activo', true).not('familia_olfativa', 'is', null);
   const marcas = [...new Set((marcasData || []).map((r) => r.marca))].sort();
-  const familias = [...new Set((familiasData || []).map((r) => r.familia_olfativa))].sort();
+  // .filter(Boolean) además del filtro "is not null" de la consulta: familia_olfativa es texto
+  // libre en el form de admin, así que puede quedar guardada como '' (no NULL) -- sin esto,
+  // esa fila generaba una opción de filtro en blanco, sin texto, en el dropdown del catálogo.
+  const familias = [...new Set((familiasData || []).map((r) => r.familia_olfativa).filter(Boolean))].sort();
   return { marcas, familias };
 }
 
@@ -189,7 +220,7 @@ async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = fals
 async function obtenerProductoPorSlug(slug) {
   const { data: producto, error } = await supabaseClient
     .from('perfumes')
-    .select('*, inventario(stock_disponible)')
+    .select(`${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`)
     .eq('slug', slug)
     .eq('activo', true)
     .single();
@@ -365,7 +396,7 @@ async function obtenerUbigeos() {
 
 async function crearPedido(idDireccion) {
   const { data, error } = await supabaseClient.rpc('crear_pedido_directo', { p_id_direccion: idDireccion });
-  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
+  if (error) throw new Error(error.message);
   return data;
 }
 
@@ -463,7 +494,7 @@ async function reservarEnConsolidado(idConsolidado, idProducto, cantidad, idDire
     p_cantidad: cantidad,
     p_id_direccion: idDireccion,
   });
-  if (error) throw new Error(error.message.replace(/^.*?:\s*/, ''));
+  if (error) throw new Error(error.message);
   const { data: detalle } = await supabaseClient.from('detalle_consolidado').select('estado_item').eq('id', idDetalle).single();
   return detalle?.estado_item || 'Reservado';
 }
@@ -661,8 +692,12 @@ function formatoMoneda(valor) {
   return `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+// Redondeado a 2 decimales por unidad -- crear_pedido_directo (schema.sql) hace exactamente
+// este mismo round(precio, 2) por ítem ANTES de multiplicar por cantidad. Sin este redondeo
+// acá, el total que el cliente ve en el carrito podía quedar unos centavos distinto del
+// monto_total real del pedido que se crea al hacer checkout (se nota más con cantidad > 1).
 function precioFinal(precioRegular, descuentoPorcentaje) {
-  return Number(precioRegular) * (1 - Number(descuentoPorcentaje || 0) / 100);
+  return Math.round(Number(precioRegular) * (1 - Number(descuentoPorcentaje || 0) / 100) * 100) / 100;
 }
 
 function escapeHtml(texto) {

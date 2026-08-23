@@ -269,10 +269,16 @@ function conectarEventosProductos() {
     btn.addEventListener('click', async () => {
       const card = btn.closest('.admin-card');
       const id = Number(card.dataset.id);
+      const precioTienda = Number(card.querySelector('.input-precio-tienda').value);
+      const precioConsolidado = Number(card.querySelector('.input-precio-consolidado').value);
+      if (precioConsolidado > precioTienda) {
+        mostrarToast('El precio consolidado no puede ser mayor al precio tienda', 'error');
+        return;
+      }
       try {
         await actualizarProducto(id, {
-          precio_tienda_regular: Number(card.querySelector('.input-precio-tienda').value),
-          precio_consolidado_fijo: Number(card.querySelector('.input-precio-consolidado').value),
+          precio_tienda_regular: precioTienda,
+          precio_consolidado_fijo: precioConsolidado,
           estado: card.querySelector('.select-estado').value,
           es_nuevo: card.querySelector('.chk-nuevo').checked,
           es_bestseller: card.querySelector('.chk-bestseller').checked,
@@ -346,6 +352,11 @@ document.addEventListener('DOMContentLoaded', () => {
     data.es_liquidacion = e.target.elements.es_liquidacion.checked;
     data.precio_liquidacion = data.precio_liquidacion ? Number(data.precio_liquidacion) : null;
     data.liquidacion_unidad_minima = Number(data.liquidacion_unidad_minima || 1);
+    // El <select> de "Tipo de Casa" nace en "Sin definir" (value=""), pero la constraint de la
+    // base (chk en perfumes.tipo_casa) solo acepta 'Árabe'/'Diseñador'/'Nicho' o NULL -- un
+    // string vacío no pasa el check y el insert/update fallaba con un error crudo de Postgres
+    // cada vez que se guardaba un producto sin clasificar.
+    data.tipo_casa = data.tipo_casa || null;
     if (data.precio_consolidado_fijo > data.precio_tienda_regular) {
       mostrarToast('El precio consolidado no puede ser mayor al precio tienda', 'error');
       return;
@@ -758,7 +769,7 @@ function conectarEventosConsolidados(consolidados) {
                   <td>${escapeHtml(r.marca)} — ${escapeHtml(r.nombre)}</td>
                   <td><input type="number" min="1" class="input-cantidad-reserva" value="${r.cantidad}" style="width:56px; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 8px; border-radius:3px;" /></td>
                   <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
-                  <td><select class="status-select select-estado-reserva">
+                  <td><select class="status-select select-estado-reserva" ${r.estado_item === 'Convertido_A_Pedido' ? 'disabled title="Ya se generó un pedido para esta reserva -- revertirla crearía un pedido duplicado al volver a generar pedidos"' : ''}>
                     ${ESTADOS_RESERVA.map((e) => `<option value="${e}" ${r.estado_item === e ? 'selected' : ''}>${e}</option>`).join('')}
                   </select></td>
                 </tr>
@@ -966,11 +977,22 @@ function imprimirListaConsolidado(filas, nombreCampana) {
   ventana.document.close();
 }
 
+// Excel/Sheets trata cualquier celda que empiece con =, +, - o @ como fórmula -- Cliente y
+// Correo salen de texto libre que el cliente escribió al registrarse, así que sin este escape
+// alguien podría meter una "fórmula" que se ejecute en la computadora del admin al abrir el
+// .xlsx exportado (inyección de fórmulas, el equivalente a inyección CSV).
+function sanitizarCeldaExcel(valor) {
+  return typeof valor === 'string' && /^[=+\-@\t\r]/.test(valor) ? `'${valor}` : valor;
+}
+function sanitizarFilasExcel(filas) {
+  return filas.map((fila) => Object.fromEntries(Object.entries(fila).map(([k, v]) => [k, sanitizarCeldaExcel(v)])));
+}
+
 async function exportarConsolidadoExcel(idConsolidado) {
   const filas = await obtenerFilasExportacionConsolidado(idConsolidado);
   if (!filas.length) { mostrarToast('No hay pedidos generados todavía para exportar', 'error'); return; }
   const nombreCampana = document.getElementById('contabilidad-select-consolidado').selectedOptions[0]?.text.split(' — ')[0] || `consolidado-${idConsolidado}`;
-  const hoja = XLSX.utils.json_to_sheet(filas);
+  const hoja = XLSX.utils.json_to_sheet(sanitizarFilasExcel(filas));
   hoja['!cols'] = [{ wch: 10 }, { wch: 22 }, { wch: 13 }, { wch: 24 }, { wch: 16 }, { wch: 28 }, { wch: 9 }, { wch: 13 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 13 }, { wch: 13 }, { wch: 11 }];
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, 'Pedidos');
@@ -996,7 +1018,7 @@ async function cargarTodasLasReservas() {
         <td><a href="${SITE_ROOT}consolidado/?id=${r.id_consolidado}" target="_blank" style="color:var(--color-gold)">${escapeHtml(r.campana || '—')}</a></td>
         <td>${r.cantidad}</td>
         <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
-        <td><select class="status-select select-estado-reserva-global">${ESTADOS_RESERVA.map((e) => `<option value="${e}" ${r.estado_item === e ? 'selected' : ''}>${e}</option>`).join('')}</select></td>
+        <td><select class="status-select select-estado-reserva-global" ${r.estado_item === 'Convertido_A_Pedido' ? 'disabled title="Ya se generó un pedido para esta reserva -- revertirla crearía un pedido duplicado al volver a generar pedidos"' : ''}>${ESTADOS_RESERVA.map((e) => `<option value="${e}" ${r.estado_item === e ? 'selected' : ''}>${e}</option>`).join('')}</select></td>
         <td><span class="status-tag">${escapeHtml(r.estado_consolidado || '')}</span></td>
       </tr>
     `).join('') : '<tr><td colspan="7" class="admin-empty">Sin reservas.</td></tr>';

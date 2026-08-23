@@ -4,6 +4,7 @@
 // de separar las dos consultas.
 let paginaActual = 1;
 let generoActivo = '';
+let cargaProductosSeq = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await iniciarLayout('catalogo-consolidado/');
@@ -285,12 +286,15 @@ function leerFiltros() {
 async function cargarProductos() {
   const mount = document.getElementById('grid-catalogo');
   mount.innerHTML = '<div class="loading-state">Cargando productos…</div>';
+  const idSolicitud = ++cargaProductosSeq;
   try {
     const { productos, total, totalPaginas } = await obtenerProductosConsolidado(leerFiltros());
+    if (idSolicitud !== cargaProductosSeq) return;
     document.getElementById('resultado-conteo').textContent = `${total} producto${total === 1 ? '' : 's'} encontrados`;
     mount.innerHTML = productos.length ? productos.map(tarjetaProductoConsolidado).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';
     renderPaginacion(totalPaginas);
   } catch (err) {
+    if (idSolicitud !== cargaProductosSeq) return;
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
 }

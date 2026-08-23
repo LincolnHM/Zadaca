@@ -1,11 +1,5 @@
 let CONSOLIDADO_ID = null;
 
-const ESTADOS_LEGIBLES = {
-  Borrador: 'Próximamente', Abierto: 'Abierto', Cerrado_Procesando: 'Cerrado — Procesando',
-  Comprado_En_Transito: 'En tránsito', En_Aduanas: 'En aduanas', En_Almacen_Local: 'En almacén local',
-  Finalizado: 'Finalizado', Cancelado: 'Cancelado',
-};
-
 document.addEventListener('DOMContentLoaded', async () => {
   await iniciarLayout('catalogo-consolidado/');
   if (!SUPABASE_CONFIGURADO) {
@@ -26,45 +20,32 @@ async function cargarConsolidado() {
     document.getElementById('page-title').textContent = `${c.codigo_campana} — Maison Zadaca`;
     document.getElementById('crumb-codigo').textContent = c.codigo_campana;
     document.getElementById('og-title').setAttribute('content', `${c.codigo_campana} — Maison Zadaca`);
-    document.getElementById('og-description').setAttribute('content', `${c.total_unidades_acumuladas} de ${c.minimo_unidades} unidades reservadas. Compra grupal de perfumes importados a precio preferencial.`);
+    const estadoTexto = consolidadoEstaAbierto(c) ? 'Abierto' : (ESTADOS_CONSOLIDADO_LEGIBLES[c.estado] || c.estado);
+    document.getElementById('og-description').setAttribute('content', `${estadoTexto} — compra grupal de perfumes importados a precio preferencial.`);
     renderConsolidado(c);
   } catch (err) {
     document.getElementById('detalle-mount').innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
   }
 }
 
-// Lo que de verdad cierra una campaña es la FECHA límite, no solo el estado que el admin le
-// puso — antes esta página solo miraba c.estado === 'Abierto', así que si el admin se
-// olvidaba de cambiar el estado el día del cierre programado, el formulario de reserva
-// seguía funcionando indefinidamente (aunque el servidor ya lo rechazaría, ver api.js).
-function calcularEstadoTiempo(c) {
-  const cierre = new Date(c.fecha_cierre_programada);
-  const vencido = cierre.getTime() <= Date.now();
-  const diasRestantes = Math.ceil((cierre.getTime() - Date.now()) / 86400000);
-  return { cierre, vencido, diasRestantes, abierto: c.estado === 'Abierto' && !vencido };
-}
-
 function renderConsolidado(c) {
-  const { cierre, vencido, diasRestantes, abierto } = calcularEstadoTiempo(c);
+  const abierto = consolidadoEstaAbierto(c);
+  const { cierre, vencido, texto } = calcularTiempoRestanteConsolidado(c.fecha_cierre_programada);
   const cierreTexto = cierre.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
-  const cuentaRegresiva = abierto
-    ? ` &middot; <strong style="color:var(--color-gold)">${diasRestantes <= 0 ? 'Cierra hoy' : `Queda${diasRestantes === 1 ? '' : 'n'} ${diasRestantes} día${diasRestantes === 1 ? '' : 's'}`}</strong>`
-    : '';
+  const cuentaRegresiva = abierto ? ` &middot; <strong style="color:var(--color-gold)">${texto}</strong>` : '';
 
   document.getElementById('detalle-mount').innerHTML = `
     <div class="container consolidado-layout">
       <div>
-        <span class="status-pill">${ESTADOS_LEGIBLES[c.estado] || c.estado}</span>
+        <span class="status-pill">${ESTADOS_CONSOLIDADO_LEGIBLES[c.estado] || c.estado}</span>
         <h1 style="margin:14px 0 8px;">${escapeHtml(c.codigo_campana)}</h1>
         <p style="color:var(--color-text-faint); font-size:0.85rem; margin-bottom:24px;">Cierre programado: ${cierreTexto}${cuentaRegresiva}</p>
-        <div class="progress-track"><div class="progress-fill" style="width:${c.porcentaje_avance}%"></div></div>
-        <div class="progress-label"><span>${c.porcentaje_avance}% del mínimo alcanzado</span></div>
 
         <h3 style="margin-top:40px; font-size:1.2rem;">Seguimiento de la campaña</h3>
         <div class="timeline" style="margin-top:20px;">
           ${c.historial.map((h) => `
             <div class="timeline-item">
-              <div class="t-estado">${ESTADOS_LEGIBLES[h.estado] || h.estado}</div>
+              <div class="t-estado">${ESTADOS_CONSOLIDADO_LEGIBLES[h.estado] || h.estado}</div>
               <div class="t-fecha">${new Date(h.fecha_evento).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
               ${h.descripcion_publica ? `<p>${escapeHtml(h.descripcion_publica)}</p>` : ''}
             </div>

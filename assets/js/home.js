@@ -22,7 +22,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   cargarExplorar();
   cargarSobreNosotros();
   cargarMarcasMarquee();
+  cargarClientesReales();
+  activarLightbox();
 });
+
+// Prueba social real (14 fotos de clientes/tienda en assets/img/clientes/, no depende de
+// Supabase) -- fijo en vez de leído de una carpeta porque el sitio es estático y no hay forma
+// de listar un directorio desde el navegador; si se agregan más fotos, hay que sumarlas acá.
+const TOTAL_FOTOS_CLIENTES = 14;
+
+function cargarClientesReales() {
+  const mount = document.getElementById('grid-clientes');
+  if (!mount) return;
+  const fotos = Array.from({ length: TOTAL_FOTOS_CLIENTES }, (_, i) => `${SITE_ROOT}assets/img/clientes/cliente-${String(i + 1).padStart(2, '0')}.jpg`);
+  mount.innerHTML = fotos.map((src) => `
+    <button type="button" class="cliente-foto" data-src="${src}" aria-label="Ver foto en grande">
+      <img src="${src}" alt="Cliente de Maison Zadaca con su pedido" loading="lazy" />
+    </button>
+  `).join('');
+}
+
+// Lightbox simple: clic en cualquier ".cliente-foto" agranda esa imagen sobre un fondo oscuro;
+// clic afuera, en la X, o Escape la cierra. Sin librería -- son 14 fotos fijas, no justifica
+// sumar una dependencia nueva solo para esto.
+function activarLightbox() {
+  const lightbox = document.getElementById('lightbox');
+  const img = document.getElementById('lightbox-img');
+  if (!lightbox) return;
+
+  document.addEventListener('click', (e) => {
+    const foto = e.target.closest('.cliente-foto');
+    if (!foto) return;
+    img.src = foto.dataset.src;
+    lightbox.hidden = false;
+  });
+
+  const cerrar = () => { lightbox.hidden = true; img.src = ''; };
+  document.getElementById('lightbox-close').addEventListener('click', cerrar);
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) cerrar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !lightbox.hidden) cerrar(); });
+}
 
 // Franja de marcas disponibles (prueba social real, no inventada -- son las marcas que ya
 // están en el catálogo activo). Se duplica la lista una vez para poder animar un scroll
@@ -72,20 +111,6 @@ async function cargarConsolidados() {
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
-}
-
-function tarjetaConsolidado(c) {
-  const cierre = new Date(c.fecha_cierre_programada).toLocaleDateString('es-PE', { day: 'numeric', month: 'long' });
-  return `
-    <a href="${SITE_ROOT}consolidado/?id=${c.id}" class="consolidado-card">
-      <span class="status-pill">${c.estado}</span>
-      <h3>${escapeHtml(c.codigo_campana)}</h3>
-      <div class="cc-dates">Cierra el ${cierre}</div>
-      <div class="progress-track"><div class="progress-fill" style="width:${c.porcentaje_avance}%"></div></div>
-      <div class="progress-label"><span>${c.porcentaje_avance}% del mínimo alcanzado</span></div>
-      <span class="link-arrow">Ver detalle &rarr;</span>
-    </a>
-  `;
 }
 
 /* ---------- "Sobre Maison Zadaca": stats con conteo animado ---------- */

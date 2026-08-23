@@ -1,5 +1,6 @@
 let paginaActual = 1;
 let generoActivo = '';
+let cargaProductosSeq = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await iniciarLayout('catalogo/');
@@ -293,15 +294,22 @@ function leerFiltros() {
   };
 }
 
+// Con conexión lenta, clics rápidos entre filtros pueden disparar varias consultas a la vez;
+// sin este guard de secuencia, la respuesta de una petición vieja que llega después que la
+// nueva puede pisar en pantalla el resultado del filtro que el cliente sí quería ver (mismo
+// patrón que ya usa el buscador en vivo, ver sugerenciasSeq).
 async function cargarProductos() {
   const mount = document.getElementById('grid-catalogo');
   mount.innerHTML = '<div class="loading-state">Cargando productos…</div>';
+  const idSolicitud = ++cargaProductosSeq;
   try {
     const { productos, total, totalPaginas } = await obtenerProductos(leerFiltros());
+    if (idSolicitud !== cargaProductosSeq) return;
     document.getElementById('resultado-conteo').textContent = `${total} producto${total === 1 ? '' : 's'} encontrados`;
     mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';
     renderPaginacion(totalPaginas);
   } catch (err) {
+    if (idSolicitud !== cargaProductosSeq) return;
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
 }
