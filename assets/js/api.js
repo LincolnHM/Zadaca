@@ -28,11 +28,15 @@ async function obtenerPerfilActual() {
   return { ...data, correo: session.user.email };
 }
 
+// emailRedirectTo explícito: sin esto, Supabase manda al cliente que confirma su correo al
+// "Site URL" configurado en el dashboard (Authentication -> URL Configuration) -- ese campo
+// suele quedar en algo tipo localhost desde que se probó el proyecto la primera vez, así que
+// sin este parámetro un cliente real terminaba en una URL muerta después de confirmar.
 async function registrarUsuario({ nombres, apellidos, dni_ce_ruc, telefono, correo, contrasena }) {
   const { data, error } = await supabaseClient.auth.signUp({
     email: correo,
     password: contrasena,
-    options: { data: { nombres, apellidos, dni_ce_ruc, telefono } },
+    options: { data: { nombres, apellidos, dni_ce_ruc, telefono }, emailRedirectTo: `${SITE_ROOT}cuenta/` },
   });
   if (error) throw new Error(traducirErrorAuth(error));
   return data;
