@@ -96,7 +96,13 @@ async function cambiarCantidad(id, nuevaCantidad, minimo = 1, maximo = 99) {
   }
   try {
     await actualizarCantidadCarrito(id, nuevaCantidad);
-    await cargarCarrito();
+    // No se vuelve a pedir el carrito al servidor acá: un GET inmediatamente después de este
+    // update a veces trae de vuelta una respuesta vieja (cacheada por el navegador/CDN, misma
+    // URL que la del último GET), y el producto parecía "no actualizarse". Como el update de
+    // arriba ya confirmó que se guardó, alcanza con reflejarlo en el estado local.
+    const item = CARRITO_ITEMS.find((i) => i.id === id);
+    if (item) item.cantidad = nuevaCantidad;
+    renderCarrito();
     actualizarEstadoSesionHeader();
   } catch (err) {
     mostrarToast(err.message, 'error');
@@ -107,7 +113,10 @@ async function eliminarItem(id) {
   try {
     await eliminarDelCarrito(id);
     mostrarToast('Producto eliminado del carrito');
-    await cargarCarrito();
+    // Mismo motivo que en cambiarCantidad(): no se vuelve a pedir el carrito al servidor,
+    // se quita el item del estado local ya que el delete de arriba confirmó el borrado.
+    CARRITO_ITEMS = CARRITO_ITEMS.filter((i) => i.id !== id);
+    renderCarrito();
     actualizarEstadoSesionHeader();
   } catch (err) {
     mostrarToast(err.message, 'error');
