@@ -17,9 +17,9 @@
   --color-gold: #a9822f;
   --color-gold-light: #cda856;
   --color-gold-dim: #6b3220;
-  --color-text: #211d17;
-  --color-text-muted: #6b6152;
-  --color-text-faint: #948a76;
+  --color-text: #17140f;
+  --color-text-muted: #4f4736;
+  --color-text-faint: #756b57;
   --color-success: #4f8c58;
   --color-danger: #b0473a;
   --color-whatsapp: #25d366;
@@ -136,9 +136,17 @@ h1, h2, h3, h4 {
 #site-header { display: contents; }
 .site-header {
   position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--color-border);
-  /* Vidrio esmerilado blanco (no un color plano) para que el header se lea como una franja
-     aparte del body, sin caer en una barra oscura sobre el resto del sitio ya claro. */
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.88) 100%);
+  /* El header se mantiene oscuro (como en el tema anterior) aunque el resto del sitio ahora
+     sea blanco -- funciona como marco de marca. Redefine las variables de texto/borde SOLO
+     dentro de este scope: todo lo de abajo que ya usa var(--color-text)/--color-text-muted/
+     --color-text-faint/--color-border se lee claro sobre el fondo oscuro sin tocar esas
+     variables en el resto del sitio. */
+  --color-text: #f3efe6;
+  --color-text-muted: #a89f8d;
+  --color-text-faint: #6f6858;
+  --color-border: #2a241c;
+  color: var(--color-text);
+  background: linear-gradient(180deg, rgba(34, 18, 26, 0.95) 0%, rgba(10, 9, 8, 0.92) 100%);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   transition: background 0.35s ease, box-shadow 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease;
 }
@@ -147,10 +155,19 @@ h1, h2, h3, h4 {
    dos estados (ver nota de "Continuous Animation" -- una animación infinita ahí sería solo
    decorativa y distraería en vez de comunicar algo). */
 .site-header.is-scrolled {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(255, 255, 255, 0.95) 100%);
+  background: linear-gradient(180deg, rgba(34, 18, 26, 0.98) 0%, rgba(10, 9, 8, 0.97) 100%);
   backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-bottom-color: transparent;
-  box-shadow: 0 10px 30px rgba(30, 24, 14, 0.12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+/* El mini-carrito y las notificaciones son paneles propios, claros como el resto del sitio,
+   aunque cuelguen del header oscuro -- vuelven a las variables del tema claro acá adentro. */
+.site-header .notif-dropdown, .site-header .cart-dropdown {
+  --color-text: #17140f;
+  --color-text-muted: #4f4736;
+  --color-text-faint: #756b57;
+  --color-border: #e3ddd0;
+  color: var(--color-text);
 }
 .site-header::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
@@ -295,6 +312,13 @@ h1, h2, h3, h4 {
   */
   .site-header, .site-header.is-scrolled { backdrop-filter: none; -webkit-backdrop-filter: none; }
   .main-nav {
+    /* El panel del menú es claro (como el resto del sitio), aunque esté anidado dentro del
+       header oscuro -- vuelve acá a las variables del tema claro. */
+    --color-text: #17140f;
+    --color-text-muted: #4f4736;
+    --color-text-faint: #756b57;
+    --color-border: #e3ddd0;
+    color: var(--color-text);
     position: fixed; inset: 0 0 0 auto; width: 78%; max-width: 320px; background: var(--color-bg-alt);
     flex-direction: column; padding: 90px 28px 28px; gap: 22px; transform: translateX(100%);
     transition: transform 0.25s ease; border-left: 1px solid var(--color-border); z-index: 160;
@@ -663,16 +687,22 @@ h1, h2, h3, h4 {
 .newsletter-form button { border-radius: 0 var(--radius) var(--radius) 0; }
 
 /* ---------- Footer ---------- */
-/* Degradado suave (blanco del body -> crema) para que el footer se lea como una franja aparte
-   del contenido, con solo un resplandor bronce muy tenue de fondo -- nada oscuro como antes. */
+/* El footer se mantiene oscuro (como en el tema anterior), igual criterio que el header:
+   redefine texto/borde solo en este scope para que todo lo de abajo se lea claro sobre el
+   fondo oscuro sin tocar esas variables en el resto del sitio (ya blanco). */
 .site-footer {
   position: relative; overflow: hidden;
-  background: linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-alt) 100%);
+  --color-text: #f3efe6;
+  --color-text-muted: #a89f8d;
+  --color-text-faint: #6f6858;
+  --color-border: #2a241c;
+  color: var(--color-text);
+  background: linear-gradient(180deg, #0a0a0a 0%, #131110 45%, #22121a 100%);
   border-top: 1px solid var(--color-border); padding-top: 56px;
 }
 .site-footer::before {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(107, 50, 32, 0.1), transparent 70%);
+  background: radial-gradient(ellipse 60% 45% at 50% 0%, rgba(122, 32, 48, 0.16), transparent 70%);
 }
 .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr; gap: 32px; padding-bottom: 40px; }
 @media (max-width: 980px) { .footer-grid { grid-template-columns: 1fr 1fr 1fr; } .footer-brand { grid-column: 1 / -1; } }
