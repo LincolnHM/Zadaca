@@ -51,19 +51,19 @@
       display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer;
       color: var(--color-text); text-decoration: none;
     }
-    .search-suggest-item:hover, .search-suggest-item.is-active { background: rgba(169,130,47,0.08); }
+    .search-suggest-item:hover, .search-suggest-item.is-active { background: rgba(122,32,48,0.08); }
     .search-suggest-item img { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; background: var(--color-bg); flex-shrink: 0; }
     .search-suggest-item .fallback-icon { width: 34px; height: 34px; padding: 7px; box-sizing: border-box; color: var(--color-text-faint); flex-shrink: 0; }
     .search-suggest-item .ss-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
     .search-suggest-item .ss-marca { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-faint); }
     .search-suggest-item .ss-nombre { font-size: 0.82rem; color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .search-suggest-item .ss-precio { font-size: 0.78rem; color: var(--color-gold-light); flex-shrink: 0; white-space: nowrap; }
+    .search-suggest-item .ss-precio { font-size: 0.78rem; color: var(--color-red); font-weight: 600; flex-shrink: 0; white-space: nowrap; }
     .search-suggest-empty { padding: 14px 12px; font-size: 0.8rem; color: var(--color-text-faint); }
     .search-suggest-footer {
       display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: 0.78rem;
-      color: var(--color-gold-light); border: none; border-top: 1px solid var(--color-border); background: none; cursor: pointer;
+      color: var(--color-red); border: none; border-top: 1px solid var(--color-border); background: none; cursor: pointer;
     }
-    .search-suggest-footer:hover { background: rgba(169,130,47,0.08); }
+    .search-suggest-footer:hover { background: rgba(122,32,48,0.08); }
 
     .filter-dd { position: relative; }
     .filter-dd-btn {
@@ -91,7 +91,7 @@
     .filter-dd-search:focus { border-color: var(--color-gold); }
     .filter-dd-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; }
     .filter-option { display: flex; align-items: center; gap: 9px; font-size: 0.85rem; padding: 7px 4px; margin: 0; border-radius: 3px; color: var(--color-text-muted); cursor: pointer; }
-    .filter-option:hover { color: var(--color-text); background: rgba(169,130,47,0.08); }
+    .filter-option:hover { color: var(--color-text); background: rgba(122,32,48,0.08); }
     .filter-option input { accent-color: var(--color-gold); flex-shrink: 0; }
     .filter-dd-empty { font-size: 0.78rem; color: var(--color-text-faint); padding: 6px 4px; }
 
@@ -100,7 +100,7 @@
       /* Texto en gold-dim (no gold-light): gold-light es un dorado claro pensado para leerse
          sobre fondo oscuro -- sobre el fondo casi blanco de este chip quedaba con muy poco
          contraste. */
-      display: inline-flex; align-items: center; gap: 7px; background: rgba(169,130,47,0.1); color: var(--color-gold-dim);
+      display: inline-flex; align-items: center; gap: 7px; background: rgba(122,32,48,0.1); color: var(--color-gold-dim);
       border: 1px solid var(--color-gold-dim); padding: 6px 8px 6px 12px; border-radius: 20px; font-size: 0.74rem;
     }
     .chip button { display: flex; color: var(--color-gold-dim); opacity: 0.75; font-size: 0.95rem; line-height: 1; }

@@ -534,7 +534,7 @@ async function cargarReservas() {
               <td><a href="${SITE_ROOT}consolidado/?id=${r.id_consolidado}" style="color:var(--color-gold)">${escapeHtml(r.codigo_campana)}</a></td>
               <td>${r.cantidad}</td>
               <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
-              <td><span class="status-tag"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(169,130,47,0.15); color:var(--color-gold);"' : ''}>${escapeHtml(ESTADOS_ITEM_LEGIBLES[r.estado_item] || r.estado_item)}</span></td>
+              <td><span class="status-tag"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(122,32,48,0.15); color:var(--color-gold);"' : ''}>${escapeHtml(ESTADOS_ITEM_LEGIBLES[r.estado_item] || r.estado_item)}</span></td>
               <td><span class="status-tag">${escapeHtml(ESTADOS_CAMPANA_LEGIBLES[r.estado_consolidado] || r.estado_consolidado || '—')}</span></td>
             </tr>
           `).join('')}

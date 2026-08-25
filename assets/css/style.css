@@ -5,26 +5,39 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Tema claro: fondo blanco/crema con acento dorado (antes era negro con plata/burdeos).
-     Los nombres "gold-*" se mantienen por compatibilidad con el resto del CSS (78+
-     selectores los usan) pero ahora SÍ son tonos de dorado real: gold es el acento
-     principal (links, íconos, bordes activos), gold-light un dorado más claro (degradados,
-     hover) y gold-dim un bronce oscuro (bordes de hover, fondos con texto claro encima). */
+  /* ==========================================================
+     Marca: SOLO 2 colores, tomados del logo real (isotipo MZ) -- plata
+     metálico + burdeos oscuro. Nada de dorado inventado.
+     - --color-red: acento de UI plano (texto de marca, bordes, botones,
+       badges, hovers, focus). Es el color "en reposo" de la marca.
+     - --color-silver / --color-silver-light: SOLO para degradados y
+       animaciones (brillo del wordmark, título del hero, cifras de
+       "Sobre Nosotros", shine del botón principal al pasar el mouse) --
+       en plano, sobre el fondo blanco del sitio, la plata pierde
+       contraste para texto/bordes, así que ahí siempre se usa el rojo.
+     ========================================================== */
+  --color-red: #7a2030;
+  --color-red-light: #93293c;
+  --color-silver: #bcbac2;
+  --color-silver-light: #ece9ee;
+
   --color-bg: #ffffff;
   --color-bg-alt: #f6f2ea;
   --color-bg-card: #ffffff;
   --color-border: #e3ddd0;
-  --color-gold: #a9822f;
-  --color-gold-light: #cda856;
-  --color-gold-dim: #6b3220;
-  /* Paleta "chrome" tomada del logo real (plata metálico + burdeos oscuro de fondo) -- se usa
-     SOLO en los degradados/animaciones de marca (brillo del wordmark, título del hero, cifras
-     de "Sobre Nosotros", franja del header al hacer scroll), no como acento de UI plano: el
-     plata claro tiene poco contraste sobre el fondo blanco del sitio para links/botones/badges,
-     que siguen usando --color-gold de arriba. */
-  --color-chrome-dim: #7a2030;
-  --color-chrome: #bcbac2;
-  --color-chrome-light: #ece9ee;
+
+  /* Alias de compatibilidad: el resto del CSS (80+ selectores) sigue usando estos nombres
+     "gold-*"/"chrome-*", pero ahora apuntan a los 2 colores de arriba en vez de un dorado
+     aparte -- evita reescribir cada selector uno por uno. gold* = rojo (UI plana), chrome* =
+     plata (degradados/animaciones). Los casos puntuales donde un fondo sólido con este color
+     necesita texto claro (no el #14110c pensado para dorado claro) se corrigieron a mano donde
+     aparecían -- ver .badge-new, .pill.active, .cart-badge, .pagination button.active, etc. */
+  --color-gold: var(--color-red);
+  --color-gold-light: var(--color-silver-light);
+  --color-gold-dim: var(--color-red);
+  --color-chrome-dim: var(--color-red);
+  --color-chrome: var(--color-silver);
+  --color-chrome-light: var(--color-silver-light);
   --color-text: #17140f;
   --color-text-muted: #4f4736;
   --color-text-faint: #756b57;
@@ -108,26 +121,34 @@ h1, h2, h3, h4 {
 }
 .btn:active:not(:disabled) { transform: scale(0.97); }
 .btn-primary {
-  /* Se corta en var(--color-gold) en vez de --color-gold-dim: ese tono ahora es el burdeos
-     oscuro, y el texto encima es #14110c (casi negro) — llevar el degradado hasta el burdeos
-     le restaría contraste al texto en esa esquina del botón. */
-  background: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold) 45%, var(--color-gold) 100%);
-  color: #14110c;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset;
+  /* Rojo sólido en reposo -- la plata queda reservada al "shine" (::after) que cruza el
+     botón al pasar el mouse, en vez de ser el color de fondo todo el tiempo. */
+  position: relative; overflow: hidden;
+  background: var(--color-red);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset;
+}
+.btn-primary::after {
+  content: ''; position: absolute; top: 0; left: -75%; width: 45%; height: 100%;
+  background: linear-gradient(120deg, transparent 0%, rgba(236, 233, 238, 0.55) 50%, transparent 100%);
+  transform: skewX(-20deg); transition: left 0.55s ease;
 }
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--color-gold-light) 0%, var(--color-gold-light) 45%, var(--color-gold) 100%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 6px 22px rgba(169, 130, 47, 0.35);
+  background: var(--color-red-light);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset, 0 6px 22px rgba(122, 32, 48, 0.35);
 }
+.btn-primary:hover::after { left: 125%; }
+@media (prefers-reduced-motion: reduce) { .btn-primary::after { display: none; } }
 .btn-primary:disabled { background: var(--color-text-faint); box-shadow: none; cursor: not-allowed; }
-.btn-outline { background: transparent; color: var(--color-gold); border-color: var(--color-gold); }
-.btn-outline:hover { background: var(--color-gold); color: #14110c; }
+.btn-primary:disabled::after { display: none; }
+.btn-outline { background: transparent; color: var(--color-red); border-color: var(--color-red); }
+.btn-outline:hover { background: var(--color-red); color: #fff; }
 .btn-ghost { background: transparent; color: var(--color-text); border-color: var(--color-border); }
-.btn-ghost:hover { border-color: var(--color-gold); color: var(--color-gold); }
+.btn-ghost:hover { border-color: var(--color-red); color: var(--color-red); }
 .btn-block { width: 100%; }
 .btn-sm { padding: 9px 16px; font-size: 0.72rem; }
 .btn-danger { background: transparent; color: var(--color-danger); border-color: var(--color-danger); }
-.btn-danger:hover { background: var(--color-danger); color: #14110c; }
+.btn-danger:hover { background: var(--color-danger); color: #fff; }
 .btn-whatsapp { background: var(--color-whatsapp); color: #06210f; }
 .btn-whatsapp:hover { filter: brightness(1.1); }
 
@@ -231,7 +252,7 @@ h1, h2, h3, h4 {
 .icon-btn svg { width: 20px; height: 20px; stroke: currentColor; }
 .icon-btn:hover { color: var(--color-gold); }
 .cart-badge {
-  position: absolute; top: -8px; right: -10px; background: var(--color-gold); color: #14110c;
+  position: absolute; top: -8px; right: -10px; background: var(--color-gold); color: #fff;
   font-size: 0.65rem; font-weight: 700; min-width: 17px; height: 17px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; padding: 0 3px;
 }
@@ -274,7 +295,7 @@ h1, h2, h3, h4 {
   padding: 12px 16px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); cursor: pointer;
 }
 .notif-item:last-child { border-bottom: none; }
-.notif-item:hover { background: rgba(169,130,47,0.06); }
+.notif-item:hover { background: rgba(122,32,48,0.06); }
 .notif-item strong { color: var(--color-text); font-size: 0.85rem; }
 .notif-item span { font-size: 0.78rem; }
 .notif-item time { font-size: 0.68rem; color: var(--color-text-faint); margin-top: 2px; }
@@ -414,7 +435,7 @@ h1, h2, h3, h4 {
 }
 .hero::before {
   content: ''; position: absolute; inset: -10%; pointer-events: none; opacity: 0.5;
-  background-image: radial-gradient(rgba(169,130,47,0.18) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(122,32,48,0.18) 1px, transparent 1px);
   background-size: 26px 26px;
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
@@ -509,7 +530,7 @@ h1, h2, h3, h4 {
   transition: all 0.2s;
 }
 .pill:hover { border-color: var(--color-gold-dim); color: var(--color-text); }
-.pill.active { background: var(--color-gold); color: #14110c; border-color: var(--color-gold); font-weight: 600; }
+.pill.active { background: var(--color-gold); color: #fff; border-color: var(--color-gold); font-weight: 600; }
 
 /* ---------- Product grid & card ---------- */
 .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
@@ -532,8 +553,8 @@ h1, h2, h3, h4 {
 .product-media .fallback-icon { width: 42%; color: rgba(20, 17, 12, 0.35); }
 .product-badges { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 6px; }
 .badge { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 9px; border-radius: 20px; font-weight: 700; }
-.badge-new { background: var(--color-gold); color: #14110c; }
-.badge-sale { background: var(--color-danger); color: #14110c; }
+.badge-new { background: var(--color-gold); color: #fff; }
+.badge-sale { background: var(--color-danger); color: #fff; }
 /* Texto fijo (no var(--color-text-muted)) porque el fondo de esta badge siempre es oscuro,
    sin importar el tema del resto de la página -- con la variable clara del tema actual el
    texto quedaba oscuro sobre oscuro, casi ilegible. */
@@ -617,13 +638,13 @@ h1, h2, h3, h4 {
 .consolidado-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 24px; }
 .consolidado-card .status-pill {
   display: inline-block; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 4px 10px; border-radius: 20px; background: rgba(169,130,47,0.14); color: var(--color-gold); margin-bottom: 12px;
+  padding: 4px 10px; border-radius: 20px; background: rgba(122,32,48,0.14); color: var(--color-gold); margin-bottom: 12px;
 }
 .consolidado-card h3 { font-size: 1.15rem; margin-bottom: 6px; }
 .consolidado-card .cc-dates { font-size: 0.75rem; color: var(--color-text-faint); margin-bottom: 6px; }
 .consolidado-card .cc-countdown { font-size: 0.8rem; color: var(--color-chrome-dim); font-weight: 600; margin-bottom: 18px; }
 .progress-track { height: 8px; background: var(--color-border); border-radius: 20px; overflow: hidden; margin-bottom: 8px; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-gold-dim), var(--color-gold)); border-radius: 20px; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-red), var(--color-silver)); border-radius: 20px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--color-text-muted); margin-bottom: 18px; }
 
 .stars { color: var(--color-gold); letter-spacing: 2px; margin-bottom: 14px; font-size: 0.9rem; }
@@ -763,7 +784,7 @@ h1, h2, h3, h4 {
 .form-tab.active { color: var(--color-gold); }
 .tab-indicator {
   position: absolute; bottom: -1px; left: 0; width: 50%; height: 2px;
-  background: linear-gradient(90deg, var(--color-gold-dim), var(--color-gold));
+  background: linear-gradient(90deg, var(--color-red), var(--color-silver));
   transition: transform 0.3s cubic-bezier(0.65, 0, 0.35, 1);
 }
 .form-tabs.tab-registro .tab-indicator { transform: translateX(100%); }
@@ -788,7 +809,7 @@ h1, h2, h3, h4 {
 }
 .auth-visual::before {
   content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.5;
-  background-image: radial-gradient(rgba(169,130,47,0.18) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(122,32,48,0.18) 1px, transparent 1px);
   background-size: 26px 26px;
   -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 0%, transparent 75%);
@@ -801,7 +822,7 @@ h1, h2, h3, h4 {
 .auth-perks { display: flex; flex-direction: column; gap: 16px; }
 .auth-perk { display: flex; align-items: center; gap: 12px; font-size: 0.82rem; color: var(--color-text-muted); }
 .auth-perk span:first-child {
-  width: 34px; height: 34px; border-radius: 50%; background: rgba(169,130,47,0.08); border: 1px solid var(--color-border);
+  width: 34px; height: 34px; border-radius: 50%; background: rgba(122,32,48,0.08); border: 1px solid var(--color-border);
   display: flex; align-items: center; justify-content: center; color: var(--color-gold); flex-shrink: 0;
 }
 .auth-perk span:first-child svg { width: 16px; height: 16px; }
@@ -827,7 +848,7 @@ h1, h2, h3, h4 {
   color: var(--color-text-faint); display: flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: 50%; transition: color 0.15s, background-color 0.15s;
 }
-.toggle-password:hover { color: var(--color-gold); background: rgba(169,130,47,0.08); }
+.toggle-password:hover { color: var(--color-gold); background: rgba(122,32,48,0.08); }
 .toggle-password svg { width: 18px; height: 18px; }
 
 /* ---------- Alerts / toasts ---------- */
@@ -872,7 +893,7 @@ h1, h2, h3, h4 {
   font-size: 0.82rem; transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
 .pagination button:hover:not(:disabled):not(.active) { border-color: var(--color-gold-dim); color: var(--color-text); }
-.pagination button.active { background: var(--color-gold); color: #14110c; border-color: var(--color-gold); font-weight: 700; }
+.pagination button.active { background: var(--color-gold); color: #fff; border-color: var(--color-gold); font-weight: 700; }
 .pagination button:disabled { opacity: 0.35; cursor: default; }
 .pagination .pg-nav { border-color: transparent; font-size: 1rem; color: var(--color-text); }
 .pagination .pg-nav:hover:not(:disabled) { color: var(--color-gold); }
