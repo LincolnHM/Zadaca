@@ -51,7 +51,7 @@
       display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer;
       color: var(--color-text); text-decoration: none;
     }
-    .search-suggest-item:hover, .search-suggest-item.is-active { background: rgba(188,186,194,0.08); }
+    .search-suggest-item:hover, .search-suggest-item.is-active { background: rgba(169,130,47,0.08); }
     .search-suggest-item img { width: 34px; height: 34px; object-fit: cover; border-radius: 4px; background: var(--color-bg); flex-shrink: 0; }
     .search-suggest-item .fallback-icon { width: 34px; height: 34px; padding: 7px; box-sizing: border-box; color: var(--color-text-faint); flex-shrink: 0; }
     .search-suggest-item .ss-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
@@ -63,7 +63,7 @@
       display: block; width: 100%; text-align: left; padding: 10px 12px; font-size: 0.78rem;
       color: var(--color-gold-light); border: none; border-top: 1px solid var(--color-border); background: none; cursor: pointer;
     }
-    .search-suggest-footer:hover { background: rgba(188,186,194,0.08); }
+    .search-suggest-footer:hover { background: rgba(169,130,47,0.08); }
 
     .filter-dd { position: relative; }
     .filter-dd-btn {
@@ -91,16 +91,19 @@
     .filter-dd-search:focus { border-color: var(--color-gold); }
     .filter-dd-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; }
     .filter-option { display: flex; align-items: center; gap: 9px; font-size: 0.85rem; padding: 7px 4px; margin: 0; border-radius: 3px; color: var(--color-text-muted); cursor: pointer; }
-    .filter-option:hover { color: var(--color-text); background: rgba(188,186,194,0.08); }
+    .filter-option:hover { color: var(--color-text); background: rgba(169,130,47,0.08); }
     .filter-option input { accent-color: var(--color-gold); flex-shrink: 0; }
     .filter-dd-empty { font-size: 0.78rem; color: var(--color-text-faint); padding: 6px 4px; }
 
     .active-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 22px; }
     .chip {
-      display: inline-flex; align-items: center; gap: 7px; background: rgba(188,186,194,0.1); color: var(--color-gold-light);
+      /* Texto en gold-dim (no gold-light): gold-light es un dorado claro pensado para leerse
+         sobre fondo oscuro -- sobre el fondo casi blanco de este chip quedaba con muy poco
+         contraste. */
+      display: inline-flex; align-items: center; gap: 7px; background: rgba(169,130,47,0.1); color: var(--color-gold-dim);
       border: 1px solid var(--color-gold-dim); padding: 6px 8px 6px 12px; border-radius: 20px; font-size: 0.74rem;
     }
-    .chip button { display: flex; color: var(--color-gold-light); opacity: 0.75; font-size: 0.95rem; line-height: 1; }
+    .chip button { display: flex; color: var(--color-gold-dim); opacity: 0.75; font-size: 0.95rem; line-height: 1; }
     .chip button:hover { opacity: 1; }
     .chip-clear { background: none; border: 1px dashed var(--color-text-faint); color: var(--color-text-faint); padding: 6px 12px; border-radius: 20px; font-size: 0.74rem; }
     .chip-clear:hover { color: var(--color-text); border-color: var(--color-text-muted); }

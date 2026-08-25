@@ -1,5 +1,4 @@
 let PRODUCTO_ACTUAL = null;
-let CALIFICACION_SELECCIONADA = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await iniciarLayout('catalogo/');
@@ -67,11 +66,10 @@ function renderDetalle(data) {
   // Carrito" habilitado y, peor, el selector de cantidad quedaba con max=1 desde el
   // arranque -- el botón "+" no tenía a dónde subir y parecía roto.
   const agotado = p.estado === 'Agotado' || p.stock_disponible <= 0;
-  const promedio = data.calificacionPromedio;
   const unidadMinima = esLiquidacion ? Math.max(Number(p.liquidacion_unidad_minima) || 1, 1) : 1;
 
-  // Datos estructurados Product -- lo que le permite a Google mostrar precio y estrellas
-  // directo en el resultado de búsqueda (rich result) en vez de solo título y descripción.
+  // Datos estructurados Product -- lo que le permite a Google mostrar precio directo en el
+  // resultado de búsqueda (rich result) en vez de solo título y descripción.
   const productoLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -87,7 +85,6 @@ function renderDetalle(data) {
       price: final.toFixed(2),
       availability: agotado ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
     },
-    ...(promedio ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: promedio.toFixed(1), reviewCount: data.resenas.length } } : {}),
   };
   document.getElementById('product-jsonld').textContent = JSON.stringify(productoLd);
 
@@ -97,9 +94,6 @@ function renderDetalle(data) {
       <div>
         <span class="pd-brand">${escapeHtml(p.marca)}</span>
         <h1 class="pd-name">${escapeHtml(p.nombre)}</h1>
-        <div class="pd-rating">
-          ${promedio ? `<span class="stars">${'★'.repeat(Math.round(promedio))}${'☆'.repeat(5 - Math.round(promedio))}</span><span style="font-size:0.8rem; color:var(--color-text-faint)">${promedio.toFixed(1)} (${data.resenas.length} reseñas)</span>` : '<span style="font-size:0.8rem; color:var(--color-text-faint)">Sin reseñas todavía</span>'}
-        </div>
         <div class="pd-price">
           <span class="price-current">${formatoMoneda(final)}</span>
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
@@ -145,21 +139,6 @@ function renderDetalle(data) {
         </div>
       </div>
     </div>
-
-    <div class="container mt-40">
-      <div class="section-header"><h2>Reseñas</h2></div>
-      <div id="reviews-form-mount"></div>
-      <div id="reviews-list">
-        ${data.resenas.length
-          ? data.resenas.map((r) => `
-            <div class="review-item">
-              <div class="review-head"><span class="review-name">${escapeHtml(r.nombres)}</span><span class="review-date">${new Date(r.fecha_creacion).toLocaleDateString('es-PE')}</span></div>
-              <div class="stars">${'★'.repeat(r.calificacion)}${'☆'.repeat(5 - r.calificacion)}</div>
-              <p style="color:var(--color-text-muted); font-size:0.88rem; margin:6px 0 0;">${escapeHtml(r.comentario || '')}</p>
-            </div>`).join('')
-          : '<p style="color:var(--color-text-faint); font-size:0.88rem;">Este producto aún no tiene reseñas. ¡Sé el primero en opinar!</p>'}
-      </div>
-    </div>
   `;
 
   document.getElementById('qty-menos').addEventListener('click', () => ajustarCantidad(-1));
@@ -167,8 +146,6 @@ function renderDetalle(data) {
   document.getElementById('btn-agregar-carrito').addEventListener('click', agregarAlCarritoUI);
   document.getElementById('btn-favorito').addEventListener('click', favoritoUI);
   pintarEstadoFavorito();
-
-  renderFormularioReseña();
 
   if (data.relacionados.length) {
     document.getElementById('relacionados-section').style.display = '';
@@ -229,42 +206,5 @@ async function favoritoUI() {
     mostrarToast(err.message, 'error');
   } finally {
     btn.disabled = false;
-  }
-}
-
-async function renderFormularioReseña() {
-  const mount = document.getElementById('reviews-form-mount');
-  const session = await obtenerSesion();
-  if (!session) {
-    mount.innerHTML = `<p style="font-size:0.85rem; color:var(--color-text-faint); margin-bottom:24px;"><a href="${SITE_ROOT}cuenta/" class="link-arrow">Inicia sesión</a> para dejar tu reseña.</p>`;
-    return;
-  }
-  mount.innerHTML = `
-    <form id="review-form" class="form-card" style="max-width:100%; margin: 0 0 32px;">
-      <div class="star-input" id="star-input">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-star="${n}">★</button>`).join('')}</div>
-      <div class="form-group"><label>Tu comentario</label><textarea name="comentario" rows="3" placeholder="Cuéntanos tu experiencia con este perfume..."></textarea></div>
-      <button type="submit" class="btn btn-outline">Publicar Reseña</button>
-    </form>
-  `;
-  document.querySelectorAll('#star-input button').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      CALIFICACION_SELECCIONADA = Number(btn.dataset.star);
-      document.querySelectorAll('#star-input button').forEach((b) => b.classList.toggle('active', Number(b.dataset.star) <= CALIFICACION_SELECCIONADA));
-    });
-  });
-  document.getElementById('review-form').addEventListener('submit', enviarReseñaUI);
-}
-
-async function enviarReseñaUI(e) {
-  e.preventDefault();
-  if (!CALIFICACION_SELECCIONADA) return mostrarToast('Selecciona una calificación', 'error');
-  try {
-    await enviarResena({ id_producto: PRODUCTO_ACTUAL.id, calificacion: CALIFICACION_SELECCIONADA, comentario: e.target.comentario.value });
-    mostrarToast('¡Gracias! Tu reseña será publicada tras revisión.');
-    e.target.reset();
-    CALIFICACION_SELECCIONADA = 0;
-    document.querySelectorAll('#star-input button').forEach((b) => b.classList.remove('active'));
-  } catch (err) {
-    mostrarToast(err.message, 'error');
   }
 }

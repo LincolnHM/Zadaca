@@ -258,13 +258,6 @@ async function obtenerProductoPorSlug(slug) {
     tamanosDecant = (tamanos || []).map(normalizarProducto);
   }
 
-  const { data: resenas } = await supabaseClient
-    .from('resenas')
-    .select('calificacion, comentario, fecha_creacion, perfiles(nombres)')
-    .eq('id_producto', producto.id)
-    .eq('aprobado', true)
-    .order('fecha_creacion', { ascending: false });
-
   const { data: relacionadosCrudos } = await supabaseClient
     .from('perfumes')
     .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
@@ -278,30 +271,11 @@ async function obtenerProductoPorSlug(slug) {
   const idsPropioGrupoDecant = new Set(tamanosDecant.map((t) => t.id));
   const relacionados = (relacionadosCrudos || []).filter((r) => !idsPropioGrupoDecant.has(r.id)).slice(0, 4);
 
-  const resenasNormalizadas = (resenas || []).map((r) => ({ ...r, nombres: r.perfiles?.nombres || 'Cliente' }));
-  const promedio = resenasNormalizadas.length
-    ? resenasNormalizadas.reduce((acc, r) => acc + r.calificacion, 0) / resenasNormalizadas.length
-    : null;
-
   return {
     producto: normalizarProducto(producto),
-    resenas: resenasNormalizadas,
-    calificacionPromedio: promedio,
     relacionados,
     tamanosDecant,
   };
-}
-
-async function enviarResena({ id_producto, calificacion, comentario }) {
-  const session = await obtenerSesion();
-  if (!session) throw new Error('Debes iniciar sesión');
-  const { error } = await supabaseClient.from('resenas').insert({
-    id_cliente: session.user.id,
-    id_producto,
-    calificacion,
-    comentario,
-  });
-  if (error) throw new Error(error.message);
 }
 
 async function obtenerResenasDestacadas() {
