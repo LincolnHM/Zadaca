@@ -80,7 +80,7 @@ h1, h2, h3, h4 {
   font-size: 0.75rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--color-gold);
+  color: var(--color-chrome-dim);
   font-weight: 600;
 }
 
@@ -89,7 +89,7 @@ h1, h2, h3, h4 {
 .section-header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 32px; gap: 16px; flex-wrap: wrap; }
 .section-header h2 { margin: 0; font-size: 1.9rem; }
 .link-arrow {
-  color: var(--color-gold);
+  color: var(--color-chrome-dim);
   font-size: 0.85rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -499,7 +499,7 @@ h1, h2, h3, h4 {
 .info-card p { color: var(--color-text-muted); font-size: 0.88rem; margin: 0 0 14px; }
 .info-card ul { margin: 0 0 14px; padding-left: 18px; color: var(--color-text-muted); font-size: 0.85rem; }
 .info-card ul li { margin-bottom: 5px; }
-.info-card ul li strong { color: var(--color-gold); }
+.info-card ul li strong { color: var(--color-chrome-dim); }
 
 /* ---------- Quick filter pills (estilo Micht) ---------- */
 .pill-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 28px; }
@@ -542,27 +542,27 @@ h1, h2, h3, h4 {
 /* A diferencia de las badges de arriba (estado/promo: sólidas), Decant es una etiqueta de
    TIPO de producto -- se distingue con contorno en vez de relleno para no competir visualmente
    con "-X%"/"Agotado" cuando coinciden en la misma tarjeta. */
-.badge-decant { background: transparent; border: 1px solid var(--color-gold); color: var(--color-gold-light); }
+.badge-decant { background: transparent; border: 1px solid var(--color-chrome-dim); color: var(--color-chrome-dim); }
 .badge-consolidado { background: var(--color-gold-dim); color: var(--color-gold-light); }
 .liq-unidad-note { font-size: 0.7rem; color: var(--color-text-faint); margin-top: 2px; }
 
 /* ---------- Selector de tamaño (decants) ---------- */
-.size-selector { margin: 4px 0 22px; }
+.size-selector { margin: 2px 0 16px; }
 .size-selector-label {
   display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
-  color: var(--color-text-faint); margin-bottom: 10px;
+  color: var(--color-text-faint); margin-bottom: 8px;
 }
-.size-options { display: flex; gap: 10px; flex-wrap: wrap; }
+.size-options { display: flex; gap: 8px; flex-wrap: wrap; }
 .size-option {
-  min-width: 64px; text-align: center; padding: 11px 18px; border-radius: 4px;
+  min-width: 54px; text-align: center; padding: 8px 14px; border-radius: 4px;
   border: 1px solid var(--color-border); color: var(--color-text-muted);
-  font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em;
+  font-size: 0.82rem; font-weight: 600; letter-spacing: 0.02em;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.size-option:hover { border-color: var(--color-gold); color: var(--color-text); }
+.size-option:hover { border-color: var(--color-chrome-dim); color: var(--color-text); }
 .size-option.active {
   border: 2px solid var(--color-text); color: var(--color-text);
-  background: var(--color-bg-card); padding: 10px 17px;
+  background: var(--color-bg-card); padding: 7px 13px;
 }
 .wishlist-btn {
   position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%;
@@ -595,7 +595,7 @@ h1, h2, h3, h4 {
 }
 @media (prefers-reduced-motion: reduce) { .heart-toggle.pop svg { animation: none; } }
 .product-info { padding: 16px 16px 18px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
-.product-brand { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-gold); }
+.product-brand { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-chrome-dim); }
 .product-name { font-family: var(--font-heading); font-size: 1.02rem; margin: 0; }
 .product-meta { font-size: 0.72rem; color: var(--color-text-faint); }
 .product-price-row { margin-top: auto; padding-top: 10px; display: flex; align-items: baseline; gap: 8px; }
@@ -621,7 +621,7 @@ h1, h2, h3, h4 {
 }
 .consolidado-card h3 { font-size: 1.15rem; margin-bottom: 6px; }
 .consolidado-card .cc-dates { font-size: 0.75rem; color: var(--color-text-faint); margin-bottom: 6px; }
-.consolidado-card .cc-countdown { font-size: 0.8rem; color: var(--color-gold); font-weight: 600; margin-bottom: 18px; }
+.consolidado-card .cc-countdown { font-size: 0.8rem; color: var(--color-chrome-dim); font-weight: 600; margin-bottom: 18px; }
 .progress-track { height: 8px; background: var(--color-border); border-radius: 20px; overflow: hidden; margin-bottom: 8px; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--color-gold-dim), var(--color-gold)); border-radius: 20px; }
 .progress-label { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--color-text-muted); margin-bottom: 18px; }
