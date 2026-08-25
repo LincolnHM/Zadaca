@@ -96,6 +96,11 @@
         </div>
         <div class="admin-toolbar">
           <input type="text" id="productos-busqueda" placeholder="Buscar por nombre o marca..." />
+          <select id="productos-filtro">
+            <option value="">Todos</option>
+            <option value="decants">Solo Decants</option>
+            <option value="liquidaciones">Solo Liquidaciones</option>
+          </select>
         </div>
         <div class="admin-card-grid" id="productos-grid"><div class="admin-empty">Cargando…</div></div>
       </section>
@@ -267,6 +272,12 @@
         </div>
         <div class="form-row">
           <label class="filter-option"><input type="checkbox" name="es_liquidacion" /> Marcar como Liquidación (por mayor y por unidad — completa el precio y la unidad mínima de arriba)</label>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>ID decant raíz</label><input type="number" name="id_decant_grupo" min="1" placeholder="Vacío si este ES la raíz" /></div>
+        </div>
+        <div class="form-row">
+          <label class="filter-option"><input type="checkbox" name="es_decant" /> Marcar como Decant (tamaño 3ml/5ml/10ml, etc. — crea primero el tamaño más barato sin "ID decant raíz", luego los demás tamaños apuntando a su #ID)</label>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="btn-cancelar-producto">Cancelar</button>

@@ -105,7 +105,7 @@ function escaparFiltroSupabase(texto) {
 // la respuesta JSON aunque la UI nunca los pinte: cualquiera que abra el Network tab del
 // navegador los puede leer. RLS es a nivel de fila, no de columna, así que la única forma de
 // no filtrarlos es no pedirlos.
-const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa';
+const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa, es_decant, id_decant_grupo';
 
 // soloConStock=true es el catálogo de TIENDA FÍSICA: solo perfumes con stock_fisico > 0 (lo
 // que el admin cargó en "Stock físico" por producto). Usa !inner para forzar el join con
@@ -129,6 +129,12 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
   if (destacado === 'nuevo') query = query.eq('es_nuevo', true);
   if (destacado === 'bestseller') query = query.eq('es_bestseller', true);
   if (destacado === 'liquidacion') query = query.eq('es_liquidacion', true);
+  // Decants: cada tamaño (3ml/5ml/10ml...) es su propia fila de perfumes, agrupada bajo una
+  // fila "raíz" (id_decant_grupo is null) -- el catálogo de tienda normal nunca los muestra
+  // (viven en su propia sección, ver decants/index.html), y esa sección solo lista las raíces
+  // para no repetir el mismo perfume una vez por tamaño.
+  if (destacado === 'decant') query = query.eq('es_decant', true).is('id_decant_grupo', null);
+  else query = query.eq('es_decant', false);
 
   // 'marca' (default): agrupa por marca y, dentro de cada marca, por nombre -- así las
   // variantes de una misma línea (ej. todos los Khamrah, todos los Game of Spades) salen
@@ -161,7 +167,10 @@ function aplicarOrden(query, orden, columnaPrecio) {
 // precio_tienda_regular — son dos catálogos con precios independientes (ver schema.sql,
 // precio_consolidado_fijo <= precio_tienda_regular no implica que sean el mismo número).
 async function obtenerProductosConsolidado({ genero, marca, familia, tipo_casa, busqueda, orden, pagina = 1, porPagina = 12 } = {}) {
-  let query = supabaseClient.from('perfumes').select(CAMPOS_PRODUCTO_PUBLICO, { count: 'exact' }).eq('activo', true);
+  // Los decants no participan de consolidados: son stock físico ya fraccionado, no
+  // importación bajo pedido -- se venden solo por tienda directa (ver destacado: 'decant'
+  // en obtenerProductos()).
+  let query = supabaseClient.from('perfumes').select(CAMPOS_PRODUCTO_PUBLICO, { count: 'exact' }).eq('activo', true).eq('es_decant', false);
 
   if (genero) query = query.eq('genero', genero);
   if (marca) query = query.eq('marca', marca);
@@ -186,8 +195,11 @@ function normalizarProducto(p) {
 }
 
 async function obtenerFiltrosCatalogo() {
-  const { data: marcasData } = await supabaseClient.from('perfumes').select('marca').eq('activo', true);
-  const { data: familiasData } = await supabaseClient.from('perfumes').select('familia_olfativa').eq('activo', true).not('familia_olfativa', 'is', null);
+  // es_decant=false: los decants viven en su propia sección (ver destacado: 'decant' en
+  // obtenerProductos()), así que una marca que solo tenga decants no debe aparecer como
+  // opción de filtro acá -- si apareciera, filtrar por ella daría 0 resultados.
+  const { data: marcasData } = await supabaseClient.from('perfumes').select('marca').eq('activo', true).eq('es_decant', false);
+  const { data: familiasData } = await supabaseClient.from('perfumes').select('familia_olfativa').eq('activo', true).eq('es_decant', false).not('familia_olfativa', 'is', null);
   const marcas = [...new Set((marcasData || []).map((r) => r.marca))].sort();
   // .filter(Boolean) además del filtro "is not null" de la consulta: familia_olfativa es texto
   // libre en el form de admin, así que puede quedar guardada como '' (no NULL) -- sin esto,
@@ -212,6 +224,7 @@ async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = fals
     .from('perfumes')
     .select(soloConStock ? `${campos}, inventario!inner(stock_disponible)` : campos)
     .eq('activo', true)
+    .eq('es_decant', false)
     .or(`nombre.ilike.%${escaparFiltroSupabase(q)}%,marca.ilike.%${escaparFiltroSupabase(q)}%`)
     .order('nombre', { ascending: true })
     .limit(limite);
@@ -230,6 +243,21 @@ async function obtenerProductoPorSlug(slug) {
     .single();
   if (error || !producto) throw new Error('Producto no encontrado');
 
+  // Decants: la raíz (id_decant_grupo null) y sus tamaños hijos (id_decant_grupo = id de la
+  // raíz) se muestran juntos como pastillas de tamaño en la misma ficha -- ver producto.js.
+  let tamanosDecant = [];
+  if (producto.es_decant) {
+    const idRaiz = producto.id_decant_grupo || producto.id;
+    const { data: tamanos } = await supabaseClient
+      .from('perfumes')
+      .select(`${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`)
+      .eq('activo', true)
+      .eq('es_decant', true)
+      .or(`id.eq.${idRaiz},id_decant_grupo.eq.${idRaiz}`)
+      .order('mililitros', { ascending: true });
+    tamanosDecant = (tamanos || []).map(normalizarProducto);
+  }
+
   const { data: resenas } = await supabaseClient
     .from('resenas')
     .select('calificacion, comentario, fecha_creacion, perfiles(nombres)')
@@ -237,13 +265,18 @@ async function obtenerProductoPorSlug(slug) {
     .eq('aprobado', true)
     .order('fecha_creacion', { ascending: false });
 
-  const { data: relacionados } = await supabaseClient
+  const { data: relacionadosCrudos } = await supabaseClient
     .from('perfumes')
-    .select('slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
+    .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
     .eq('marca', producto.marca)
     .eq('activo', true)
     .neq('id', producto.id)
-    .limit(4);
+    .limit(8);
+
+  // Los otros tamaños del mismo decant ya se muestran como pastillas de tamaño arriba -- no
+  // tiene sentido repetirlos acá abajo como "también te puede interesar".
+  const idsPropioGrupoDecant = new Set(tamanosDecant.map((t) => t.id));
+  const relacionados = (relacionadosCrudos || []).filter((r) => !idsPropioGrupoDecant.has(r.id)).slice(0, 4);
 
   const resenasNormalizadas = (resenas || []).map((r) => ({ ...r, nombres: r.perfiles?.nombres || 'Cliente' }));
   const promedio = resenasNormalizadas.length
@@ -254,7 +287,8 @@ async function obtenerProductoPorSlug(slug) {
     producto: normalizarProducto(producto),
     resenas: resenasNormalizadas,
     calificacionPromedio: promedio,
-    relacionados: relacionados || [],
+    relacionados,
+    tamanosDecant,
   };
 }
 

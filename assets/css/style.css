@@ -504,6 +504,7 @@ h1, h2, h3, h4 {
 .badge-sale { background: var(--color-danger); color: #14110c; }
 .badge-out { background: #2a2a2a; color: var(--color-text-muted); }
 .badge-liquidacion { background: var(--color-success); color: #14110c; }
+.badge-decant { background: var(--color-gold-dim); color: var(--color-gold-light); }
 .badge-consolidado { background: var(--color-gold-dim); color: var(--color-gold-light); }
 .liq-unidad-note { font-size: 0.7rem; color: var(--color-text-faint); margin-top: 2px; }
 .wishlist-btn {

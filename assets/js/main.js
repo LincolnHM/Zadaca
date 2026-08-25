@@ -35,6 +35,7 @@ const NAV_LINKS = [
   { href: '', label: 'Inicio' },
   { href: 'catalogo/', label: 'Tienda' },
   { href: 'catalogo-consolidado/', label: 'Consolidado' },
+  { href: 'decants/', label: 'Decants' },
   { href: 'liquidaciones/', label: 'Liquidaciones' },
   { href: 'contacto/', label: 'Contacto' },
 ];
@@ -492,6 +493,7 @@ function renderFooter() {
             <a href="${SITE_ROOT}catalogo/">Catálogo en stock</a>
             <a href="${SITE_ROOT}catalogo/?genero=Hombre">Para Hombre</a>
             <a href="${SITE_ROOT}catalogo/?genero=Mujer">Para Mujer</a>
+            <a href="${SITE_ROOT}decants/">Decants</a>
             <a href="${SITE_ROOT}liquidaciones/">Liquidaciones</a>
           </div>
           <div class="footer-col">
@@ -585,6 +587,7 @@ function tarjetaProducto(p) {
         <div class="product-badges">
           ${p.es_nuevo ? '<span class="badge badge-new">Nuevo</span>' : ''}
           ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
+          ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
           ${tieneDescuento ? `<span class="badge badge-sale">-${Number(p.descuento_tienda_porcentaje)}%</span>` : ''}
           ${agotado ? '<span class="badge badge-out">Agotado</span>' : ''}
         </div>

@@ -26,7 +26,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function renderDetalle(data) {
   const p = data.producto;
-  const tituloPagina = `${p.marca} ${p.nombre} — Maison Zadaca`;
+  // Sin el sufijo de ml, las 2-3 fichas de un mismo grupo de decant (mismo nombre/marca,
+  // distinto tamaño) compartirían <title> -- duplicado que a Google no le gusta.
+  const tituloPagina = p.es_decant ? `${p.marca} ${p.nombre} ${p.mililitros}ml — Maison Zadaca` : `${p.marca} ${p.nombre} — Maison Zadaca`;
   const descripcionPagina = p.descripcion || `${p.marca} ${p.nombre}, ${p.mililitros}ml. Perfume original importado, disponible en tienda o consolidado.`;
   document.getElementById('page-title').textContent = tituloPagina;
   document.getElementById('page-description').setAttribute('content', descripcionPagina);
@@ -102,10 +104,17 @@ function renderDetalle(data) {
           <span class="price-current">${formatoMoneda(final)}</span>
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
           ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
+          ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
         </div>
+        ${p.es_decant && data.tamanosDecant.length > 1 ? `
+        <div class="pill-row" style="margin-bottom:18px;">
+          ${data.tamanosDecant.map((t) => `<a href="${SITE_ROOT}producto/?slug=${t.slug}" class="pill${t.slug === p.slug ? ' active' : ''}">${t.mililitros}ml</a>`).join('')}
+        </div>` : ''}
         ${esLiquidacion
           ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
-          : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="${SITE_ROOT}consolidados/" class="link-arrow">ver campañas activas</a></div>`}
+          : p.es_decant
+            ? ''
+            : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="${SITE_ROOT}consolidados/" class="link-arrow">ver campañas activas</a></div>`}
 
         <div class="pd-meta-row">
           <div><strong>Concentración</strong>${escapeHtml(p.concentracion || '—')}</div>

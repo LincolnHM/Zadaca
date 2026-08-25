@@ -81,9 +81,11 @@ async function obtenerStockBajoDashboard(limite = 5) {
 
 /* ================= PRODUCTOS ================= */
 
-async function obtenerProductosAdmin({ busqueda } = {}) {
+async function obtenerProductosAdmin({ busqueda, filtro } = {}) {
   let query = supabaseClient.from('perfumes').select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)').order('fecha_creacion', { ascending: false });
   if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
+  if (filtro === 'decants') query = query.eq('es_decant', true);
+  if (filtro === 'liquidaciones') query = query.eq('es_liquidacion', true);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return data.map((p) => ({ ...p, inventario: Array.isArray(p.inventario) ? p.inventario[0] : p.inventario }));

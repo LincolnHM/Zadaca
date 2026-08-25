@@ -119,10 +119,20 @@ create table perfumes (
     -- false = no aparece en catálogo de tienda ni de consolidado ni en el buscador, pero la
     -- fila sigue existiendo con todo su historial intacto (ver migración 0008).
     activo boolean not null default true,
+    -- Decants: fracciones pequeñas (3ml/5ml/10ml...) con stock propio, agrupadas bajo una
+    -- misma ficha con selector de tamaño (ver migración 0011). Cada tamaño es una fila normal
+    -- de perfumes -- es_decant marca las filas de la familia, id_decant_grupo es null en la
+    -- fila "raíz" y apunta al id de la raíz en las filas "hijas".
+    es_decant boolean not null default false,
+    id_decant_grupo bigint references perfumes(id) on delete set null,
     fecha_creacion timestamp default now(),
     constraint chk_precio_consolidado_menor check (precio_consolidado_fijo <= precio_tienda_regular),
-    constraint chk_liquidacion_precio check (es_liquidacion = false or precio_liquidacion is not null)
+    constraint chk_liquidacion_precio check (es_liquidacion = false or precio_liquidacion is not null),
+    constraint chk_decant_grupo_requiere_flag check (id_decant_grupo is null or es_decant = true),
+    constraint chk_decant_grupo_no_autoreferencia check (id_decant_grupo is null or id_decant_grupo <> id)
 );
+
+create index idx_perfumes_decant_grupo on perfumes(id_decant_grupo) where id_decant_grupo is not null;
 
 create table imagenes_perfume (
     id bigint generated always as identity primary key,

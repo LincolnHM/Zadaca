@@ -215,13 +215,15 @@ document.addEventListener('DOMContentLoaded', () => {
     clearTimeout(productosBusquedaTimeout);
     productosBusquedaTimeout = setTimeout(() => cargarProductos(e.target.value), 350);
   });
+  document.getElementById('productos-filtro')?.addEventListener('change', () => cargarProductos(document.getElementById('productos-busqueda')?.value));
   document.getElementById('btn-nuevo-producto')?.addEventListener('click', () => abrirModalProducto());
 });
 
 async function cargarProductos(busqueda) {
   const mount = document.getElementById('productos-grid');
+  const filtro = document.getElementById('productos-filtro')?.value;
   try {
-    const productos = await obtenerProductosAdmin({ busqueda });
+    const productos = await obtenerProductosAdmin({ busqueda, filtro });
     mount.innerHTML = productos.length ? productos.map(tarjetaProductoAdmin).join('') : '<div class="admin-empty">Sin productos.</div>';
     conectarEventosProductos();
   } catch (err) {
@@ -236,9 +238,9 @@ function tarjetaProductoAdmin(p) {
       <div class="admin-card-top">
         <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
         <div style="min-width:0;">
-          <span class="admin-card-sub">${escapeHtml(p.marca)}</span>
-          <h3 class="admin-card-title">${escapeHtml(p.nombre)}${p.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}${p.activo === false ? ' <span class="badge badge-out">Oculto</span>' : ''}</h3>
-          <span style="font-size:0.72rem; color:var(--color-text-faint);">${p.mililitros} ml &middot; ${escapeHtml(p.concentracion || '—')}</span>
+          <span class="admin-card-sub">${escapeHtml(p.marca)} &middot; #${p.id}</span>
+          <h3 class="admin-card-title">${escapeHtml(p.nombre)}${p.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}${p.es_decant ? ' <span class="badge badge-decant">Decant</span>' : ''}${p.activo === false ? ' <span class="badge badge-out">Oculto</span>' : ''}</h3>
+          <span style="font-size:0.72rem; color:var(--color-text-faint);">${p.mililitros} ml &middot; ${escapeHtml(p.concentracion || '—')}${p.id_decant_grupo ? ` &middot; tamaño de #${p.id_decant_grupo}` : ''}</span>
         </div>
       </div>
       <div class="admin-field-row"><span>Precio tienda</span><input type="number" class="input-precio-tienda" step="0.01" value="${p.precio_tienda_regular}" /></div>
@@ -352,6 +354,8 @@ document.addEventListener('DOMContentLoaded', () => {
     data.es_liquidacion = e.target.elements.es_liquidacion.checked;
     data.precio_liquidacion = data.precio_liquidacion ? Number(data.precio_liquidacion) : null;
     data.liquidacion_unidad_minima = Number(data.liquidacion_unidad_minima || 1);
+    data.es_decant = e.target.elements.es_decant.checked;
+    data.id_decant_grupo = data.id_decant_grupo ? Number(data.id_decant_grupo) : null;
     // El <select> de "Tipo de Casa" nace en "Sin definir" (value=""), pero la constraint de la
     // base (chk en perfumes.tipo_casa) solo acepta 'Árabe'/'Diseñador'/'Nicho' o NULL -- un
     // string vacío no pasa el check y el insert/update fallaba con un error crudo de Postgres
@@ -363,6 +367,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (data.es_liquidacion && !data.precio_liquidacion) {
       mostrarToast('Ingresa el precio de liquidación', 'error');
+      return;
+    }
+    if (data.id_decant_grupo && !data.es_decant) {
+      mostrarToast('Si pones un "ID decant raíz", marca también "Es un Decant"', 'error');
       return;
     }
     // un precio de venta puesto a mano por el admin cuenta como "margen aplicado" (evita que
