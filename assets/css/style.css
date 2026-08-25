@@ -504,9 +504,31 @@ h1, h2, h3, h4 {
 .badge-sale { background: var(--color-danger); color: #14110c; }
 .badge-out { background: #2a2a2a; color: var(--color-text-muted); }
 .badge-liquidacion { background: var(--color-success); color: #14110c; }
-.badge-decant { background: var(--color-gold-dim); color: var(--color-gold-light); }
+/* A diferencia de las badges de arriba (estado/promo: sólidas), Decant es una etiqueta de
+   TIPO de producto -- se distingue con contorno en vez de relleno para no competir visualmente
+   con "-X%"/"Agotado" cuando coinciden en la misma tarjeta. */
+.badge-decant { background: transparent; border: 1px solid var(--color-gold); color: var(--color-gold-light); }
 .badge-consolidado { background: var(--color-gold-dim); color: var(--color-gold-light); }
 .liq-unidad-note { font-size: 0.7rem; color: var(--color-text-faint); margin-top: 2px; }
+
+/* ---------- Selector de tamaño (decants) ---------- */
+.size-selector { margin: 4px 0 22px; }
+.size-selector-label {
+  display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--color-text-faint); margin-bottom: 10px;
+}
+.size-options { display: flex; gap: 10px; flex-wrap: wrap; }
+.size-option {
+  min-width: 64px; text-align: center; padding: 11px 18px; border-radius: 4px;
+  border: 1px solid var(--color-border); color: var(--color-text-muted);
+  font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.size-option:hover { border-color: var(--color-gold); color: var(--color-text); }
+.size-option.active {
+  border: 2px solid var(--color-text); color: var(--color-text);
+  background: var(--color-bg-card); padding: 10px 17px;
+}
 .wishlist-btn {
   position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%;
   background: rgba(10, 9, 8, 0.55); border: 1px solid var(--color-border);

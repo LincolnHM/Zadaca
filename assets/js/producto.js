@@ -107,8 +107,11 @@ function renderDetalle(data) {
           ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
         </div>
         ${p.es_decant && data.tamanosDecant.length > 1 ? `
-        <div class="pill-row" style="margin-bottom:18px;">
-          ${data.tamanosDecant.map((t) => `<a href="${SITE_ROOT}producto/?slug=${t.slug}" class="pill${t.slug === p.slug ? ' active' : ''}">${t.mililitros}ml</a>`).join('')}
+        <div class="size-selector">
+          <span class="size-selector-label">Tamaño</span>
+          <div class="size-options">
+            ${data.tamanosDecant.map((t) => `<a href="${SITE_ROOT}producto/?slug=${t.slug}" class="size-option${t.slug === p.slug ? ' active' : ''}">${t.mililitros}ml</a>`).join('')}
+          </div>
         </div>` : ''}
         ${esLiquidacion
           ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
