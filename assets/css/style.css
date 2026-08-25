@@ -17,6 +17,14 @@
   --color-gold: #a9822f;
   --color-gold-light: #cda856;
   --color-gold-dim: #6b3220;
+  /* Paleta "chrome" tomada del logo real (plata metálico + burdeos oscuro de fondo) -- se usa
+     SOLO en los degradados/animaciones de marca (brillo del wordmark, título del hero, cifras
+     de "Sobre Nosotros", franja del header al hacer scroll), no como acento de UI plano: el
+     plata claro tiene poco contraste sobre el fondo blanco del sitio para links/botones/badges,
+     que siguen usando --color-gold de arriba. */
+  --color-chrome-dim: #7a2030;
+  --color-chrome: #bcbac2;
+  --color-chrome-light: #ece9ee;
   --color-text: #17140f;
   --color-text-muted: #4f4736;
   --color-text-faint: #756b57;
@@ -171,7 +179,7 @@ h1, h2, h3, h4 {
 }
 .site-header::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--color-gold-dim), var(--color-gold), var(--color-gold-dim), transparent);
+  background: linear-gradient(90deg, transparent, var(--color-chrome-dim), var(--color-chrome), var(--color-chrome-dim), transparent);
   opacity: 0; transition: opacity 0.4s ease;
 }
 .site-header.is-scrolled::after { opacity: 1; }
@@ -191,14 +199,15 @@ h1, h2, h3, h4 {
 .brand-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .brand-text { display: flex; flex-direction: column; line-height: 1; }
 .brand-name { font-family: var(--font-heading); font-size: 1.55rem; letter-spacing: 0.03em; color: var(--color-text); }
-/* Brillo metálico: plata con reflejo sobre burdeos, reservado a los dos momentos de marca más
-   protagonistas (wordmark del logo y la palabra destacada del titular). El resto de la
-   interfaz usa el --color-gold (plata) plano para no saturar la página de brillo. */
+/* Brillo metálico plata/burdeos calcado del logo real (ver --color-chrome-*), reservado a los
+   dos momentos de marca más protagonistas (wordmark del logo y la palabra destacada del
+   titular). El resto de la interfaz usa --color-gold (dorado, acento de UI) para no saturar
+   la página de brillo. */
 .brand-name span,
 .hero-inner h1 em {
   background: linear-gradient(100deg,
-    var(--color-gold-dim) 0%, var(--color-gold) 20%, var(--color-gold-light) 40%,
-    var(--color-gold) 60%, var(--color-gold-dim) 80%, var(--color-gold) 100%);
+    var(--color-chrome-dim) 0%, var(--color-chrome) 20%, var(--color-chrome-light) 40%,
+    var(--color-chrome) 60%, var(--color-chrome-dim) 80%, var(--color-chrome) 100%);
   background-size: 250% auto;
   background-clip: text;
   -webkit-background-clip: text;
@@ -636,7 +645,7 @@ h1, h2, h3, h4 {
 .stat-card:hover { border-color: var(--color-gold-dim); transform: translateY(-3px); }
 .stat-number {
   display: block; font-family: var(--font-heading); font-size: 2.1rem; font-weight: 600;
-  background: linear-gradient(100deg, var(--color-gold-dim) 0%, var(--color-gold) 25%, var(--color-gold-light) 50%, var(--color-gold) 75%, var(--color-gold-dim) 100%);
+  background: linear-gradient(100deg, var(--color-chrome-dim) 0%, var(--color-chrome) 25%, var(--color-chrome-light) 50%, var(--color-chrome) 75%, var(--color-chrome-dim) 100%);
   background-size: 250% auto; background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
 }
 @media (prefers-reduced-motion: no-preference) { .stat-card:hover .stat-number { animation: brillo-plateado 2.5s ease-in-out; } }
@@ -768,8 +777,8 @@ h1, h2, h3, h4 {
 .auth-card::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: linear-gradient(100deg,
-    var(--color-gold-dim) 0%, var(--color-gold) 20%, var(--color-gold-light) 40%,
-    var(--color-gold) 60%, var(--color-gold-dim) 80%, var(--color-gold) 100%);
+    var(--color-chrome-dim) 0%, var(--color-chrome) 20%, var(--color-chrome-light) 40%,
+    var(--color-chrome) 60%, var(--color-chrome-dim) 80%, var(--color-chrome) 100%);
   background-size: 250% auto; animation: brillo-plateado 7s ease-in-out infinite;
 }
 .auth-visual {
