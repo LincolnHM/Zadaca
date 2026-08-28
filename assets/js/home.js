@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  cargarHeroVisual();
   cargarNuevos();
   cargarConsolidados();
   cargarExplorar();
@@ -25,6 +26,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   cargarClientesReales();
   activarLightbox();
 });
+
+// Fotos reales de 3 perfumes en stock (no una imagen fija -- el hero tenía antes una sola foto
+// fija de un producto puntual y se sacó porque no reflejaba el catálogo real, ver nota en
+// style.css). 'recientes' + soloConStock: siempre hay algo mientras haya inventario real, sin
+// depender de que algún producto esté marcado "nuevo" (ver cargarNuevos, que si puede quedar
+// vacío). Solo se ve en desktop (.hero-visual está oculto en mobile, ver CSS).
+async function cargarHeroVisual() {
+  const mount = document.getElementById('hero-visual');
+  if (!mount) return;
+  try {
+    const { productos } = await obtenerProductos({ soloConStock: true, orden: 'recientes', porPagina: 2 });
+    if (!productos.length) { mount.style.display = 'none'; return; }
+    mount.innerHTML = productos.map((p) => `<div class="hero-visual-card">${imagenProducto(p)}</div>`).join('');
+  } catch {
+    mount.style.display = 'none';
+  }
+}
 
 // Prueba social real (14 fotos de clientes/tienda en assets/img/clientes/, no depende de
 // Supabase) -- fijo en vez de leído de una carpeta porque el sitio es estático y no hay forma
@@ -92,11 +110,16 @@ function mostrarAvisoConfiguracion() {
   });
 }
 
+// Si no hay ningún producto marcado como "nuevo" ahora mismo, se oculta la sección entera (no
+// solo la grilla) -- un título "Nuevos Ingresos" seguido de un aviso vacío deja un hueco raro
+// en medio del home; mismo criterio que ya usa cargarMarcasMarquee() con la franja de marcas.
 async function cargarNuevos() {
+  const seccion = document.getElementById('seccion-nuevos');
   const mount = document.getElementById('grid-nuevos');
   try {
     const { productos } = await obtenerProductos({ destacado: 'nuevo', porPagina: 4, soloConStock: true });
-    mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">Aún no hay nuevos ingresos.</div>';
+    if (!productos.length) { seccion.style.display = 'none'; return; }
+    mount.innerHTML = productos.map(tarjetaProducto).join('');
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }

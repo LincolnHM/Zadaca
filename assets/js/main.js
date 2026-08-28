@@ -512,12 +512,18 @@ function renderFooter() {
             <h4>Ayuda</h4>
             <a href="${SITE_ROOT}contacto/#tiendas">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
             <a href="${SITE_ROOT}contacto/#tiendas">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>
+            <a href="https://wa.me/${WHATSAPP_NUMERO}" target="_blank" rel="noopener">WhatsApp: ${formatoWhatsapp()}</a>
             <p>Envíos vía Shalom / Olva a todo el Perú</p>
             <p>Pagos: Yape, Plin, transferencia y tarjeta</p>
           </div>
         </div>
         <div class="footer-bottom">
           <span>&copy; <span id="footer-year"></span> Maison Zadaca. Todos los derechos reservados.</span>
+          <div class="footer-legal-links">
+            <a href="${SITE_ROOT}politica-privacidad/">Privacidad</a>
+            <a href="${SITE_ROOT}terminos-condiciones/">Términos</a>
+            <a href="${SITE_ROOT}cambios-y-devoluciones/">Cambios y devoluciones</a>
+          </div>
           <div class="payment-icons"><span>Visa</span><span>Mastercard</span><span>Yape</span><span>Plin</span></div>
         </div>
       </div>

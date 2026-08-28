@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (params.get('destacado')) document.getElementById('filter-form').dataset.destacado = params.get('destacado');
 
-  await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'));
+  await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'), params.get('disponibilidad'));
   iniciarDropdownsFiltro();
   iniciarBuscadorEnVivo();
 
@@ -44,24 +44,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   cargarProductos();
 });
 
-async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada) {
+async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada, disponibilidadSeleccionada) {
   try {
-    const { marcas, familias } = await obtenerFiltrosCatalogo();
+    const { marcas, familias, conteoMarcas, disponibilidad } = await obtenerFiltrosCatalogo();
     document.getElementById('filtro-marcas').innerHTML =
       `<label class="filter-option"><input type="radio" name="marca" value="" ${!marcaSeleccionada ? 'checked' : ''}/> Todas</label>` +
-      marcas.map((m) => `<label class="filter-option"><input type="radio" name="marca" value="${escapeHtml(m)}" ${m === marcaSeleccionada ? 'checked' : ''}/> ${escapeHtml(m)}</label>`).join('');
+      marcas.map((m) => `<label class="filter-option"><input type="radio" name="marca" value="${escapeHtml(m)}" ${m === marcaSeleccionada ? 'checked' : ''}/> ${escapeHtml(m)} (${conteoMarcas.get(m) || 0})</label>`).join('');
     document.getElementById('filtro-familias').innerHTML =
       `<label class="filter-option"><input type="radio" name="familia" value="" ${!familiaSeleccionada ? 'checked' : ''}/> Todas</label>` +
       familias.map((f) => `<label class="filter-option"><input type="radio" name="familia" value="${escapeHtml(f)}" ${f === familiaSeleccionada ? 'checked' : ''}/> ${escapeHtml(f)}</label>`).join('');
     document.getElementById('filtro-casas').innerHTML =
       `<label class="filter-option"><input type="radio" name="tipo_casa" value="" ${!casaSeleccionada ? 'checked' : ''}/> Todas</label>` +
       TIPOS_CASA.map((c) => `<label class="filter-option"><input type="radio" name="tipo_casa" value="${escapeHtml(c)}" ${c === casaSeleccionada ? 'checked' : ''}/> ${escapeHtml(c)}</label>`).join('');
+    // "stock" (En stock) es el default -- el catálogo de tienda siempre arrancó mostrando solo
+    // lo que hay físicamente disponible; este filtro deja ver también lo agotado (ya con su
+    // badge "Agotado" en la tarjeta, ver tarjetaProducto en main.js) sin cambiar ese default.
+    document.getElementById('filtro-disponibilidad').innerHTML = `
+      <label class="filter-option"><input type="radio" name="disponibilidad" value="stock" ${disponibilidadSeleccionada !== 'todos' ? 'checked' : ''}/> En stock (${disponibilidad.enStock})</label>
+      <label class="filter-option"><input type="radio" name="disponibilidad" value="todos" ${disponibilidadSeleccionada === 'todos' ? 'checked' : ''}/> Todos, incluye agotados (${disponibilidad.enStock + disponibilidad.agotado})</label>
+    `;
 
     // La familia olfativa todavía no está cargada en el catálogo real (ver seed.sql) — mientras
     // esté vacía, ocultamos el botón en vez de mostrar un filtro que solo dice "Todas".
     document.getElementById('dd-familia').style.display = familias.length ? '' : 'none';
 
-    document.querySelectorAll('#filtro-marcas input, #filtro-familias input, #filtro-casas input').forEach((input) => {
+    document.querySelectorAll('#filtro-marcas input, #filtro-familias input, #filtro-casas input, #filtro-disponibilidad input').forEach((input) => {
       input.addEventListener('change', () => {
         cerrarDropdowns();
         paginaActual = 1;
@@ -221,6 +228,7 @@ function actualizarUIFiltros() {
   const marca = form.querySelector('input[name="marca"]:checked')?.value || '';
   const familia = form.querySelector('input[name="familia"]:checked')?.value || '';
   const casa = form.querySelector('input[name="tipo_casa"]:checked')?.value || '';
+  const disponibilidad = form.querySelector('input[name="disponibilidad"]:checked')?.value || 'stock';
   const busqueda = form.querySelector('input[name="busqueda"]').value.trim();
 
   const btnMarca = document.querySelector('#dd-marca .filter-dd-btn');
@@ -235,11 +243,16 @@ function actualizarUIFiltros() {
   document.getElementById('dd-familia').classList.toggle('has-value', !!familia);
   btnFamilia.childNodes[0].textContent = familia ? `Familia: ${familia}` : 'Familia Olfativa ';
 
+  const btnDisponibilidad = document.querySelector('#dd-disponibilidad .filter-dd-btn');
+  document.getElementById('dd-disponibilidad').classList.toggle('has-value', disponibilidad === 'todos');
+  btnDisponibilidad.childNodes[0].textContent = disponibilidad === 'todos' ? 'Disponibilidad: Todos ' : 'Disponibilidad ';
+
   const chips = [];
   if (generoActivo) chips.push({ label: `Género: ${generoActivo}`, quitar: () => limpiarGenero() });
   if (marca) chips.push({ label: `Marca: ${marca}`, quitar: () => seleccionarRadio('marca', '') });
   if (casa) chips.push({ label: `Casa: ${casa}`, quitar: () => seleccionarRadio('tipo_casa', '') });
   if (familia) chips.push({ label: `Familia: ${familia}`, quitar: () => seleccionarRadio('familia', '') });
+  if (disponibilidad === 'todos') chips.push({ label: 'Incluye agotados', quitar: () => seleccionarRadio('disponibilidad', 'stock') });
   if (busqueda) chips.push({ label: `"${busqueda}"`, quitar: () => { form.querySelector('input[name="busqueda"]').value = ''; aplicarFiltrosYActualizar(); } });
 
   const mount = document.getElementById('active-chips');
@@ -253,6 +266,7 @@ function actualizarUIFiltros() {
     seleccionarRadio('marca', '', false);
     seleccionarRadio('tipo_casa', '', false);
     seleccionarRadio('familia', '', false);
+    seleccionarRadio('disponibilidad', 'stock', false);
     form.querySelector('input[name="busqueda"]').value = '';
     aplicarFiltrosYActualizar();
   });
@@ -290,7 +304,7 @@ function leerFiltros() {
     orden: document.getElementById('orden-select').value,
     pagina: paginaActual,
     porPagina: 12,
-    soloConStock: true,
+    soloConStock: data.get('disponibilidad') !== 'todos',
   };
 }
 

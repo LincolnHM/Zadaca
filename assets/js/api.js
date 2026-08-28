@@ -198,14 +198,32 @@ async function obtenerFiltrosCatalogo() {
   // es_decant=false: los decants viven en su propia sección (ver destacado: 'decant' en
   // obtenerProductos()), así que una marca que solo tenga decants no debe aparecer como
   // opción de filtro acá -- si apareciera, filtrar por ella daría 0 resultados.
-  const { data: marcasData } = await supabaseClient.from('perfumes').select('marca').eq('activo', true).eq('es_decant', false);
-  const { data: familiasData } = await supabaseClient.from('perfumes').select('familia_olfativa').eq('activo', true).eq('es_decant', false).not('familia_olfativa', 'is', null);
-  const marcas = [...new Set((marcasData || []).map((r) => r.marca))].sort();
-  // .filter(Boolean) además del filtro "is not null" de la consulta: familia_olfativa es texto
-  // libre en el form de admin, así que puede quedar guardada como '' (no NULL) -- sin esto,
-  // esa fila generaba una opción de filtro en blanco, sin texto, en el dropdown del catálogo.
-  const familias = [...new Set((familiasData || []).map((r) => r.familia_olfativa).filter(Boolean))].sort();
-  return { marcas, familias };
+  // Trae también el stock (join a inventario) en la misma consulta: de acá salen tanto el
+  // conteo por marca ("Dior (39)") como el conteo de disponibilidad ("En stock" / "Todos"),
+  // sin necesitar una consulta aparte para cada uno.
+  const { data: filasData } = await supabaseClient
+    .from('perfumes')
+    .select('marca, familia_olfativa, inventario(stock_disponible)')
+    .eq('activo', true)
+    .eq('es_decant', false);
+
+  const filas = (filasData || []).map((r) => ({
+    marca: r.marca,
+    familia_olfativa: r.familia_olfativa,
+    stock_disponible: Math.max(Array.isArray(r.inventario) ? (r.inventario[0]?.stock_disponible ?? 0) : (r.inventario?.stock_disponible ?? 0), 0),
+  }));
+
+  const conteoMarcas = new Map();
+  filas.forEach((r) => conteoMarcas.set(r.marca, (conteoMarcas.get(r.marca) || 0) + 1));
+  const marcas = [...conteoMarcas.keys()].sort();
+
+  // .filter(Boolean): familia_olfativa es texto libre en el form de admin, así que puede
+  // quedar guardada como '' (no NULL) -- sin esto, esa fila generaba una opción de filtro en
+  // blanco, sin texto, en el dropdown del catálogo.
+  const familias = [...new Set(filas.map((r) => r.familia_olfativa).filter(Boolean))].sort();
+
+  const enStock = filas.filter((r) => r.stock_disponible > 0).length;
+  return { marcas, familias, conteoMarcas, disponibilidad: { enStock, agotado: filas.length - enStock } };
 }
 
 // A diferencia de marca/familia (que salen de los datos reales), tipo_casa es un vocabulario
@@ -657,6 +675,13 @@ async function marcarTodasNotificacionesLeidas() {
   if (!session) return;
   const { error } = await supabaseClient.from('notificaciones').update({ leido: true }).eq('id_cliente', session.user.id).eq('leido', false);
   if (error) throw new Error(error.message);
+}
+
+// Formato legible del número de WhatsApp de la tienda (ej. "+51 990278017"), compartido entre
+// contacto.js (texto del bloque de contacto) y main.js (footer de todas las páginas) para que
+// no queden dos formatos distintos del mismo número.
+function formatoWhatsapp() {
+  return `+${WHATSAPP_NUMERO.slice(0, 2)} ${WHATSAPP_NUMERO.slice(2)}`;
 }
 
 /* ---------------- Pagos por WhatsApp ---------------- */

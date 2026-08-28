@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('icon-envios').innerHTML = ICONS.truck;
   document.getElementById('icon-tienda-lima').innerHTML = ICONS.pin;
   document.getElementById('icon-tienda-chiclayo').innerHTML = ICONS.pin;
-  document.getElementById('texto-whatsapp').textContent = `+${WHATSAPP_NUMERO.slice(0, 2)} ${WHATSAPP_NUMERO.slice(2)}`;
+  document.getElementById('texto-whatsapp').textContent = formatoWhatsapp();
 
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('cotizacion-mount').innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>';

@@ -374,20 +374,27 @@ h1, h2, h3, h4 {
    sistema, este bloque entero no aplica y los elementos quedan visibles de una, sin depender
    de que el JS revierta nada. */
 @media (prefers-reduced-motion: no-preference) {
-  .hero-inner > .eyebrow, .hero-inner > h1, .hero-inner > p, .hero-inner > .hero-actions {
+  .hero-text > .eyebrow, .hero-text > h1, .hero-text > p, .hero-text > .hero-actions {
     opacity: 0;
     animation: entrada-suave 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
-  .hero-inner > .eyebrow { animation-delay: 0.05s; }
-  .hero-inner > h1 { animation-delay: 0.16s; }
-  .hero-inner > p { animation-delay: 0.3s; }
-  .hero-inner > .hero-actions { animation-delay: 0.42s; }
+  .hero-text > .eyebrow { animation-delay: 0.05s; }
+  .hero-text > h1 { animation-delay: 0.16s; }
+  .hero-text > p { animation-delay: 0.3s; }
+  .hero-text > .hero-actions { animation-delay: 0.42s; }
   /* Cada estadística entra por separado (en vez de las 3 juntas como un solo bloque) para que
      el remate del hero se sienta como una secuencia, no dos golpes (texto, luego botones+stats). */
   .hero-stat { opacity: 0; animation: entrada-suave 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
   .hero-stat:nth-child(1) { animation-delay: 0.56s; }
   .hero-stat:nth-child(2) { animation-delay: 0.64s; }
   .hero-stat:nth-child(3) { animation-delay: 0.72s; }
+  /* Las fotos de producto entran después, para que el remate del hero no se sienta como dos
+     bloques compitiendo -- primero el mensaje y los botones, recién después el stock real.
+     Solo opacity (no transform): cada tarjeta ya tiene su propio transform fijo en abanico
+     (ver nth-child más abajo) -- animar transform acá lo pisaría al terminar la animación. */
+  .hero-visual-card { opacity: 0; animation: hero-visual-in 0.6s ease-out forwards; }
+  .hero-visual-card:nth-child(1) { animation-delay: 0.6s; }
+  .hero-visual-card:nth-child(2) { animation-delay: 0.72s; }
 
   /* Filtros rápidos justo debajo del hero (#pill-generos, solo en el inicio): siguen la misma
      secuencia de entrada. Va por id (no ".pill" a secas) para no repetirse cada vez que
@@ -423,6 +430,10 @@ h1, h2, h3, h4 {
   from { opacity: 0; transform: translateY(18px) scale(0.96); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes hero-visual-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
 /* ---------- Hero ----------
    Antes tenía una imagen fija de un solo producto (Aventus Creed) al costado — no reflejaba
@@ -452,9 +463,10 @@ h1, h2, h3, h4 {
   50% { transform: translate(1.5%, -1.5%) scale(1.04); opacity: 0.65; }
 }
 .hero-inner {
-  position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;
-  max-width: 760px; margin: 0 auto; min-height: 520px; justify-content: center; padding: 64px 0;
+  position: relative; display: grid; grid-template-columns: 1fr; max-width: 780px;
+  margin: 0 auto; min-height: 520px; align-items: center; justify-items: center; padding: 64px 0;
 }
+.hero-text { text-align: center; max-width: 760px; }
 .hero-inner .eyebrow { margin-bottom: 18px; display: block; }
 .hero-inner h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); margin-bottom: 20px; }
 .hero-inner h1 em { font-style: normal; }
@@ -472,6 +484,33 @@ h1, h2, h3, h4 {
 .hero-stat span:first-child svg { width: 100%; height: 100%; }
 .hero-stat-link { transition: color 0.2s ease; }
 .hero-stat-link:hover { color: var(--color-gold); }
+
+/* ---------- Visual del hero (fotos reales de stock, no una foto fija -- ver nota arriba) ----------
+   Solo en pantallas anchas: en mobile el hero se queda exactamente como antes (texto solo),
+   nunca compite por espacio con el mensaje principal. */
+.hero-visual { display: none; }
+@media (min-width: 981px) {
+  .hero-inner { grid-template-columns: 1.05fr 0.95fr; max-width: 1180px; gap: 32px; justify-items: stretch; }
+  .hero-text { text-align: left; max-width: none; }
+  .hero-inner p { margin-left: 0; margin-right: 0; }
+  .hero-actions, .hero-stats { justify-content: flex-start; }
+  .hero-visual { display: flex; position: relative; align-items: center; justify-content: center; min-height: 340px; }
+}
+/* Cada tarjeta se ancla primero al centro exacto del contenedor (top/left 50% + translate
+   -50%/-50%) y RECIÉN AHÍ se desplaza en abanico -- ancladas así (no con position:absolute
+   "suelto", que depende de dónde habría quedado en flujo normal) el desplazamiento de cada una
+   es predecible en cualquier navegador. */
+.hero-visual-card {
+  position: absolute; top: 50%; left: 50%; width: 205px; aspect-ratio: 3 / 4; background: var(--color-bg-card);
+  border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: var(--shadow-card);
+  display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 14px;
+}
+.hero-visual-card img { max-width: 88%; max-height: 88%; object-fit: contain; }
+.hero-visual-card .fallback-icon { width: 40%; height: 40%; color: var(--color-text-faint); }
+/* Solo 2 tarjetas en diagonales opuestas (no 3 en abanico): con offsets en direcciones
+   contrarias, la foto de cada una queda mayormente visible en vez de tapada por la de encima. */
+.hero-visual-card:nth-child(1) { transform: translate(calc(-50% + 58px), calc(-50% - 44px)) rotate(4deg); z-index: 1; }
+.hero-visual-card:nth-child(2) { transform: translate(calc(-50% - 46px), calc(-50% + 40px)) rotate(-4deg); z-index: 2; width: 225px; }
 
 @media (max-width: 860px) {
   .hero-inner { min-height: unset; padding: 48px 0; }
@@ -514,7 +553,7 @@ h1, h2, h3, h4 {
 @media (max-width: 900px) { .info-grid { grid-template-columns: 1fr; } }
 .info-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 26px 24px; transition: border-color 0.2s, transform 0.2s; }
 .info-card:hover { border-color: var(--color-gold-dim); transform: translateY(-3px); }
-.info-card .info-icon { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--color-gold); }
+.info-card .info-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--color-gold); background: rgba(122,32,48,0.08); border-radius: 50%; }
 .info-card .info-icon svg { width: 26px; height: 26px; }
 .info-card h3 { font-size: 1.1rem; margin-bottom: 10px; }
 .info-card p { color: var(--color-text-muted); font-size: 0.88rem; margin: 0 0 14px; }
@@ -625,9 +664,10 @@ h1, h2, h3, h4 {
 
 /* ---------- Feature strip ---------- */
 .feature-strip { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-bg-alt); }
-.feature-item { display: flex; align-items: center; gap: 12px; padding: 26px 22px; border-right: 1px solid var(--color-border); }
+.feature-item { display: flex; align-items: center; gap: 14px; padding: 26px 22px; border-right: 1px solid var(--color-border); }
 .feature-item:last-child { border-right: none; }
-.feature-item svg { width: 26px; height: 26px; color: var(--color-gold); flex-shrink: 0; }
+.feature-item > span:first-child { width: 42px; height: 42px; border-radius: 50%; background: rgba(122,32,48,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.feature-item svg { width: 21px; height: 21px; color: var(--color-gold); flex-shrink: 0; }
 .feature-item .f-title { font-size: 0.8rem; font-weight: 600; }
 .feature-item .f-sub { font-size: 0.72rem; color: var(--color-text-faint); }
 @media (max-width: 900px) { .feature-strip { grid-template-columns: repeat(2, 1fr); } .feature-item:nth-child(2) { border-right: none; } .feature-item { border-bottom: 1px solid var(--color-border); } }
@@ -746,8 +786,32 @@ h1, h2, h3, h4 {
 .social-row a:hover { border-color: var(--color-gold); color: var(--color-gold); }
 .social-row svg { width: 15px; height: 15px; }
 .footer-bottom { border-top: 1px solid var(--color-border); padding: 20px 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 0.75rem; color: var(--color-text-faint); }
+.footer-legal-links { display: flex; gap: 18px; flex-wrap: wrap; }
+.footer-legal-links a { color: var(--color-text-faint); }
+.footer-legal-links a:hover { color: var(--color-gold); }
 .payment-icons { display: flex; gap: 10px; font-size: 0.68rem; }
 .payment-icons span { border: 1px solid var(--color-border); padding: 4px 8px; border-radius: 3px; }
+
+/* ---------- FAQ (acordeón nativo <details>/<summary>, sin JS) ---------- */
+.faq-list { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+.faq-item { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 0 20px; transition: border-color 0.2s; }
+.faq-item:hover { border-color: var(--color-gold-dim); }
+.faq-item summary { list-style: none; cursor: pointer; padding: 17px 0; font-size: 0.92rem; font-weight: 600; color: var(--color-text); display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: '+'; font-size: 1.3rem; line-height: 1; color: var(--color-gold); flex-shrink: 0; transition: transform 0.2s; }
+.faq-item[open] summary::after { transform: rotate(45deg); }
+.faq-item p { color: var(--color-text-muted); font-size: 0.87rem; padding: 0 0 18px; margin: 0; }
+.faq-item p a { color: var(--color-gold); border-bottom: 1px solid var(--color-gold-dim); }
+
+/* ---------- Páginas legales estáticas (privacidad / términos / cambios) ---------- */
+.legal-content { max-width: 760px; color: var(--color-text-muted); font-size: 0.92rem; line-height: 1.7; }
+.legal-content h2 { color: var(--color-text); font-size: 1.15rem; margin: 32px 0 12px; }
+.legal-content h2:first-child { margin-top: 0; }
+.legal-content p, .legal-content ul { margin-bottom: 14px; }
+.legal-content ul { padding-left: 20px; }
+.legal-content li { margin-bottom: 6px; }
+.legal-content strong { color: var(--color-text); }
+.legal-updated { font-size: 0.8rem; color: var(--color-text-faint); margin-bottom: 32px; }
 
 /* ---------- Breadcrumb / page header ---------- */
 .page-header { padding: 40px 0 24px; border-bottom: 1px solid var(--color-border); }
