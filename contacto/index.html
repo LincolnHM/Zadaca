@@ -76,9 +76,9 @@
           <span class="eyebrow">Hablemos</span>
           <h2>Estamos para ayudarte</h2>
           <div class="mt-40">
-            <div class="info-item"><span id="icon-mail"></span><div><h4>Correo</h4><p>contacto@maisonzadaca.com</p></div></div>
+            <div class="info-item"><span id="icon-mail"></span><div><h4>Correo</h4><p data-cfg="correo_contacto">contacto@maisonzadaca.com</p></div></div>
             <div class="info-item"><span id="icon-whatsapp"></span><div><h4>WhatsApp</h4><p id="texto-whatsapp"></p></div></div>
-            <div class="info-item"><span id="icon-envios"></span><div><h4>Envíos</h4><p>A todo el Perú vía Shalom / Olva, o recojo en nuestro almacén de Lima o en nuestra tienda de Chiclayo <a href="#tiendas" class="link-arrow">(ver ubicaciones)</a>.</p></div></div>
+            <div class="info-item"><span id="icon-envios"></span><div><h4>Envíos</h4><p>A todo el Perú vía <span data-cfg="envio_transportistas">Shalom / Olva</span>, o recojo en nuestro almacén de Lima o en nuestra tienda de Chiclayo <a href="#tiendas" class="link-arrow">(ver ubicaciones)</a>.</p></div></div>
           </div>
           <h3 style="margin-top:40px; font-size:1.1rem;">¿Cómo funciona un consolidado?</h3>
           <ol class="steps">
@@ -108,16 +108,16 @@
             <span class="store-icon" id="icon-tienda-chiclayo"></span>
             <span class="store-badge">Tienda física</span>
             <h3>Chiclayo — La Victoria</h3>
-            <p class="store-address" style="margin-bottom:16px;">Av. Los Incas 1090, La Victoria, Chiclayo</p>
-            <a class="link-arrow" href="https://www.google.com/maps/search/?api=1&amp;query=Av.+Los+Incas+1090,+La+Victoria,+Chiclayo,+Peru" target="_blank" rel="noopener">Cómo llegar &rarr;</a>
+            <p class="store-address" style="margin-bottom:16px;" data-cfg="direccion_chiclayo">Av. Los Incas 1090, La Victoria, Chiclayo</p>
+            <a class="link-arrow" data-cfg-href="direccion_chiclayo_maps_url" href="https://www.google.com/maps/search/?api=1&amp;query=Av.+Los+Incas+1090,+La+Victoria,+Chiclayo,+Peru" target="_blank" rel="noopener">Cómo llegar &rarr;</a>
           </div>
           <div class="store-card">
             <span class="store-icon" id="icon-tienda-lima"></span>
             <span class="store-badge">Almacén — Punto de recojo</span>
             <h3>Lima — San Martín de Porres</h3>
-            <p class="store-address">Jr. Ávila Godoy 664, San Martín de Porres, Lima</p>
+            <p class="store-address" data-cfg="direccion_lima">Jr. Ávila Godoy 664, San Martín de Porres, Lima</p>
             <p class="store-note">Es solo un almacén, no atendemos venta en persona aquí. Aquí se recoge el pedido si eliges "Recojo en almacén" al reservar en un consolidado.</p>
-            <a class="link-arrow" href="https://www.google.com/maps/search/?api=1&amp;query=Jr.+Avila+Godoy+664,+San+Martin+de+Porres,+Lima,+Peru" target="_blank" rel="noopener">Cómo llegar &rarr;</a>
+            <a class="link-arrow" data-cfg-href="direccion_lima_maps_url" href="https://www.google.com/maps/search/?api=1&amp;query=Jr.+Avila+Godoy+664,+San+Martin+de+Porres,+Lima,+Peru" target="_blank" rel="noopener">Cómo llegar &rarr;</a>
           </div>
         </div>
       </div>
@@ -128,40 +128,7 @@
         <div class="section-header">
           <div><span class="eyebrow">Dudas comunes</span><h2>Preguntas Frecuentes</h2></div>
         </div>
-        <div class="faq-list">
-          <details class="faq-item">
-            <summary>¿Hacen envíos a todo el Perú?</summary>
-            <p>Sí, vía Shalom u Olva Courier a cualquier departamento. También puedes recoger tu pedido en nuestro almacén de Lima (solo pedidos de consolidado) o comprar directo en la tienda física de Chiclayo.</p>
-          </details>
-          <details class="faq-item">
-            <summary>¿Tienen tienda física?</summary>
-            <p>Sí, en Av. Los Incas 1090, La Victoria, Chiclayo. El almacén de Lima es solo un punto de recojo de pedidos de consolidado — ahí no atendemos venta en persona.</p>
-          </details>
-          <details class="faq-item">
-            <summary>¿Cuál es la diferencia entre Catálogo, Consolidado y Liquidaciones?</summary>
-            <p><strong>Catálogo</strong> es stock físico real: lo compras y lo recibes de inmediato. <strong>Consolidado</strong> es una campaña de importación grupal a precio preferencial (mínimo 4 unidades, cierra los domingos). <strong>Liquidaciones</strong> es mercadería que cae directo a stock a precio rebajado, por mayor o por unidad según el producto.</p>
-          </details>
-          <details class="faq-item">
-            <summary>¿Cómo pago mi pedido?</summary>
-            <p>Aceptamos Yape, Plin, transferencia o tarjeta. El pago se coordina por WhatsApp: nos envías la captura del comprobante y confirmamos tu pedido.</p>
-          </details>
-          <details class="faq-item">
-            <summary>¿Cuánto tarda en llegar un consolidado?</summary>
-            <p>Entre 7 y 14 días después de que la campaña cierra (los cierres son todos los domingos). Puedes seguir el estado de tu reserva desde "Mi cuenta".</p>
-          </details>
-          <details class="faq-item">
-            <summary>¿Puedo comprar por mayor?</summary>
-            <p>Sí. En Liquidaciones cada producto tiene su propia cantidad mínima (desde 1 unidad hasta packs de 2 o 6), y en Consolidado puedes reservar más unidades para acceder a mejores precios por volumen.</p>
-          </details>
-          <details class="faq-item">
-            <summary>¿Los perfumes son 100% originales?</summary>
-            <p>Sí, todo nuestro catálogo es original importado — no vendemos réplicas ni clones.</p>
-          </details>
-          <details class="faq-item">
-            <summary>¿Puedo cambiar o devolver mi pedido?</summary>
-            <p>Los decants no admiten cambio ni devolución por tratarse de fracciones ya manipuladas (razones de higiene). Para perfumes sellados con defecto de fábrica, tienes 48 horas desde la entrega para reportarlo. Revisa el detalle completo en <a href="https://lincolnhm.github.io/Zadaca/cambios-y-devoluciones/">Cambios y Devoluciones</a>.</p>
-          </details>
-        </div>
+        <div class="faq-list" id="faq-mount"><div class="loading-state">Cargando preguntas…</div></div>
       </div>
     </section>
   </main>

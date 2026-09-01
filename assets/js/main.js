@@ -47,7 +47,67 @@ async function iniciarLayout(activo) {
   activarRevelado();
   activarScrollHeader();
   actualizarAnnounceBar();
+  // No se espera (fire-and-forget): es cosmético (footer, textos de "4 unidades/7-14
+  // días/domingos" repetidos en varias páginas -- ver aplicarConfiguracionSitio) y no debe
+  // demorar el resto del layout ni la verificación de sesión de abajo.
+  aplicarConfiguracionDelSitio();
   await actualizarEstadoSesionHeader();
+}
+
+// Trae la fila única de configuracion_sitio (panel admin → Configuración del Sitio) y llena
+// cualquier elemento marcado con [data-cfg]/[data-cfg-href] en la página actual, además del
+// footer y las redes sociales. Si falla o Supabase no está configurado, la página se queda con
+// los valores por defecto que ya vienen escritos en el HTML -- no es crítico.
+async function aplicarConfiguracionDelSitio() {
+  if (!SUPABASE_CONFIGURADO) return;
+  try {
+    const cfg = await obtenerConfiguracionSitio();
+    aplicarConfiguracionSitio(cfg);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function aplicarConfiguracionSitio(cfg) {
+  if (!cfg) return;
+  const chiclayo = document.getElementById('footer-dir-chiclayo');
+  if (chiclayo) chiclayo.textContent = `Tienda Chiclayo: ${cfg.direccion_chiclayo}`;
+  const lima = document.getElementById('footer-dir-lima');
+  if (lima) lima.textContent = `Almacén Lima: ${cfg.direccion_lima}`;
+  const envioTexto = document.getElementById('footer-envio-texto');
+  if (envioTexto) envioTexto.textContent = `Envíos vía ${cfg.envio_transportistas} a todo el Perú`;
+  const pagoTexto = document.getElementById('footer-pago-texto');
+  if (pagoTexto) pagoTexto.textContent = `Pagos: ${cfg.metodos_pago_texto}`;
+  aplicarRedesSociales(cfg);
+
+  // Convención genérica para el resto del sitio (info-grid del home, FAQ, términos, etc.):
+  // el HTML nace con el valor de siempre como fallback visible, y esto lo pisa si Supabase
+  // responde. [data-cfg] llena texto, [data-cfg-href] llena un href (ej. links a Google Maps).
+  document.querySelectorAll('[data-cfg]').forEach((el) => {
+    const valor = cfg[el.dataset.cfg];
+    if (valor !== null && valor !== undefined && valor !== '') el.textContent = valor;
+  });
+  document.querySelectorAll('[data-cfg-href]').forEach((el) => {
+    const valor = cfg[el.dataset.cfgHref];
+    if (valor) el.href = valor;
+  });
+}
+
+// Instagram/TikTok/Facebook nacen ocultos en el footer (antes Instagram y TikTok apuntaban a
+// "#", un link muerto) -- solo se muestran si el admin cargó una URL real desde Configuración
+// del Sitio.
+function aplicarRedesSociales(cfg) {
+  [
+    ['social-instagram', 'instagram_url'],
+    ['social-tiktok', 'tiktok_url'],
+    ['social-facebook', 'facebook_url'],
+  ].forEach(([id, campo]) => {
+    const el = document.getElementById(id);
+    if (el && cfg[campo]) {
+      el.href = cfg[campo];
+      el.hidden = false;
+    }
+  });
 }
 
 const ESTADOS_CONSOLIDADO_LEGIBLES = {
@@ -483,8 +543,9 @@ function renderFooter() {
             </a>
             <p>Perfumería importada seleccionada, disponible en tienda o mediante compras consolidadas a precio preferencial.</p>
             <div class="social-row">
-              <a href="#" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg></a>
-              <a href="#" aria-label="TikTok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 3v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M15 3c.5 2.5 2 4 5 4.3"/></svg></a>
+              <a href="#" aria-label="Instagram" id="social-instagram" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg></a>
+              <a href="#" aria-label="TikTok" id="social-tiktok" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 3v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M15 3c.5 2.5 2 4 5 4.3"/></svg></a>
+              <a href="#" aria-label="Facebook" id="social-facebook" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3.2L18 12h-4V7a1 1 0 0 1 1-1h3Z"/></svg></a>
               <a href="https://wa.me/${WHATSAPP_NUMERO}" target="_blank" rel="noopener" aria-label="WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 1 1-4.2-7.6"/></svg></a>
             </div>
           </div>
@@ -510,11 +571,11 @@ function renderFooter() {
           </div>
           <div class="footer-col">
             <h4>Ayuda</h4>
-            <a href="${SITE_ROOT}contacto/#tiendas">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
-            <a href="${SITE_ROOT}contacto/#tiendas">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>
+            <a href="${SITE_ROOT}contacto/#tiendas" id="footer-dir-chiclayo">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
+            <a href="${SITE_ROOT}contacto/#tiendas" id="footer-dir-lima">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>
             <a href="https://wa.me/${WHATSAPP_NUMERO}" target="_blank" rel="noopener">WhatsApp: ${formatoWhatsapp()}</a>
-            <p>Envíos vía Shalom / Olva a todo el Perú</p>
-            <p>Pagos: Yape, Plin, transferencia y tarjeta</p>
+            <p id="footer-envio-texto">Envíos vía Shalom / Olva a todo el Perú</p>
+            <p id="footer-pago-texto">Pagos: Yape, Plin, transferencia y tarjeta</p>
           </div>
         </div>
         <div class="footer-bottom">

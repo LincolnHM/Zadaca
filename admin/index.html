@@ -51,6 +51,10 @@
         <button class="admin-nav-btn" data-section="clientes"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.7 14.3c2.4.4 4.3 2 4.3 5.7"/></svg>Clientes</button>
         <button class="admin-nav-btn" data-section="resenas"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 3 2.6 5.6 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.3l6-.7L12 3Z"/></svg>Reseñas <span class="admin-nav-badge" id="badge-resenas" hidden>0</span></button>
         <button class="admin-nav-btn" data-section="cotizaciones"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 5h16v11H8l-4 4V5Z"/></svg>Cotizaciones <span class="admin-nav-badge" id="badge-cotizaciones" hidden>0</span></button>
+
+        <span class="admin-nav-label">Contenido del Sitio</span>
+        <button class="admin-nav-btn" data-section="faq"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 4"/><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none"/></svg>Preguntas Frecuentes</button>
+        <button class="admin-nav-btn" data-section="configuracion"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>Configuración del Sitio</button>
       </nav>
       <div class="admin-nav-footer">
         <a href="https://lincolnhm.github.io/Zadaca/" class="admin-nav-btn" style="text-decoration:none;"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Ver tienda</a>
@@ -212,6 +216,47 @@
         </div>
         <div id="cotizaciones-lista"><div class="admin-empty">Cargando…</div></div>
       </section>
+
+      <!-- Preguntas Frecuentes -->
+      <section class="admin-section" id="section-faq">
+        <div class="admin-page-header">
+          <div><h1>Preguntas Frecuentes</h1><div class="sub">Se muestran en Contacto → Preguntas Frecuentes, en este mismo orden</div></div>
+          <button class="btn btn-primary btn-sm" id="btn-nueva-faq">+ Agregar Pregunta</button>
+        </div>
+        <p style="font-size:0.8rem; color:var(--color-text-faint); margin:-10px 0 20px;">Puedes usar <code>{{minimo_unidades}}</code>, <code>{{envio_dias}}</code> y <code>{{dia_cierre}}</code> dentro de una respuesta — se reemplazan solos con los valores de Configuración del Sitio.</p>
+        <div id="faq-lista-admin"><div class="admin-empty">Cargando…</div></div>
+      </section>
+
+      <!-- Configuración del Sitio -->
+      <section class="admin-section" id="section-configuracion">
+        <div class="admin-page-header"><div><h1>Configuración del Sitio</h1><div class="sub">Datos que se repiten en varias páginas (footer, Contacto, Términos) — se editan una sola vez acá</div></div></div>
+        <form id="form-configuracion" class="form-card" style="max-width:640px;">
+          <div class="form-group"><label>Correo de contacto</label><input type="email" name="correo_contacto" required /></div>
+          <div class="form-row">
+            <div class="form-group"><label>Dirección — Tienda Chiclayo</label><input type="text" name="direccion_chiclayo" required /></div>
+            <div class="form-group"><label>Link Google Maps — Chiclayo</label><input type="url" name="direccion_chiclayo_maps_url" required /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Dirección — Almacén Lima</label><input type="text" name="direccion_lima" required /></div>
+            <div class="form-group"><label>Link Google Maps — Lima</label><input type="url" name="direccion_lima_maps_url" required /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Mínimo de unidades por consolidado</label><input type="number" name="consolidado_minimo_unidades" min="1" required /></div>
+            <div class="form-group"><label>Día de cierre de campaña</label><input type="text" name="consolidado_dia_cierre" placeholder="domingos" required /></div>
+          </div>
+          <div class="form-group"><label>Días de envío (texto)</label><input type="text" name="envio_dias_texto" placeholder="7 a 14" required /></div>
+          <div class="form-row">
+            <div class="form-group"><label>Transportistas</label><input type="text" name="envio_transportistas" placeholder="Shalom / Olva" required /></div>
+            <div class="form-group"><label>Métodos de pago (texto)</label><input type="text" name="metodos_pago_texto" placeholder="Yape, Plin, transferencia y tarjeta" required /></div>
+          </div>
+          <h3 style="font-size:0.95rem; margin:24px 0 12px;">Redes sociales</h3>
+          <p style="font-size:0.8rem; color:var(--color-text-faint); margin:-6px 0 14px;">Deja en blanco el ícono que aún no tengas — no se muestra en el footer hasta que cargues la URL real.</p>
+          <div class="form-group"><label>Instagram</label><input type="url" name="instagram_url" placeholder="https://instagram.com/..." /></div>
+          <div class="form-group"><label>TikTok</label><input type="url" name="tiktok_url" placeholder="https://tiktok.com/@..." /></div>
+          <div class="form-group"><label>Facebook</label><input type="url" name="facebook_url" placeholder="https://facebook.com/..." /></div>
+          <button type="submit" class="btn btn-primary" style="margin-top:8px;">Guardar Configuración</button>
+        </form>
+      </section>
     </main>
   </div>
 
@@ -338,6 +383,26 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="btn-cancelar-cotizacion">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Nueva/Editar Pregunta Frecuente ────────────── -->
+  <div class="modal-overlay" id="modal-faq">
+    <div class="modal-box">
+      <h3 id="modal-faq-titulo">Agregar Pregunta</h3>
+      <form id="form-faq">
+        <input type="hidden" name="id" />
+        <div class="form-group"><label>Pregunta *</label><input type="text" name="pregunta" required /></div>
+        <div class="form-group"><label>Respuesta *</label><textarea name="respuesta" rows="4" required></textarea></div>
+        <div class="form-row">
+          <div class="form-group"><label>Orden</label><input type="number" name="orden" min="0" step="1" value="0" /></div>
+          <label class="filter-option" style="align-self:center;"><input type="checkbox" name="activo" checked /> Visible en el sitio</label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-faq">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
         </div>
       </form>

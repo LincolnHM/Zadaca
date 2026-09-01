@@ -515,6 +515,42 @@ async function responderCotizacionAdmin(id, cambios) {
   if (error) throw new Error(error.message);
 }
 
+/* ================= PREGUNTAS FRECUENTES ================= */
+
+async function obtenerFAQAdmin() {
+  const { data, error } = await supabaseClient.from('preguntas_frecuentes').select('*').order('orden', { ascending: true });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function crearFAQ(data) {
+  const { error } = await supabaseClient.from('preguntas_frecuentes').insert(data);
+  if (error) throw new Error(error.message);
+}
+
+async function actualizarFAQ(id, data) {
+  const { error } = await supabaseClient.from('preguntas_frecuentes').update(data).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+async function eliminarFAQ(id) {
+  const { error } = await supabaseClient.from('preguntas_frecuentes').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/* ================= CONFIGURACIÓN DEL SITIO ================= */
+
+async function obtenerConfiguracionSitioAdmin() {
+  const { data, error } = await supabaseClient.from('configuracion_sitio').select('*').eq('id', 1).single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function actualizarConfiguracionSitio(data) {
+  const { error } = await supabaseClient.from('configuracion_sitio').update({ ...data, actualizado_en: new Date().toISOString() }).eq('id', 1);
+  if (error) throw new Error(error.message);
+}
+
 /* ================= CLIENTES ================= */
 
 async function obtenerClientesAdmin({ busqueda } = {}) {

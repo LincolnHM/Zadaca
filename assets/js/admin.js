@@ -71,6 +71,8 @@ function cargarSeccion(nombre) {
     resenas: cargarResenas,
     cotizaciones: cargarCotizaciones,
     contabilidad: cargarContabilidad,
+    faq: cargarFAQ,
+    configuracion: cargarConfiguracion,
   };
   cargadores[nombre]?.();
 }
@@ -1149,6 +1151,113 @@ async function cargarResenas() {
     });
   } catch (err) {
     mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+  }
+}
+
+/* ================= PREGUNTAS FRECUENTES ================= */
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-nueva-faq')?.addEventListener('click', () => abrirModalFAQ());
+  document.getElementById('btn-cancelar-faq')?.addEventListener('click', () => cerrarModal('modal-faq'));
+  document.getElementById('form-faq')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    const id = data.id;
+    delete data.id;
+    data.orden = Number(data.orden || 0);
+    data.activo = e.target.elements.activo.checked;
+    try {
+      if (id) await actualizarFAQ(Number(id), data);
+      else await crearFAQ(data);
+      mostrarToast('Pregunta guardada');
+      cerrarModal('modal-faq');
+      cargarFAQ();
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    }
+  });
+});
+
+function abrirModalFAQ(f) {
+  const form = document.getElementById('form-faq');
+  form.reset();
+  document.getElementById('modal-faq-titulo').textContent = f ? 'Editar Pregunta' : 'Agregar Pregunta';
+  form.id.value = f?.id || '';
+  form.pregunta.value = f?.pregunta || '';
+  form.respuesta.value = f?.respuesta || '';
+  form.orden.value = f?.orden ?? 0;
+  form.elements.activo.checked = f ? f.activo : true;
+  abrirModal('modal-faq');
+}
+
+async function cargarFAQ() {
+  const mount = document.getElementById('faq-lista-admin');
+  try {
+    const preguntas = await obtenerFAQAdmin();
+    mount.innerHTML = preguntas.length ? preguntas.map((f) => `
+      <div class="admin-card" data-id="${f.id}" style="margin-bottom:12px;">
+        <div class="admin-card-top" style="justify-content:space-between; align-items:flex-start;">
+          <div>
+            <span class="admin-card-sub">Orden ${f.orden}${f.activo ? '' : ' · Oculta'}</span>
+            <h3 class="admin-card-title" style="font-size:0.95rem;">${escapeHtml(f.pregunta)}</h3>
+            <p style="font-size:0.85rem; color:var(--color-text-muted);">${f.respuesta}</p>
+          </div>
+        </div>
+        <div class="admin-card-actions">
+          <button class="btn btn-outline btn-sm btn-editar-faq">Editar</button>
+          <button class="btn btn-danger btn-sm btn-eliminar-faq">Eliminar</button>
+        </div>
+      </div>
+    `).join('') : '<div class="admin-empty">No hay preguntas cargadas.</div>';
+
+    mount.querySelectorAll('.btn-editar-faq').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = Number(btn.closest('.admin-card').dataset.id);
+        abrirModalFAQ(preguntas.find((f) => f.id === id));
+      });
+    });
+    mount.querySelectorAll('.btn-eliminar-faq').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('¿Eliminar esta pregunta?')) return;
+        const id = Number(btn.closest('.admin-card').dataset.id);
+        try { await eliminarFAQ(id); mostrarToast('Pregunta eliminada'); cargarFAQ(); } catch (err) { mostrarToast(err.message, 'error'); }
+      });
+    });
+  } catch (err) {
+    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+  }
+}
+
+/* ================= CONFIGURACIÓN DEL SITIO ================= */
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('form-configuracion')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    data.consolidado_minimo_unidades = Number(data.consolidado_minimo_unidades);
+    ['instagram_url', 'tiktok_url', 'facebook_url'].forEach((campo) => { if (!data[campo]) data[campo] = null; });
+    const boton = e.target.querySelector('button[type="submit"]');
+    boton.disabled = true;
+    try {
+      await actualizarConfiguracionSitio(data);
+      mostrarToast('Configuración guardada');
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    } finally {
+      boton.disabled = false;
+    }
+  });
+});
+
+async function cargarConfiguracion() {
+  const form = document.getElementById('form-configuracion');
+  try {
+    const cfg = await obtenerConfiguracionSitioAdmin();
+    Object.keys(cfg).forEach((campo) => {
+      if (form.elements[campo]) form.elements[campo].value = cfg[campo] ?? '';
+    });
+  } catch (err) {
+    mostrarToast(err.message, 'error');
   }
 }
 

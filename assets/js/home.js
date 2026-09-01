@@ -138,15 +138,21 @@ async function cargarConsolidados() {
 
 /* ---------- "Sobre Maison Zadaca": stats con conteo animado ---------- */
 
-// El total de perfumes es el único dato real (viene de la BD); el resto de tarjetas ya
-// nacen con su data-count-to fijo en el HTML. porPagina:1 porque solo interesa el "count"
-// que devuelve Supabase, no la lista de productos en sí.
+// El total de perfumes y el mínimo de unidades por consolidado son los dos datos reales (BD);
+// el resto de tarjetas nacen con su data-count-to fijo en el HTML. porPagina:1 porque solo
+// interesa el "count" que devuelve Supabase, no la lista de productos en sí.
 async function cargarSobreNosotros() {
   try {
     const { total } = await obtenerProductos({ porPagina: 1 });
     if (total > 0) document.getElementById('stat-catalogo').dataset.countTo = total;
   } catch {
     /* si falla, la tarjeta se queda en 0 -- no es crítico para el resto de la página */
+  }
+  try {
+    const cfg = await obtenerConfiguracionSitio();
+    if (cfg?.consolidado_minimo_unidades) document.getElementById('stat-minimo-unidades').dataset.countTo = cfg.consolidado_minimo_unidades;
+  } catch {
+    /* se queda con el "4" fijo del HTML -- no es crítico */
   }
   activarContadoresStats();
 }

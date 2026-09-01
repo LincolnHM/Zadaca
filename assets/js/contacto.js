@@ -12,7 +12,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
   renderFormularioCotizacion();
+  cargarFAQ();
 });
+
+// Preguntas frecuentes: antes eran 8 <details> escritas a mano acá mismo; ahora vienen de la
+// tabla preguntas_frecuentes (editable desde el panel admin → Preguntas Frecuentes), en el
+// mismo orden que ahí se configure. Se guarda el mismo markup <details>/<summary> de siempre
+// para no cambiar el estilo visual.
+async function cargarFAQ() {
+  const mount = document.getElementById('faq-mount');
+  try {
+    const preguntas = await obtenerPreguntasFrecuentes();
+    mount.innerHTML = preguntas.length
+      ? preguntas.map((p) => `
+        <details class="faq-item">
+          <summary>${escapeHtml(p.pregunta)}</summary>
+          <p>${p.respuesta}</p>
+        </details>
+      `).join('')
+      : '<div class="empty-state">Todavía no hay preguntas frecuentes cargadas.</div>';
+  } catch (err) {
+    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+  }
+}
 
 const COTIZACION_REENVIO_MS = 60_000; // evita doble envío accidental / spam básico desde el mismo navegador
 

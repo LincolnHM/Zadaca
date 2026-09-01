@@ -587,7 +587,7 @@ async function cargarDirecciones() {
   const mount = document.getElementById('tab-content');
   mount.innerHTML = '<div class="loading-state">Cargando direcciones…</div>';
   try {
-    const [direcciones, ubigeos] = await Promise.all([obtenerDirecciones(), obtenerUbigeos()]);
+    const [direcciones, ubigeos, cfg] = await Promise.all([obtenerDirecciones(), obtenerUbigeos(), obtenerConfiguracionSitio()]);
     mount.innerHTML = `
       <div id="lista-direcciones">
         ${direcciones.length
@@ -629,7 +629,7 @@ async function cargarDirecciones() {
           </select>
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
-        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: Jr. Ávila Godoy 664, San Martín de Porres. No es tienda física de atención al público.</p>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.</p>
         <label class="filter-option"><input type="checkbox" name="predeterminada" /> Usar como predeterminada</label>
         <button type="submit" class="btn btn-outline btn-block" style="margin-top:20px;">Guardar Dirección</button>
       </form>

@@ -98,9 +98,9 @@
             <h3>Consolidados</h3>
             <p>Campañas de importación grupal: reservas tu perfume a precio preferencial y, al reunirse el mínimo, lo importamos todos juntos.</p>
             <ul>
-              <li>Pedido mínimo: <strong>4 unidades</strong> por consolidado</li>
-              <li>Demora de llegada: <strong>7 a 14 días</strong> tras el cierre</li>
-              <li>Cada consolidado <strong>cierra los domingos</strong></li>
+              <li>Pedido mínimo: <strong><span data-cfg="consolidado_minimo_unidades">4</span> unidades</strong> por consolidado</li>
+              <li>Demora de llegada: <strong><span data-cfg="envio_dias_texto">7 a 14</span> días</strong> tras el cierre</li>
+              <li>Cada consolidado <strong>cierra los <span data-cfg="consolidado_dia_cierre">domingos</span></strong></li>
             </ul>
           </div>
           <div class="info-card">
@@ -153,7 +153,7 @@
             <span class="stat-label">Perfumes originales</span>
           </div>
           <div class="stat-card">
-            <span class="stat-number" data-count-to="4">0</span>
+            <span class="stat-number" id="stat-minimo-unidades" data-count-to="4">0</span>
             <span class="stat-label">Unidades mínimas por consolidado</span>
           </div>
         </div>

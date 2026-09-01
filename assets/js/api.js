@@ -715,6 +715,49 @@ function enlaceWhatsappConfirmarPedido({ idPedido, items, montoTotal }) {
   return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(lineas.join('\n'))}`;
 }
 
+/* ---------------- Contenido del sitio (FAQ y configuración editable desde admin) ---------------- */
+
+// Promise cacheada (no solo el resultado) para que llamadas concurrentes desde distintos
+// scripts en la misma página (main.js para el footer, home.js para el stat de "mínimo de
+// unidades", contacto.js para el FAQ) compartan una sola consulta a Supabase en vez de una
+// por cada uno.
+let _configuracionSitioPromise = null;
+function obtenerConfiguracionSitio() {
+  if (!SUPABASE_CONFIGURADO) return Promise.resolve(null);
+  if (!_configuracionSitioPromise) {
+    _configuracionSitioPromise = supabaseClient
+      .from('configuracion_sitio')
+      .select('*')
+      .eq('id', 1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) throw new Error(error.message);
+        return data;
+      });
+  }
+  return _configuracionSitioPromise;
+}
+
+// Sustituye {{minimo_unidades}}, {{envio_dias}} y {{dia_cierre}} en un texto de FAQ por los
+// valores reales de configuracion_sitio -- así esos 3 números solo se editan en un lugar
+// (panel admin → Configuración del Sitio) aunque aparezcan repetidos en varias preguntas.
+function aplicarPlaceholdersConfiguracion(texto, cfg) {
+  if (!cfg) return texto;
+  return texto
+    .replace(/\{\{minimo_unidades\}\}/g, cfg.consolidado_minimo_unidades)
+    .replace(/\{\{envio_dias\}\}/g, cfg.envio_dias_texto)
+    .replace(/\{\{dia_cierre\}\}/g, cfg.consolidado_dia_cierre);
+}
+
+async function obtenerPreguntasFrecuentes() {
+  const [{ data, error }, cfg] = await Promise.all([
+    supabaseClient.from('preguntas_frecuentes').select('pregunta, respuesta').eq('activo', true).order('orden', { ascending: true }),
+    obtenerConfiguracionSitio(),
+  ]);
+  if (error) throw new Error(error.message);
+  return data.map((p) => ({ ...p, respuesta: aplicarPlaceholdersConfiguracion(p.respuesta, cfg) }));
+}
+
 /* ---------------- Newsletter ---------------- */
 
 async function suscribirNewsletter(correo) {
