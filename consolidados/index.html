@@ -57,7 +57,7 @@
       const mount = document.getElementById('grid-consolidados');
       if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>'; return; }
       try {
-        const consolidados = (await obtenerConsolidados()).filter((c) => c.estado === 'Abierto');
+        const consolidados = (await obtenerConsolidados()).filter(consolidadoEstaAbierto);
         mount.innerHTML = consolidados.length ? consolidados.map(tarjetaConsolidado).join('') : '<div class="empty-state">No hay consolidados abiertos por el momento. Vuelve pronto.</div>';
       } catch (err) {
         mount.innerHTML = `<div class="empty-state">${err.message}</div>`;

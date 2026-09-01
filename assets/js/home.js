@@ -125,11 +125,15 @@ async function cargarNuevos() {
   }
 }
 
+// consolidadoEstaAbierto() (main.js) exige estado "Abierto" Y fecha de cierre no vencida --
+// antes esta sección solo miraba el estado, así que una campaña con el plazo ya vencido pero
+// que el admin no cerró a tiempo seguía apareciendo acá como "Abierto" (sin cuenta regresiva,
+// pero con la badge activa igual), inconsistente con la franja del header que sí la descarta.
 async function cargarConsolidados() {
   const mount = document.getElementById('grid-consolidados');
   try {
     const consolidados = await obtenerConsolidados();
-    const activos = consolidados.filter((c) => c.estado === 'Abierto').slice(0, 3);
+    const activos = consolidados.filter(consolidadoEstaAbierto).slice(0, 3);
     mount.innerHTML = activos.length ? activos.map(tarjetaConsolidado).join('') : '<div class="empty-state">No hay consolidados abiertos por el momento.</div>';
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
