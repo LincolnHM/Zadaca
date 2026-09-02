@@ -566,27 +566,28 @@ async function actualizarEstadoSesionHeader() {
     const idPedidoResuelto = await intentarResumirCheckoutPendiente();
     if (idPedidoResuelto) mostrarToast('¡Tu pedido quedó confirmado! Puedes verlo en "Mis Pedidos".');
   }
-  if (label) {
-    if (session) {
-      const perfil = await obtenerPerfilActual();
-      label.textContent = perfil?.nombres?.split(' ')[0] || 'Mi cuenta';
-    } else {
-      label.textContent = 'Ingresar';
-    }
-  }
+  // Perfil (nombre en el header), carrito (badge) y notificaciones no dependen entre sí --
+  // antes se pedían una detrás de otra (3 viajes de red en serie en CADA carga de página,
+  // antes incluso de que la página empiece a traer su propio contenido). En paralelo, el
+  // tiempo total es el de la más lenta de las 3, no la suma -- una de las razones por las que
+  // el sitio se sentía lento para cargar.
+  const [perfil, itemsCarrito] = await Promise.all([
+    label && session ? obtenerPerfilActual() : Promise.resolve(null),
+    badge ? obtenerCarrito().catch(() => null) : Promise.resolve(null),
+    actualizarBadgeNotificaciones(),
+  ]);
+
+  if (label) label.textContent = session ? (perfil?.nombres?.split(' ')[0] || 'Mi cuenta') : 'Ingresar';
 
   if (badge) {
-    try {
-      const items = await obtenerCarrito();
-      const total = items.reduce((acc, i) => acc + i.cantidad, 0);
+    if (itemsCarrito) {
+      const total = itemsCarrito.reduce((acc, i) => acc + i.cantidad, 0);
       badge.textContent = total;
       badge.hidden = total === 0;
-    } catch {
+    } else {
       badge.hidden = true;
     }
   }
-
-  await actualizarBadgeNotificaciones();
 }
 
 // Reinicia la animación de "bump" del badge (cantidad de carrito/notificaciones) sacando y

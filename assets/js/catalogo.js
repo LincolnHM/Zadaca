@@ -25,6 +25,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (params.get('destacado')) document.getElementById('filter-form').dataset.destacado = params.get('destacado');
 
+  // La grilla no depende de que el sidebar de filtros (marcas/familias/casas) ya haya cargado
+  // -- se dispara ya mismo, en paralelo con cargarFiltros(), en vez de esperarlo primero. Antes
+  // eran 2 viajes de red en serie antes de ver un solo producto.
+  cargarProductos({
+    genero: generoActivo || undefined,
+    marca: params.get('marca') || undefined,
+    familia: params.get('familia') || undefined,
+    tipo_casa: params.get('casa') || undefined,
+    destacado: params.get('destacado') || undefined,
+    orden: document.getElementById('orden-select').value,
+    pagina: paginaActual,
+    porPagina: 12,
+    soloConStock: params.get('disponibilidad') !== 'todos',
+  });
+
   await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'), params.get('disponibilidad'));
   iniciarDropdownsFiltro();
   iniciarBuscadorEnVivo();
@@ -40,8 +55,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     paginaActual = 1;
     cargarProductos();
   });
-
-  cargarProductos();
 });
 
 async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada, disponibilidadSeleccionada) {
@@ -312,12 +325,17 @@ function leerFiltros() {
 // sin este guard de secuencia, la respuesta de una petición vieja que llega después que la
 // nueva puede pisar en pantalla el resultado del filtro que el cliente sí quería ver (mismo
 // patrón que ya usa el buscador en vivo, ver sugerenciasSeq).
-async function cargarProductos() {
+// filtrosIniciales (opcional): la primera carga de la página dispara esto en paralelo con
+// cargarFiltros(), antes de que existan los radios de marca/familia/casa/disponibilidad en el
+// DOM -- leerFiltros() todavía no podría ver un "?marca=X" de la URL en ese momento porque el
+// radio ni existe. Se le pasa el filtro ya armado desde la URL para ese primer llamado; el
+// resto de los llamados (clics del usuario) siguen leyendo del formulario como siempre.
+async function cargarProductos(filtrosIniciales) {
   const mount = document.getElementById('grid-catalogo');
   mount.innerHTML = '<div class="loading-state">Cargando productos…</div>';
   const idSolicitud = ++cargaProductosSeq;
   try {
-    const { productos, total, totalPaginas } = await obtenerProductos(leerFiltros());
+    const { productos, total, totalPaginas } = await obtenerProductos(filtrosIniciales || leerFiltros());
     if (idSolicitud !== cargaProductosSeq) return;
     document.getElementById('resultado-conteo').textContent = `${total} producto${total === 1 ? '' : 's'} encontrados`;
     mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';

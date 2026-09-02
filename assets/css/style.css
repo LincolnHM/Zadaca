@@ -2,7 +2,11 @@
    MAISON ZADACA — DESIGN SYSTEM (sitio con Supabase)
    ========================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap');
+/* La fuente ya NO se carga con @import acá -- @import dentro de un CSS es bloqueante y en
+   serie (el navegador tiene que bajar y parsear TODO este archivo antes de enterarse de que
+   existe la fuente, recién ahí pide el CSS de Google Fonts, y recién ahí los .woff2 reales).
+   Ahora cada página la carga con <link rel="preconnect"> + <link rel="stylesheet"> en el
+   <head>, en paralelo con este mismo archivo, para que el texto no tarde de más en aparecer. */
 
 :root {
   /* ==========================================================

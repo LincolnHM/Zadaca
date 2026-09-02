@@ -274,39 +274,42 @@ async function obtenerProductoPorSlug(slug) {
 
   // Decants: la raíz (id_decant_grupo null) y sus tamaños hijos (id_decant_grupo = id de la
   // raíz) se muestran juntos como pastillas de tamaño en la misma ficha -- ver producto.js.
-  let tamanosDecant = [];
-  if (producto.es_decant) {
-    const idRaiz = producto.id_decant_grupo || producto.id;
-    const { data: tamanos } = await supabaseClient
-      .from('perfumes')
-      .select(`${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`)
-      .eq('activo', true)
-      .eq('es_decant', true)
-      .or(`id.eq.${idRaiz},id_decant_grupo.eq.${idRaiz}`)
-      .order('mililitros', { ascending: true });
-    tamanosDecant = (tamanos || []).map(normalizarProducto);
-  }
+  const idRaiz = producto.es_decant ? (producto.id_decant_grupo || producto.id) : null;
 
+  // Tamaños del decant y "también te puede interesar" son dos consultas que no dependen una de
+  // la otra (recién se combinan al final, para no repetir un tamaño como "relacionado") -- se
+  // disparan en paralelo en vez de una detrás de la otra, para no sumar un viaje de red más
+  // antes de que la ficha del producto esté completa.
+  //
   // Un decant "también te puede interesar" debe ofrecer OTROS decants con stock real -- antes
   // filtraba solo por marca igual que un perfume normal, así que en la ficha de un decant
   // podían salir botellas completas, sets, o productos agotados de la misma marca (nada que
   // ver con "prueba antes de comprar", la lógica de decants). Reutiliza obtenerProductos() con
   // el mismo filtro que ya usa decants/index.html (destacado:'decant' + soloConStock) en vez
   // de duplicar esa consulta acá.
-  let relacionadosCrudos;
-  if (producto.es_decant) {
-    const { productos } = await obtenerProductos({ destacado: 'decant', soloConStock: true, orden: 'recientes', porPagina: 8 });
-    relacionadosCrudos = productos;
-  } else {
-    const { data } = await supabaseClient
-      .from('perfumes')
-      .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
-      .eq('marca', producto.marca)
-      .eq('activo', true)
-      .neq('id', producto.id)
-      .limit(8);
-    relacionadosCrudos = data;
-  }
+  const [tamanosData, relacionadosCrudos] = await Promise.all([
+    idRaiz
+      ? supabaseClient
+          .from('perfumes')
+          .select(`${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`)
+          .eq('activo', true)
+          .eq('es_decant', true)
+          .or(`id.eq.${idRaiz},id_decant_grupo.eq.${idRaiz}`)
+          .order('mililitros', { ascending: true })
+          .then(({ data }) => data)
+      : Promise.resolve(null),
+    producto.es_decant
+      ? obtenerProductos({ destacado: 'decant', soloConStock: true, orden: 'recientes', porPagina: 8 }).then(({ productos }) => productos)
+      : supabaseClient
+          .from('perfumes')
+          .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
+          .eq('marca', producto.marca)
+          .eq('activo', true)
+          .neq('id', producto.id)
+          .limit(8)
+          .then(({ data }) => data),
+  ]);
+  const tamanosDecant = (tamanosData || []).map(normalizarProducto);
 
   // Los otros tamaños del mismo decant ya se muestran como pastillas de tamaño arriba -- no
   // tiene sentido repetirlos acá abajo como "también te puede interesar".

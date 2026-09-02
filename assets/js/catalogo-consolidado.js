@@ -27,6 +27,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  // La grilla no depende de que el sidebar de filtros ya haya cargado -- se dispara ya mismo,
+  // en paralelo con cargarFiltros(), en vez de esperarlo primero (ver mismo cambio en catalogo.js).
+  cargarProductos({
+    genero: generoActivo || undefined,
+    marca: params.get('marca') || undefined,
+    familia: params.get('familia') || undefined,
+    tipo_casa: params.get('casa') || undefined,
+    orden: document.getElementById('orden-select').value,
+    pagina: paginaActual,
+    porPagina: 12,
+  });
+
   await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'));
   iniciarDropdownsFiltro();
   iniciarBuscadorEnVivo();
@@ -42,8 +54,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     paginaActual = 1;
     cargarProductos();
   });
-
-  cargarProductos();
 });
 
 async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada) {
@@ -283,12 +293,15 @@ function leerFiltros() {
   };
 }
 
-async function cargarProductos() {
+// filtrosIniciales (opcional): la primera carga de la página dispara esto en paralelo con
+// cargarFiltros(), antes de que existan los radios de marca/familia/casa en el DOM -- ver
+// mismo motivo en catalogo.js.
+async function cargarProductos(filtrosIniciales) {
   const mount = document.getElementById('grid-catalogo');
   mount.innerHTML = '<div class="loading-state">Cargando productos…</div>';
   const idSolicitud = ++cargaProductosSeq;
   try {
-    const { productos, total, totalPaginas } = await obtenerProductosConsolidado(leerFiltros());
+    const { productos, total, totalPaginas } = await obtenerProductosConsolidado(filtrosIniciales || leerFiltros());
     if (idSolicitud !== cargaProductosSeq) return;
     document.getElementById('resultado-conteo').textContent = `${total} producto${total === 1 ? '' : 's'} encontrados`;
     mount.innerHTML = productos.length ? productos.map(tarjetaProductoConsolidado).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';
