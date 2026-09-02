@@ -437,6 +437,7 @@ function tarjetaProductoAdmin(p) {
       <div class="admin-card-actions">
         <button class="btn btn-outline btn-sm btn-guardar-producto">Guardar</button>
         <button class="btn btn-ghost btn-sm btn-editar-producto">Editar</button>
+        ${p.es_decant && !p.id_decant_grupo ? '<button class="btn btn-outline btn-sm btn-agregar-tamano-decant">+ Tamaño</button>' : ''}
         <button class="btn btn-danger btn-sm btn-eliminar-producto">Eliminar</button>
       </div>
     </div>
@@ -496,7 +497,83 @@ function conectarEventosProductos() {
       }
     });
   });
+
+  document.querySelectorAll('#productos-grid .btn-agregar-tamano-decant').forEach((btn) => {
+    btn.addEventListener('click', () => abrirModalDecantTamano(Number(btn.closest('.admin-card').dataset.id)));
+  });
 }
+
+/* ================= AGREGAR TAMAÑO DE DECANT ================= */
+
+// Antes, para sumarle un tamaño nuevo a un decant ya cargado había que abrir "Agregar
+// Perfume" y volver a escribir marca, género, casa, descripción y notas a mano, más buscar el
+// #ID de la raíz para pegarlo en "ID decant raíz" -- fácil de errar o de dejar datos
+// desalineados entre tamaños del mismo perfume. Este modal solo pide lo que SÍ cambia entre
+// tamaños (ml, precio, stock) y clona el resto de la raíz automáticamente.
+let DECANT_TAMANO_RAIZ = null;
+
+async function abrirModalDecantTamano(id) {
+  try {
+    DECANT_TAMANO_RAIZ = await obtenerProductoAdminPorId(id);
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+    return;
+  }
+  const form = document.getElementById('form-decant-tamano');
+  form.reset();
+  form.id_raiz.value = DECANT_TAMANO_RAIZ.id;
+  form.stock_fisico.value = 10;
+  document.getElementById('decant-tamano-info').textContent = `${DECANT_TAMANO_RAIZ.marca} — ${DECANT_TAMANO_RAIZ.nombre}`;
+  abrirModal('modal-decant-tamano');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-cancelar-decant-tamano')?.addEventListener('click', () => cerrarModal('modal-decant-tamano'));
+  document.getElementById('form-decant-tamano')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!DECANT_TAMANO_RAIZ) return;
+    const data = Object.fromEntries(new FormData(e.target));
+    const mililitros = Number(data.mililitros);
+    const precioTienda = Number(data.precio_tienda_regular);
+    const precioConsolidado = Number(data.precio_consolidado_fijo);
+    const stockFisico = Number(data.stock_fisico || 0);
+    if (precioConsolidado > precioTienda) {
+      mostrarToast('El precio consolidado no puede ser mayor al precio tienda', 'error');
+      return;
+    }
+    const raiz = DECANT_TAMANO_RAIZ;
+    const payload = {
+      nombre: raiz.nombre,
+      marca: raiz.marca,
+      genero: raiz.genero,
+      concentracion: raiz.concentracion,
+      mililitros,
+      descripcion: raiz.descripcion,
+      notas_olfativas: raiz.notas_olfativas,
+      precio_tienda_regular: precioTienda,
+      precio_consolidado_fijo: precioConsolidado,
+      margen_aplicado: true,
+      tipo_casa: raiz.tipo_casa,
+      imagen_url: raiz.imagen_url,
+      estado: 'Disponible',
+      es_nuevo: raiz.es_nuevo,
+      es_bestseller: raiz.es_bestseller,
+      es_decant: true,
+      id_decant_grupo: raiz.id_decant_grupo || raiz.id, // si la "raíz" clickeada ya era hija de otra, apunta a la raíz real
+      activo: true,
+      slug: `${generarSlug(raiz.nombre, raiz.marca)}-decant-${mililitros}ml`,
+    };
+    try {
+      const nuevoId = await crearProducto(payload);
+      await actualizarInventario(nuevoId, { stock_fisico: stockFisico });
+      mostrarToast('Tamaño agregado');
+      cerrarModal('modal-decant-tamano');
+      cargarProductos();
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    }
+  });
+});
 
 function abrirModalProducto(producto) {
   COTIZACION_ORIGEN = null;

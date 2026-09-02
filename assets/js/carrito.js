@@ -43,6 +43,7 @@ function renderCarrito() {
         <div id="direccion-mount"><div class="loading-state">Cargando direcciones…</div></div>
       </aside>
     </div>
+    <div class="container" id="checkout-invitado-wrap"></div>
   `;
 
   CARRITO_ITEMS.forEach((item) => {
@@ -121,7 +122,15 @@ async function eliminarItem(id) {
 async function cargarDirecciones() {
   const mount = document.getElementById('direccion-mount');
   const session = await obtenerSesion();
-  if (!session) return renderCheckoutInvitado(mount);
+  if (!session) {
+    // El formulario de invitado tiene muchos campos -- si se mete en esta misma columna
+    // angosta de 380px (pensada solo para el resumen), la página queda larguísima. Se renderiza
+    // a lo ancho completo, debajo de las dos columnas (ver #checkout-invitado-wrap en
+    // renderCarrito), y acá solo queda un aviso corto.
+    mount.innerHTML = '<p class="form-hint">Completa tus datos más abajo para continuar &darr;</p>';
+    renderCheckoutInvitado(document.getElementById('checkout-invitado-wrap'));
+    return;
+  }
 
   try {
     const direcciones = await obtenerDirecciones();
@@ -145,11 +154,14 @@ async function cargarDirecciones() {
   }
 }
 
-// Checkout sin cuenta previa: pide los mismos datos que un pedido normal (identidad + dirección
-// de envío) en un solo formulario -- por dentro crea la cuenta con esos datos (ver
-// crearPedidoInvitado en api.js), pero se lo presenta como "para ver tu pedido después", nunca
-// como un paso de "crear cuenta" aparte. No pide DNI de nuevo en ningún otro lado una vez
-// creado -- eso vive en el perfil, no se vuelve a tocar acá.
+// Checkout sin cuenta previa: pide los datos necesarios de un pedido normal (identidad +
+// dirección de envío) a lo ancho completo de la página, no metido en la columna angosta del
+// resumen (esa se pensó para 4 líneas de totales, no para un formulario entero). La contraseña
+// / creación de cuenta NO se muestra por defecto -- solo si el cliente marca la casilla "Crear
+// una cuenta" (ver conectarCheckboxCrearCuenta). Si no la marca, igual se crea una cuenta
+// liviana por dentro (ver crearPedidoInvitado en api.js, necesaria para que el pedido tenga
+// dueño), pero con una contraseña aleatoria que el cliente nunca ve -- puede recuperarla más
+// adelante con "¿Olvidaste tu contraseña?" si alguna vez quiere entrar a "Mis Pedidos".
 async function renderCheckoutInvitado(mount) {
   mount.innerHTML = '<div class="loading-state">Cargando…</div>';
   let ubigeos, cfg;
@@ -161,52 +173,63 @@ async function renderCheckoutInvitado(mount) {
   }
 
   mount.innerHTML = `
-    <h3 style="font-size:0.98rem; margin-bottom:4px;">Completa tus datos para continuar</h3>
-    <p class="form-hint" style="margin-bottom:16px;">Con esto creamos tu cuenta para que puedas ver el estado de tu pedido más adelante — no hace falta que ya tengas una.</p>
-    <form id="checkout-invitado-form">
-      <div class="form-row">
-        <div class="form-group"><label>Nombres</label><input type="text" name="nombres" required /></div>
-        <div class="form-group"><label>Apellidos</label><input type="text" name="apellidos" required /></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>DNI / CE / RUC</label><input type="text" name="dni_ce_ruc" maxlength="15" /></div>
-        <div class="form-group"><label>Teléfono</label><input type="text" name="telefono" required /></div>
-      </div>
-      <div class="form-group"><label>Correo</label><input type="email" name="correo" required /></div>
-      ${formularioContrasenaHtml('checkout')}
-      <h3 style="font-size:0.98rem; margin:20px 0 4px;">¿A dónde lo enviamos?</h3>
-      <div class="form-group"><label>¿Quién recibe/recoge el pedido?</label><input type="text" name="nombre_receptor" placeholder="Déjalo vacío si eres tú mismo" /></div>
-      <div class="form-group"><label>Dirección</label><textarea name="direccion_detalle" rows="2" required></textarea></div>
-      <div class="form-group">
-        <label>Departamento</label>
-        <select id="ubigeo-depto-select" required><option value="">Selecciona...</option>${[...new Set(ubigeos.map((u) => u.departamento))].sort().map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
-      </div>
-      <div class="form-group">
-        <label>Provincia</label>
-        <select id="ubigeo-prov-select" required disabled><option value="">Elige primero el departamento</option></select>
-      </div>
-      <div class="form-group">
-        <label>Distrito</label>
-        <select name="codigo_ubigeo" id="ubigeo-dist-select" required disabled><option value="">Elige primero la provincia</option></select>
-      </div>
-      <div class="form-group">
-        <label>Tipo de despacho</label>
-        <select name="tipo_despacho" id="tipo-despacho-select" required>
-          <option value="Domicilio">Entrega a domicilio</option>
-          <option value="Agencia_Shalom">Agencia Shalom</option>
-          <option value="Agencia_Olva">Agencia Olva</option>
-          <option value="Recojo_En_Tienda">Recojo en almacén (Lima)</option>
-        </select>
-      </div>
-      <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
-      <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.</p>
-      <button type="submit" class="btn btn-primary btn-block" id="checkout-invitado-submit" disabled>Confirmar Pedido</button>
-    </form>
-    <p class="form-hint" style="margin-top:14px;">¿Ya tienes cuenta? <a href="${SITE_ROOT}cuenta/?retorno=${encodeURIComponent(SITE_ROOT + 'carrito/')}" class="link-arrow">Inicia sesión</a> para usar una dirección guardada.</p>
+    <div class="form-card" style="max-width:820px; margin:0 auto;">
+      <h3 style="font-size:1rem; margin-bottom:4px;">Completa tus datos para continuar</h3>
+      <p class="form-hint" style="margin-bottom:18px;">Solo lo necesario para tu pedido -- si quieres, más abajo puedes crear una cuenta para guardar estos datos y ver tus pedidos la próxima vez.</p>
+      <form id="checkout-invitado-form">
+        <div class="form-row-3">
+          <div class="form-group"><label>Nombres</label><input type="text" name="nombres" required /></div>
+          <div class="form-group"><label>Apellidos</label><input type="text" name="apellidos" required /></div>
+          <div class="form-group"><label>Teléfono</label><input type="text" name="telefono" required /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>DNI / CE / RUC</label><input type="text" name="dni_ce_ruc" maxlength="15" /></div>
+          <div class="form-group"><label>Correo</label><input type="email" name="correo" required /></div>
+        </div>
+
+        <label class="filter-option" style="margin:2px 0 16px;">
+          <input type="checkbox" id="checkout-crear-cuenta" /> Crear una cuenta con contraseña para guardar mis datos y ver mis pedidos más fácil la próxima vez
+        </label>
+        <div id="checkout-password-wrap" style="display:none;">${formularioContrasenaHtml('checkout')}</div>
+
+        <h3 style="font-size:1rem; margin:6px 0 14px; padding-top:14px; border-top:1px solid var(--color-border);">¿A dónde lo enviamos?</h3>
+        <div class="form-row">
+          <div class="form-group"><label>¿Quién recibe/recoge el pedido?</label><input type="text" name="nombre_receptor" placeholder="Déjalo vacío si eres tú mismo" /></div>
+          <div class="form-group">
+            <label>Tipo de despacho</label>
+            <select name="tipo_despacho" id="tipo-despacho-select" required>
+              <option value="Domicilio">Entrega a domicilio</option>
+              <option value="Agencia_Shalom">Agencia Shalom</option>
+              <option value="Agencia_Olva">Agencia Olva</option>
+              <option value="Recojo_En_Tienda">Recojo en almacén (Lima)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label>Dirección</label><textarea name="direccion_detalle" rows="2" required></textarea></div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label>Departamento</label>
+            <select id="ubigeo-depto-select" required><option value="">Selecciona...</option>${[...new Set(ubigeos.map((u) => u.departamento))].sort().map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join('')}</select>
+          </div>
+          <div class="form-group">
+            <label>Provincia</label>
+            <select id="ubigeo-prov-select" required disabled><option value="">Elige primero el departamento</option></select>
+          </div>
+          <div class="form-group">
+            <label>Distrito</label>
+            <select name="codigo_ubigeo" id="ubigeo-dist-select" required disabled><option value="">Elige primero la provincia</option></select>
+          </div>
+        </div>
+        <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.</p>
+        <button type="submit" class="btn btn-primary btn-block" id="checkout-invitado-submit">Confirmar Pedido</button>
+      </form>
+      <p class="form-hint" style="margin-top:14px;">¿Ya tienes cuenta? <a href="${SITE_ROOT}cuenta/?retorno=${encodeURIComponent(SITE_ROOT + 'carrito/')}" class="link-arrow">Inicia sesión</a> para usar una dirección guardada.</p>
+    </div>
   `;
 
-  activarTogglesPassword(document.getElementById('direccion-mount'));
-  conectarValidacionContrasena('checkout', 'checkout-invitado-submit');
+  activarTogglesPassword(mount);
+  conectarCheckboxCrearCuenta();
   iniciarSelectsUbigeoCascada(ubigeos);
 
   document.getElementById('tipo-despacho-select').addEventListener('change', (e) => {
@@ -217,12 +240,62 @@ async function renderCheckoutInvitado(mount) {
   document.getElementById('checkout-invitado-form').addEventListener('submit', confirmarPedidoInvitado);
 }
 
+// La casilla "Crear una cuenta" muestra/oculta el bloque de contraseña y, mientras está
+// visible, el botón queda atado a la misma validación en vivo que el registro normal
+// (conectarValidacionContrasena) -- destapada recién al marcar la casilla, para no arrancar
+// con el botón deshabilitado por una contraseña que ni siquiera se está pidiendo todavía.
+function conectarCheckboxCrearCuenta() {
+  const checkbox = document.getElementById('checkout-crear-cuenta');
+  const wrap = document.getElementById('checkout-password-wrap');
+  const submit = document.getElementById('checkout-invitado-submit');
+  let conectada = false;
+
+  checkbox.addEventListener('change', () => {
+    wrap.style.display = checkbox.checked ? '' : 'none';
+    wrap.querySelectorAll('input[name="contrasena"], input[name="confirmar_contrasena"]').forEach((input) => {
+      input.required = checkbox.checked;
+    });
+    if (checkbox.checked) {
+      if (!conectada) { conectarValidacionContrasena('checkout', 'checkout-invitado-submit'); conectada = true; }
+      actualizarValidacionContrasena('checkout', 'checkout-invitado-submit');
+    } else {
+      submit.disabled = false;
+    }
+  });
+}
+
+// Genera una contraseña que cumple los mismos requisitos que passwordValida() (mínimo 8,
+// mayúscula, número, carácter especial) para la cuenta liviana que se crea cuando el cliente
+// NO marcó "Crear una cuenta" -- nunca se le muestra; si alguna vez quiere entrar, la
+// restablece con "¿Olvidaste tu contraseña?" (llega por correo, no depende de recordar esta).
+function generarPasswordAleatoria() {
+  const minusculas = 'abcdefghijkmnpqrstuvwxyz';
+  const mayusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const numeros = '23456789';
+  const especiales = '!@#$%*?';
+  const pool = minusculas + mayusculas + numeros + especiales;
+  const elegir = (set) => set[Math.floor(Math.random() * set.length)];
+  let extra = '';
+  for (let i = 0; i < 10; i++) extra += elegir(pool);
+  return elegir(mayusculas) + elegir(minusculas) + elegir(numeros) + elegir(especiales) + extra;
+}
+
 async function confirmarPedidoInvitado(e) {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target));
-  if (!passwordValida(data.contrasena) || data.contrasena !== data.confirmar_contrasena) {
-    mostrarToast('Revisa los requisitos de la contraseña antes de continuar.', 'error');
-    return;
+
+  // Con la casilla "Crear una cuenta" marcada, se exige y valida la contraseña que escribió el
+  // cliente (misma regla que el registro normal). Sin marcar, se genera una al azar que nunca
+  // ve -- igual hace falta una cuenta por dentro para que el pedido tenga dueño (ver
+  // crearPedidoInvitado en api.js), pero no se le pide pensar una contraseña para eso.
+  const creaCuenta = document.getElementById('checkout-crear-cuenta').checked;
+  if (creaCuenta) {
+    if (!passwordValida(data.contrasena) || data.contrasena !== data.confirmar_contrasena) {
+      mostrarToast('Revisa los requisitos de la contraseña antes de continuar.', 'error');
+      return;
+    }
+  } else {
+    data.contrasena = generarPasswordAleatoria();
   }
 
   const datosCuenta = { nombres: data.nombres, apellidos: data.apellidos, dni_ce_ruc: data.dni_ce_ruc || null, telefono: data.telefono, correo: data.correo, contrasena: data.contrasena };

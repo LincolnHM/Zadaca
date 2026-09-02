@@ -855,6 +855,12 @@ h1, h2, h3, h4 {
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--color-gold); }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
+/* Igual que .form-row pero de 3 columnas -- usado por el checkout de invitado (nombres,
+   apellidos, teléfono en una sola fila; departamento, provincia, distrito en otra) para no
+   apilar tantos campos y volver la página larguísima. */
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+@media (max-width: 720px) { .form-row-3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .form-row-3 { grid-template-columns: 1fr; } }
 .form-hint { font-size: 0.72rem; color: var(--color-text-faint); margin-top: 6px; }
 .pwd-match-ok { color: var(--color-success); }
 .pwd-match-error { color: var(--color-danger); }

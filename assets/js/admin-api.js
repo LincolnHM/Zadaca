@@ -162,8 +162,14 @@ async function obtenerTopPerfumesVendidos(limite = 6) {
 async function obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina = 1, porPagina = 20 } = {}) {
   let query = supabaseClient
     .from('perfumes')
-    .select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)', { count: 'exact' })
-    .order('fecha_creacion', { ascending: false });
+    .select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)', { count: 'exact' });
+  // "Solo Decants" ordena por marca/nombre/ml en vez de fecha de creación -- así los tamaños
+  // de un mismo perfume (5ml, 10ml...) salen seguidos en la grilla, no mezclados por cuándo se
+  // cargó cada uno (necesario para poder revisar de un vistazo qué tamaños ya tiene cada
+  // decant, ver "+ Tamaño" en tarjetaProductoAdmin).
+  query = filtro === 'decants'
+    ? query.order('marca', { ascending: true }).order('nombre', { ascending: true }).order('mililitros', { ascending: true })
+    : query.order('fecha_creacion', { ascending: false });
   if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
   if (filtro === 'decants') query = query.eq('es_decant', true);
   if (filtro === 'liquidaciones') query = query.eq('es_liquidacion', true);
