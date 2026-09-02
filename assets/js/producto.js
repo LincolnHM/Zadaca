@@ -1,4 +1,5 @@
 let PRODUCTO_ACTUAL = null;
+let cargaDetalleSeq = 0; // descarta una respuesta vieja si el cliente cambió de tamaño varias veces rápido
 
 document.addEventListener('DOMContentLoaded', async () => {
   await iniciarLayout('catalogo/');
@@ -14,14 +15,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
+  await cargarProducto(slug);
+
+  // Atrás/adelante del navegador (ej. volvió de 10ml a 5ml con el botón "atrás") -- recarga la
+  // ficha con el slug que quedó en la URL, sin volver a empujar historial (el evento ya refleja
+  // el cambio, pushState de nuevo generaría una entrada duplicada).
+  window.addEventListener('popstate', () => {
+    const slugActual = new URLSearchParams(window.location.search).get('slug');
+    if (slugActual) cargarProducto(slugActual);
+  });
+});
+
+// Separado de renderDetalle() para que cambiar de tamaño de decant (3ml/5ml/10ml) no dispare
+// una navegación de página completa -- antes cada pastilla de tamaño era un <a href> normal, así
+// que cada clic recargaba TODO (header, footer, CSS, JS) por un cambio que en los datos es
+// mínimo. Acá se trae solo el producto nuevo y se vuelve a pintar in-place; el contenido
+// anterior se queda visible hasta que llega el nuevo (nada de pantalla en blanco de por medio).
+async function cargarProducto(slug, { actualizarHistoria = false } = {}) {
+  const idSolicitud = ++cargaDetalleSeq;
+  const mount = document.getElementById('detalle-mount');
+  if (!PRODUCTO_ACTUAL) mount.innerHTML = '<div class="container"><div class="loading-state">Cargando…</div></div>';
   try {
     const data = await obtenerProductoPorSlug(slug);
+    if (idSolicitud !== cargaDetalleSeq) return;
     PRODUCTO_ACTUAL = data.producto;
+    if (actualizarHistoria) history.pushState(null, '', `${SITE_ROOT}producto/?slug=${slug}`);
     renderDetalle(data);
   } catch (err) {
-    document.getElementById('detalle-mount').innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
+    if (idSolicitud !== cargaDetalleSeq) return;
+    mount.innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
   }
-});
+}
 
 function renderDetalle(data) {
   const p = data.producto;
@@ -104,7 +128,7 @@ function renderDetalle(data) {
         <div class="size-selector">
           <span class="size-selector-label">Tamaño</span>
           <div class="size-options">
-            ${data.tamanosDecant.map((t) => `<a href="${SITE_ROOT}producto/?slug=${t.slug}" class="size-option${t.slug === p.slug ? ' active' : ''}">${t.mililitros}ml</a>`).join('')}
+            ${data.tamanosDecant.map((t) => `<a href="${SITE_ROOT}producto/?slug=${t.slug}" data-slug="${t.slug}" class="size-option${t.slug === p.slug ? ' active' : ''}">${t.mililitros}ml</a>`).join('')}
           </div>
         </div>` : ''}
         ${esLiquidacion
@@ -146,6 +170,17 @@ function renderDetalle(data) {
   document.getElementById('btn-agregar-carrito').addEventListener('click', agregarAlCarritoUI);
   document.getElementById('btn-favorito').addEventListener('click', favoritoUI);
   pintarEstadoFavorito();
+
+  // El href real se deja para clic derecho/medio/abrir en pestaña nueva -- un clic normal se
+  // intercepta y cambia de tamaño in-place (ver cargarProducto) en vez de navegar de página.
+  document.querySelectorAll('.size-option').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      const nuevoSlug = el.dataset.slug;
+      if (nuevoSlug && nuevoSlug !== PRODUCTO_ACTUAL.slug) cargarProducto(nuevoSlug, { actualizarHistoria: true });
+    });
+  });
 
   if (data.relacionados.length) {
     document.getElementById('relacionados-section').style.display = '';

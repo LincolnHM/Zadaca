@@ -7,10 +7,10 @@ let DECANTS_TODOS = [];
 let decantsPaginaActual = 1;
 const DECANTS_POR_PAGINA = 12;
 
-// Diseñador primero (son las casas más buscadas), después Árabe, después Nicho, y cualquier
+// Diseñador primero (son las casas más buscadas), después Nicho, después Árabe, y cualquier
 // perfume sin tipo_casa clasificado al final -- dentro de cada grupo se mantiene el orden que
 // ya trajo la consulta (recientes primero), porque Array.prototype.sort de JS es estable.
-const PRIORIDAD_TIPO_CASA = { Diseñador: 0, Árabe: 1, Nicho: 2 };
+const PRIORIDAD_TIPO_CASA = { Diseñador: 0, Nicho: 1, Árabe: 2 };
 function prioridadTipoCasa(p) {
   return PRIORIDAD_TIPO_CASA[p.tipo_casa] ?? 3;
 }
