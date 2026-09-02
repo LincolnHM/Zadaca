@@ -115,6 +115,13 @@ body.admin-body { min-height: 100vh; }
   border-radius: 20px; font-size: 0.72rem; font-weight: 700; background: rgba(196, 106, 95, 0.16); color: var(--color-danger);
 }
 
+/* ---------- Dashboard charts ---------- */
+.chart-canvas-wrap { position: relative; height: 230px; margin-top: 10px; }
+.chart-canvas-wide { height: 270px; }
+.dashboard-charts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+@media (max-width: 1100px) { .dashboard-charts-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 700px) { .dashboard-charts-grid { grid-template-columns: 1fr; } }
+
 /* ---------- Status tag ---------- */
 .status-tag {
   display: inline-block; font-size: 0.65rem; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700;
@@ -135,6 +142,7 @@ body.admin-body { min-height: 100vh; }
   background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text);
   padding: 10px 12px; border-radius: var(--radius); font-size: 0.82rem;
 }
+.admin-toolbar-count { margin-left: auto; font-size: 0.78rem; color: var(--color-text-faint); }
 
 /* ---------- Product / order cards ---------- */
 .admin-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }

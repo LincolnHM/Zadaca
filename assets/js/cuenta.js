@@ -39,38 +39,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Bloque reutilizado por "Crear Cuenta", "Restablecer contraseña" (link del correo) y
-// "Seguridad" (cambiar contraseña ya logueado) -- mismo checklist en vivo, mismos requisitos,
-// un solo lugar donde mantenerlos en vez de tres copias que puedan divergir.
-function formularioContrasenaHtml(prefix) {
-  return `
-    <div class="form-group has-icon">
-      <label>Nueva contraseña</label>
-      <div class="input-wrap password-field">
-        <span class="form-icon">${ICONS.lock}</span>
-        <input type="password" name="contrasena" id="${prefix}-contrasena" minlength="8" autocomplete="new-password" required />
-        <button type="button" class="toggle-password" aria-label="Mostrar contraseña">${ICONS.eye}</button>
-      </div>
-    </div>
-    <ul class="pwd-requirements" id="${prefix}-requirements" aria-live="polite">
-      <li data-req="longitud"><span class="pwd-req-mark">•</span> Mínimo 8 caracteres</li>
-      <li data-req="mayuscula"><span class="pwd-req-mark">•</span> Una letra mayúscula</li>
-      <li data-req="numero"><span class="pwd-req-mark">•</span> Un número</li>
-      <li data-req="especial"><span class="pwd-req-mark">•</span> Un carácter especial (ej. ! @ # $)</li>
-    </ul>
-    <div class="form-group has-icon">
-      <label>Repetir Contraseña</label>
-      <div class="input-wrap password-field">
-        <span class="form-icon">${ICONS.lock}</span>
-        <input type="password" name="confirmar_contrasena" id="${prefix}-confirmar" autocomplete="new-password" required />
-        <button type="button" class="toggle-password" aria-label="Mostrar contraseña">${ICONS.eye}</button>
-      </div>
-      <p class="form-hint" id="${prefix}-confirmar-hint"></p>
-    </div>
-  `;
-}
-
 /* ---------------- AUTENTICACIÓN ---------------- */
+
+// formularioContrasenaHtml, evaluarPassword, passwordValida, actualizarValidacionContrasena,
+// conectarValidacionContrasena e iniciarSelectsUbigeoCascada viven en main.js -- el checkout de
+// invitado en carrito.js también los necesita (mismo checklist de contraseña, mismo cascada de
+// ubigeo), así que se movieron al archivo que ya cargan ambas páginas en vez de duplicarlos.
 
 function renderAuthForms() {
   document.getElementById('cuenta-mount').innerHTML = `
@@ -283,58 +257,6 @@ function mostrarAlerta(mensaje) {
 }
 function mostrarAlertaExito(mensaje) {
   document.getElementById('alert-mount').innerHTML = `<div class="alert alert-success">${escapeHtml(mensaje)}</div>`;
-}
-
-// Requisitos de contraseña para Crear Cuenta: mínimo 8 caracteres, al menos una mayúscula,
-// un número y un carácter especial. Se validan también acá (no solo en el HTML) porque el
-// checklist en vivo y el botón deshabilitado dependen de esta misma función.
-function evaluarPassword(valor) {
-  const v = valor || '';
-  return {
-    longitud: v.length >= 8,
-    mayuscula: /[A-Z]/.test(v),
-    numero: /[0-9]/.test(v),
-    especial: /[^A-Za-z0-9]/.test(v),
-  };
-}
-function passwordValida(valor) {
-  return Object.values(evaluarPassword(valor)).every(Boolean);
-}
-
-// prefix identifica qué instancia del formulario (ver formularioContrasenaHtml): 'registro',
-// 'restablecer' (link del correo) o 'cambiar' (Seguridad, ya logueado) -- misma lógica,
-// distintos IDs, así que ninguna de las tres copias puede divergir en los requisitos.
-function actualizarValidacionContrasena(prefix, submitId) {
-  const passInput = document.getElementById(`${prefix}-contrasena`);
-  const confirmInput = document.getElementById(`${prefix}-confirmar`);
-  const confirmHint = document.getElementById(`${prefix}-confirmar-hint`);
-  const submitBtn = document.getElementById(submitId);
-  if (!passInput) return;
-
-  const estado = evaluarPassword(passInput.value);
-  document.querySelectorAll(`#${prefix}-requirements li`).forEach((li) => {
-    const ok = estado[li.dataset.req];
-    li.classList.toggle('valid', ok);
-    li.querySelector('.pwd-req-mark').textContent = ok ? '✓' : '•';
-  });
-
-  let coincide = true;
-  if (confirmInput.value) {
-    coincide = confirmInput.value === passInput.value;
-    confirmHint.textContent = coincide ? 'Las contraseñas coinciden.' : 'Las contraseñas no coinciden.';
-    confirmHint.className = `form-hint ${coincide ? 'pwd-match-ok' : 'pwd-match-error'}`;
-  } else {
-    confirmHint.textContent = '';
-    confirmHint.className = 'form-hint';
-  }
-
-  submitBtn.disabled = !(Object.values(estado).every(Boolean) && confirmInput.value && coincide);
-}
-
-function conectarValidacionContrasena(prefix, submitId) {
-  const actualizar = () => actualizarValidacionContrasena(prefix, submitId);
-  document.getElementById(`${prefix}-contrasena`).addEventListener('input', actualizar);
-  document.getElementById(`${prefix}-confirmar`).addEventListener('input', actualizar);
 }
 
 /* ---------------- DASHBOARD ---------------- */
@@ -597,6 +519,7 @@ async function cargarDirecciones() {
                 <strong>${escapeHtml(d.etiqueta || 'Dirección')}</strong> ${d.predeterminada ? '<span class="status-tag">Predeterminada</span>' : ''}
                 <p style="margin:6px 0 0; font-size:0.85rem; color:var(--color-text-muted);">${escapeHtml(d.direccion_detalle)}, ${escapeHtml(d.distrito)}, ${escapeHtml(d.provincia)}</p>
                 <p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? 'Recojo en almacén (Lima)' : d.tipo_despacho.replace(/_/g, ' '))}${d.agencia_nombre ? ' — ' + escapeHtml(d.agencia_nombre) : ''}</p>
+                ${d.nombre_receptor ? `<p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">Recibe/recoge: ${escapeHtml(d.nombre_receptor)}</p>` : ''}
               </div>
               <button class="btn btn-danger btn-sm" data-eliminar-dir="${d.id}">Eliminar</button>
             </div>
@@ -630,6 +553,7 @@ async function cargarDirecciones() {
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
         <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.</p>
+        <div class="form-group"><label>¿Quién recibe/recoge el pedido?</label><input type="text" name="nombre_receptor" placeholder="Déjalo vacío si eres tú mismo" /></div>
         <label class="filter-option"><input type="checkbox" name="predeterminada" /> Usar como predeterminada</label>
         <button type="submit" class="btn btn-outline btn-block" style="margin-top:20px;">Guardar Dirección</button>
       </form>
@@ -669,34 +593,6 @@ async function cargarDirecciones() {
   } catch (err) {
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
-}
-
-// Departamento -> Provincia -> Distrito en cascada. Con 1874 distritos en la tabla ubigeo
-// (ver supabase/carga_ubigeo_completo.sql) un solo <select> con todos sería inmanejable --
-// esto reduce cada paso a una lista corta (24 departamentos, ~5-20 provincias, ~5-30 distritos).
-function iniciarSelectsUbigeoCascada(ubigeos) {
-  const deptoSel = document.getElementById('ubigeo-depto-select');
-  const provSel = document.getElementById('ubigeo-prov-select');
-  const distSel = document.getElementById('ubigeo-dist-select');
-
-  deptoSel.addEventListener('change', () => {
-    const depto = deptoSel.value;
-    const provincias = [...new Set(ubigeos.filter((u) => u.departamento === depto).map((u) => u.provincia))].sort();
-    provSel.innerHTML = '<option value="">Selecciona...</option>' + provincias.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
-    provSel.disabled = !depto;
-    distSel.innerHTML = '<option value="">Elige primero la provincia</option>';
-    distSel.disabled = true;
-  });
-
-  provSel.addEventListener('change', () => {
-    const depto = deptoSel.value;
-    const prov = provSel.value;
-    const distritos = ubigeos
-      .filter((u) => u.departamento === depto && u.provincia === prov)
-      .sort((a, b) => a.distrito.localeCompare(b.distrito));
-    distSel.innerHTML = '<option value="">Selecciona...</option>' + distritos.map((d) => `<option value="${d.codigo_ubigeo}">${escapeHtml(d.distrito)}</option>`).join('');
-    distSel.disabled = !prov;
-  });
 }
 
 /* ---- Favoritos ---- */

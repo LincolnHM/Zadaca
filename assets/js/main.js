@@ -218,6 +218,117 @@ function activarTogglesPassword(scope = document) {
   });
 }
 
+// Markup del bloque de contraseña + confirmar, con checklist de requisitos en vivo -- usado
+// por el registro de cuenta.js, el checkout de invitado de carrito.js y "restablecer
+// contraseña". "prefix" evita que los ids choquen si dos instancias conviven en la misma
+// página (no pasa hoy, pero deja la puerta abierta).
+function formularioContrasenaHtml(prefix) {
+  return `
+    <div class="form-group has-icon">
+      <label>Nueva contraseña</label>
+      <div class="input-wrap password-field">
+        <span class="form-icon">${ICONS.lock}</span>
+        <input type="password" name="contrasena" id="${prefix}-contrasena" minlength="8" autocomplete="new-password" required />
+        <button type="button" class="toggle-password" aria-label="Mostrar contraseña">${ICONS.eye}</button>
+      </div>
+    </div>
+    <ul class="pwd-requirements" id="${prefix}-requirements" aria-live="polite">
+      <li data-req="longitud"><span class="pwd-req-mark">•</span> Mínimo 8 caracteres</li>
+      <li data-req="mayuscula"><span class="pwd-req-mark">•</span> Una letra mayúscula</li>
+      <li data-req="numero"><span class="pwd-req-mark">•</span> Un número</li>
+      <li data-req="especial"><span class="pwd-req-mark">•</span> Un carácter especial (ej. ! @ # $)</li>
+    </ul>
+    <div class="form-group has-icon">
+      <label>Repetir Contraseña</label>
+      <div class="input-wrap password-field">
+        <span class="form-icon">${ICONS.lock}</span>
+        <input type="password" name="confirmar_contrasena" id="${prefix}-confirmar" autocomplete="new-password" required />
+        <button type="button" class="toggle-password" aria-label="Mostrar contraseña">${ICONS.eye}</button>
+      </div>
+      <p class="form-hint" id="${prefix}-confirmar-hint"></p>
+    </div>
+  `;
+}
+
+function evaluarPassword(valor) {
+  const v = valor || '';
+  return {
+    longitud: v.length >= 8,
+    mayuscula: /[A-Z]/.test(v),
+    numero: /[0-9]/.test(v),
+    especial: /[^A-Za-z0-9]/.test(v),
+  };
+}
+function passwordValida(valor) {
+  return Object.values(evaluarPassword(valor)).every(Boolean);
+}
+
+// prefix identifica qué instancia del formulario (ver formularioContrasenaHtml): 'registro',
+// 'restablecer' (link del correo), 'cambiar' (Seguridad, ya logueado) o 'checkout' (checkout
+// de invitado en carrito.js) -- misma lógica, distintos IDs, así que ninguna copia puede
+// divergir en los requisitos.
+function actualizarValidacionContrasena(prefix, submitId) {
+  const passInput = document.getElementById(`${prefix}-contrasena`);
+  const confirmInput = document.getElementById(`${prefix}-confirmar`);
+  const confirmHint = document.getElementById(`${prefix}-confirmar-hint`);
+  const submitBtn = document.getElementById(submitId);
+  if (!passInput) return;
+
+  const estado = evaluarPassword(passInput.value);
+  document.querySelectorAll(`#${prefix}-requirements li`).forEach((li) => {
+    const ok = estado[li.dataset.req];
+    li.classList.toggle('valid', ok);
+    li.querySelector('.pwd-req-mark').textContent = ok ? '✓' : '•';
+  });
+
+  let coincide = true;
+  if (confirmInput.value) {
+    coincide = confirmInput.value === passInput.value;
+    confirmHint.textContent = coincide ? 'Las contraseñas coinciden.' : 'Las contraseñas no coinciden.';
+    confirmHint.className = `form-hint ${coincide ? 'pwd-match-ok' : 'pwd-match-error'}`;
+  } else {
+    confirmHint.textContent = '';
+    confirmHint.className = 'form-hint';
+  }
+
+  submitBtn.disabled = !(Object.values(estado).every(Boolean) && confirmInput.value && coincide);
+}
+
+function conectarValidacionContrasena(prefix, submitId) {
+  const actualizar = () => actualizarValidacionContrasena(prefix, submitId);
+  document.getElementById(`${prefix}-contrasena`).addEventListener('input', actualizar);
+  document.getElementById(`${prefix}-confirmar`).addEventListener('input', actualizar);
+}
+
+// Departamento -> Provincia -> Distrito en cascada. Con 1874 distritos en la tabla ubigeo
+// (ver supabase/carga_ubigeo_completo.sql) un solo <select> con todos sería inmanejable --
+// esto reduce cada paso a una lista corta (24 departamentos, ~5-20 provincias, ~5-30 distritos).
+// Usado por "Mis Direcciones" (cuenta.js) y el checkout de invitado (carrito.js).
+function iniciarSelectsUbigeoCascada(ubigeos) {
+  const deptoSel = document.getElementById('ubigeo-depto-select');
+  const provSel = document.getElementById('ubigeo-prov-select');
+  const distSel = document.getElementById('ubigeo-dist-select');
+
+  deptoSel.addEventListener('change', () => {
+    const depto = deptoSel.value;
+    const provincias = [...new Set(ubigeos.filter((u) => u.departamento === depto).map((u) => u.provincia))].sort();
+    provSel.innerHTML = '<option value="">Selecciona...</option>' + provincias.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+    provSel.disabled = !depto;
+    distSel.innerHTML = '<option value="">Elige primero la provincia</option>';
+    distSel.disabled = true;
+  });
+
+  provSel.addEventListener('change', () => {
+    const depto = deptoSel.value;
+    const prov = provSel.value;
+    const distritos = ubigeos
+      .filter((u) => u.departamento === depto && u.provincia === prov)
+      .sort((a, b) => a.distrito.localeCompare(b.distrito));
+    distSel.innerHTML = '<option value="">Selecciona...</option>' + distritos.map((d) => `<option value="${d.codigo_ubigeo}">${escapeHtml(d.distrito)}</option>`).join('');
+    distSel.disabled = !prov;
+  });
+}
+
 // Aparición suave de secciones al hacer scroll (".reveal" en el HTML estático de cada
 // página). Si el usuario prefiere menos movimiento, se saltea el observer y se muestra todo
 // de una — la regla CSS que oculta ".reveal" ni siquiera aplica en ese caso (ver style.css).
@@ -345,12 +456,6 @@ async function cargarCarritoDropdown() {
   const foot = document.getElementById('cart-dropdown-foot');
   if (!mount) return;
   if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="notif-empty">Carrito no disponible.</div>'; foot.hidden = true; return; }
-  const session = await obtenerSesion();
-  if (!session) {
-    mount.innerHTML = '<div class="notif-empty">Inicia sesión para ver tu carrito.</div>';
-    foot.hidden = true;
-    return;
-  }
   try {
     const items = await obtenerCarrito();
     if (!items.length) {
@@ -452,6 +557,15 @@ async function actualizarEstadoSesionHeader() {
   if (!SUPABASE_CONFIGURADO) return;
 
   const session = await obtenerSesion();
+  // Si hay sesión, primero se intenta fusionar un carrito de invitado (armado antes de
+  // loguearse) y completar un checkout de invitado que quedó pendiente de confirmar el correo
+  // (ver crearPedidoInvitado en api.js) -- así el badge de abajo y "Mis Pedidos" ya reflejan el
+  // resultado apenas termina de cargar el header, sin que el cliente tenga que hacer nada más.
+  if (session) {
+    await fusionarCarritoInvitadoConCuenta();
+    const idPedidoResuelto = await intentarResumirCheckoutPendiente();
+    if (idPedidoResuelto) mostrarToast('¡Tu pedido quedó confirmado! Puedes verlo en "Mis Pedidos".');
+  }
   if (label) {
     if (session) {
       const perfil = await obtenerPerfilActual();
@@ -462,7 +576,6 @@ async function actualizarEstadoSesionHeader() {
   }
 
   if (badge) {
-    if (!session) { badge.hidden = true; return; }
     try {
       const items = await obtenerCarrito();
       const total = items.reduce((acc, i) => acc + i.cantidad, 0);

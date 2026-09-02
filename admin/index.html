@@ -42,7 +42,7 @@
         <button class="admin-nav-btn" data-section="margenes"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.3"/><circle cx="17.5" cy="17.5" r="2.3"/></svg>Calculadora de Márgenes <span class="admin-nav-badge" id="badge-margenes" hidden>0</span></button>
 
         <span class="admin-nav-label">Pedidos</span>
-        <button class="admin-nav-btn" data-section="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Tienda Directa</button>
+        <button class="admin-nav-btn" data-section="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Pedidos</button>
         <button class="admin-nav-btn" data-section="consolidados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>Consolidados</button>
         <button class="admin-nav-btn" data-section="reservas"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>Todas las Reservas</button>
         <button class="admin-nav-btn" data-section="contabilidad"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1" fill="currentColor" stroke="none"/></svg>Contabilidad</button>
@@ -53,6 +53,7 @@
         <button class="admin-nav-btn" data-section="cotizaciones"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 5h16v11H8l-4 4V5Z"/></svg>Cotizaciones <span class="admin-nav-badge" id="badge-cotizaciones" hidden>0</span></button>
 
         <span class="admin-nav-label">Contenido del Sitio</span>
+        <button class="admin-nav-btn" data-section="publicidad"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 11v2a2 2 0 0 0 2 2h1l2 5h2l-1.5-5H11l7 4V5l-7 4H3z"/></svg>Publicidad</button>
         <button class="admin-nav-btn" data-section="faq"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 4"/><circle cx="12" cy="17" r="0.6" fill="currentColor" stroke="none"/></svg>Preguntas Frecuentes</button>
         <button class="admin-nav-btn" data-section="configuracion"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.04 1.56V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.04H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.04-1.56V3a2 2 0 0 1 4 0v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.04H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>Configuración del Sitio</button>
       </nav>
@@ -72,6 +73,13 @@
 
         <div class="kpi-grid" id="dashboard-kpis"><div class="admin-empty">Cargando…</div></div>
 
+        <div class="dashboard-panel" style="margin-bottom:24px;">
+          <div class="dashboard-panel-head">
+            <h3>Tendencia de ventas — últimos 14 días</h3>
+          </div>
+          <div class="chart-canvas-wrap chart-canvas-wide"><canvas id="chart-tendencia-ventas"></canvas></div>
+        </div>
+
         <div class="dashboard-panels">
           <div class="dashboard-panel">
             <div class="dashboard-panel-head">
@@ -86,6 +94,21 @@
               <button type="button" class="link-arrow" data-goto-section="productos">Ver perfumes &rarr;</button>
             </div>
             <div id="dashboard-stock-bajo"><div class="admin-empty">Cargando…</div></div>
+          </div>
+        </div>
+
+        <div class="dashboard-charts-grid">
+          <div class="dashboard-panel">
+            <div class="dashboard-panel-head"><h3>Catálogo por tipo de casa</h3></div>
+            <div class="chart-canvas-wrap"><canvas id="chart-tipo-casa"></canvas></div>
+          </div>
+          <div class="dashboard-panel">
+            <div class="dashboard-panel-head"><h3>Catálogo por género</h3></div>
+            <div class="chart-canvas-wrap"><canvas id="chart-genero"></canvas></div>
+          </div>
+          <div class="dashboard-panel">
+            <div class="dashboard-panel-head"><h3>Más vendidos (tienda)</h3></div>
+            <div class="chart-canvas-wrap"><canvas id="chart-top-perfumes"></canvas></div>
           </div>
         </div>
 
@@ -104,9 +127,25 @@
             <option value="">Todos</option>
             <option value="decants">Solo Decants</option>
             <option value="liquidaciones">Solo Liquidaciones</option>
+            <option value="ocultos">Solo Ocultos</option>
           </select>
+          <select id="productos-genero-filtro">
+            <option value="">Todos los géneros</option>
+            <option value="Hombre">Hombre</option>
+            <option value="Mujer">Mujer</option>
+            <option value="Unisex">Unisex</option>
+          </select>
+          <select id="productos-casa-filtro">
+            <option value="">Todas las casas</option>
+            <option value="Árabe">Árabe</option>
+            <option value="Diseñador">Diseñador</option>
+            <option value="Nicho">Nicho</option>
+            <option value="__sin_definir__">Sin definir</option>
+          </select>
+          <span class="admin-toolbar-count" id="productos-conteo"></span>
         </div>
         <div class="admin-card-grid" id="productos-grid"><div class="admin-empty">Cargando…</div></div>
+        <div class="pagination" id="productos-paginacion"></div>
       </section>
 
       <!-- Calculadora de Márgenes -->
@@ -135,11 +174,16 @@
           <thead><tr><th>Perfume</th><th>Costo (S/)</th><th>Precio Consolidado</th><th>Ganancia</th><th>Precio Tienda</th><th>Ganancia</th><th>Estado</th></tr></thead>
           <tbody id="margenes-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
         </table></div>
+        <div class="pagination" id="margenes-paginacion"></div>
       </section>
 
-      <!-- Pedidos tienda directa -->
+      <!-- Pedidos -->
       <section class="admin-section" id="section-pedidos">
-        <div class="admin-page-header"><div><h1>Pedidos — Tienda Directa</h1><div class="sub">Compras normales (no consolidado)</div></div></div>
+        <div class="admin-page-header"><div><h1>Pedidos</h1><div class="sub">Registra pagos, envío y notifica al cliente por WhatsApp</div></div></div>
+        <div class="admin-tabs" id="pedidos-tipo-tabs">
+          <button class="admin-tab active" data-tipo="Directo_Tienda">Tienda Directa</button>
+          <button class="admin-tab" data-tipo="Consolidado">Consolidado</button>
+        </div>
         <div class="admin-toolbar">
           <input type="text" id="pedidos-busqueda" placeholder="Buscar por cliente o N° pedido..." />
           <select id="pedidos-filtro-estado">
@@ -180,8 +224,8 @@
           <input type="text" id="reservas-busqueda" placeholder="Buscar por cliente, campaña o producto..." />
         </div>
         <div class="admin-table-wrap"><table class="data-table">
-          <thead><tr><th>Cliente</th><th>Producto</th><th>Campaña</th><th>Cant.</th><th>Precio</th><th>Estado</th><th></th></tr></thead>
-          <tbody id="reservas-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
+          <thead><tr><th>Cliente</th><th>Producto</th><th>Campaña</th><th>Cant.</th><th>Precio</th><th>Estado</th><th></th><th></th></tr></thead>
+          <tbody id="reservas-tbody"><tr><td colspan="8" class="admin-empty">Cargando…</td></tr></tbody>
         </table></div>
       </section>
 
@@ -215,6 +259,27 @@
           <button class="admin-tab" data-filtro="">Todas</button>
         </div>
         <div id="cotizaciones-lista"><div class="admin-empty">Cargando…</div></div>
+      </section>
+
+      <!-- Publicidad (popup del inicio) -->
+      <section class="admin-section" id="section-publicidad">
+        <div class="admin-page-header"><div><h1>Publicidad</h1><div class="sub">Popup que aparece al entrar a la página de inicio</div></div></div>
+        <form id="form-publicidad" class="form-card" style="max-width:640px;">
+          <label class="filter-option" style="margin-bottom:18px;"><input type="checkbox" name="activo" /> Popup activo (se muestra al cargar el inicio)</label>
+          <div class="form-group"><label>Título</label><input type="text" name="titulo" placeholder="¡Oferta especial!" /></div>
+          <div class="form-group"><label>Mensaje</label><textarea name="mensaje" rows="3" placeholder="Describe la promoción..."></textarea></div>
+          <div class="form-group"><label>Imagen (ruta o URL, opcional)</label><input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" /></div>
+          <div class="form-row">
+            <div class="form-group"><label>Texto del botón</label><input type="text" name="texto_boton" placeholder="Ver catálogo" /></div>
+            <div class="form-group"><label>Link del botón</label><input type="text" name="url_boton" placeholder="catalogo/ o https://..." /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Desde (opcional)</label><input type="datetime-local" name="fecha_inicio" /></div>
+            <div class="form-group"><label>Hasta (opcional)</label><input type="datetime-local" name="fecha_fin" /></div>
+          </div>
+          <p class="form-hint" style="margin:-4px 0 14px;">Se muestra una vez por visita en la página de inicio mientras esté activo (y dentro del rango de fechas, si lo defines). Si cambias el contenido, vuelve a mostrarse aunque sea la misma visita.</p>
+          <button type="submit" class="btn btn-primary">Guardar Publicidad</button>
+        </form>
       </section>
 
       <!-- Preguntas Frecuentes -->
@@ -411,6 +476,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/supabase-config.js"></script>
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/api.js"></script>
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/admin-api.js"></script>

@@ -25,7 +25,58 @@ document.addEventListener('DOMContentLoaded', async () => {
   cargarMarcasMarquee();
   cargarClientesReales();
   activarLightbox();
+  cargarPublicidadPopup();
 });
+
+// Popup editable desde el panel admin (Publicidad) -- ver migración 0013 y
+// obtenerPublicidadPopup() en api.js. Sale una sola vez por sesión de navegación (no en cada
+// recarga) para no ser intrusivo; si el admin edita el contenido, "actualizado_en" cambia y
+// vuelve a mostrarse aunque sea la misma sesión. Cualquier fallo acá (tabla sin migrar,
+// sessionStorage bloqueado, etc.) se ignora en silencio -- es un adorno, no debe romper la home.
+async function cargarPublicidadPopup() {
+  try {
+    const promo = await obtenerPublicidadPopup();
+    if (!promo || !promo.activo) return;
+    if (!promo.titulo && !promo.mensaje && !promo.imagen_url) return;
+
+    const ahora = new Date();
+    if (promo.fecha_inicio && ahora < new Date(promo.fecha_inicio)) return;
+    if (promo.fecha_fin && ahora > new Date(promo.fecha_fin)) return;
+
+    const clave = `promo-popup-visto-${promo.actualizado_en}`;
+    try {
+      if (sessionStorage.getItem(clave)) return;
+    } catch { /* sessionStorage bloqueado (modo privado, etc.) -- se muestra igual */ }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'promo-popup-overlay';
+    overlay.innerHTML = `
+      <div class="promo-popup-box">
+        <button type="button" class="promo-popup-close" aria-label="Cerrar">&times;</button>
+        ${promo.imagen_url ? `<img class="promo-popup-img" src="${new URL(promo.imagen_url, SITE_ROOT).href}" alt="" />` : ''}
+        <div class="promo-popup-body">
+          ${promo.titulo ? `<h3>${escapeHtml(promo.titulo)}</h3>` : ''}
+          ${promo.mensaje ? `<p>${escapeHtml(promo.mensaje)}</p>` : ''}
+          ${promo.texto_boton && promo.url_boton ? `<a class="btn btn-primary" href="${escapeHtml(promo.url_boton)}">${escapeHtml(promo.texto_boton)}</a>` : ''}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const cerrar = () => {
+      overlay.remove();
+      try { sessionStorage.setItem(clave, '1'); } catch { /* no pasa nada si no se puede recordar */ }
+      document.removeEventListener('keydown', alEscapar);
+    };
+    function alEscapar(e) { if (e.key === 'Escape') cerrar(); }
+
+    overlay.querySelector('.promo-popup-close').addEventListener('click', cerrar);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
+    document.addEventListener('keydown', alEscapar);
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 // Fotos reales de 3 perfumes en stock (no una imagen fija -- el hero tenía antes una sola foto
 // fija de un producto puntual y se sacó porque no reflejaba el catálogo real, ver nota en

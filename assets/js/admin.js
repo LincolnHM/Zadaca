@@ -71,6 +71,7 @@ function cargarSeccion(nombre) {
     resenas: cargarResenas,
     cotizaciones: cargarCotizaciones,
     contabilidad: cargarContabilidad,
+    publicidad: cargarPublicidad,
     faq: cargarFAQ,
     configuracion: cargarConfiguracion,
   };
@@ -95,6 +96,45 @@ function setBadge(id, valor) {
 
 function abrirModal(id) { document.getElementById(id).classList.add('open'); }
 function cerrarModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ================= PAGINACIÓN (compartida entre Productos y Márgenes) ================= */
+
+// Mismo patrón que el catálogo público (ver calcularRangoPaginas en catalogo.js): siempre
+// primera, última, y una ventana alrededor de la actual, con "…" en los saltos.
+function calcularRangoPaginasAdmin(actual, total) {
+  const distancia = 1;
+  const paginas = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= actual - distancia && i <= actual + distancia)) paginas.push(i);
+  }
+  const conElipsis = [];
+  let anterior = 0;
+  for (const p of paginas) {
+    if (anterior && p - anterior > 1) conElipsis.push('…');
+    conElipsis.push(p);
+    anterior = p;
+  }
+  return conElipsis;
+}
+
+function renderPaginacionAdmin(mountId, paginaActual, totalPaginas, onCambiar) {
+  const mount = document.getElementById(mountId);
+  if (!mount) return;
+  if (totalPaginas <= 1) { mount.innerHTML = ''; return; }
+
+  const botonNav = (destino, simbolo, etiqueta) => `<button class="pg-nav" data-pagina="${destino}" ${destino < 1 || destino > totalPaginas ? 'disabled' : ''} aria-label="${etiqueta}">${simbolo}</button>`;
+
+  let html = botonNav(paginaActual - 1, '‹', 'Página anterior');
+  html += calcularRangoPaginasAdmin(paginaActual, totalPaginas)
+    .map((p) => p === '…' ? '<span class="pg-ellipsis">…</span>' : `<button class="${p === paginaActual ? 'active' : ''}" data-pagina="${p}">${p}</button>`)
+    .join('');
+  html += botonNav(paginaActual + 1, '›', 'Página siguiente');
+
+  mount.innerHTML = html;
+  mount.querySelectorAll('button[data-pagina]:not(:disabled)').forEach((btn) => {
+    btn.addEventListener('click', () => onCambiar(Number(btn.dataset.pagina)));
+  });
+}
 
 /* ================= DASHBOARD ================= */
 
@@ -187,6 +227,116 @@ async function cargarDashboard() {
   } catch (err) {
     stockMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
   }
+
+  cargarGraficosDashboard();
+}
+
+/* ================= DASHBOARD: GRÁFICOS ================= */
+
+// Paleta acorde a los 2 colores de marca (burdeos + plata, ver style.css) más los estados que
+// ya usa el resto del panel (ámbar/verde) -- así las donas no traen colores random ajenos a la
+// identidad del sitio.
+const PALETA_GRAFICOS = ['#7a2030', '#bcbac2', '#d29a3a', '#4f8c58', '#93293c', '#4f4736'];
+const GRAFICOS_DASHBOARD = {};
+
+function colorCss(variable) {
+  return getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+}
+
+function destruirGrafico(id) {
+  if (GRAFICOS_DASHBOARD[id]) { GRAFICOS_DASHBOARD[id].destroy(); delete GRAFICOS_DASHBOARD[id]; }
+}
+
+// Chart.js viene de un CDN (ver admin/index.html) -- si el script no cargó (ej. sin internet
+// en ese momento), los gráficos simplemente no se dibujan en vez de romper el resto del
+// dashboard, que ya cargó bien arriba.
+async function cargarGraficosDashboard() {
+  if (!window.Chart) return;
+  try {
+    renderGraficoTendencia(await obtenerTendenciaVentas(14));
+  } catch (err) { console.error(err); }
+  try {
+    const { porCasa, porGenero } = await obtenerComposicionCatalogo();
+    renderGraficoDona('chart-tipo-casa', porCasa);
+    renderGraficoDona('chart-genero', porGenero);
+  } catch (err) { console.error(err); }
+  try {
+    renderGraficoTopPerfumes(await obtenerTopPerfumesVendidos(6));
+  } catch (err) { console.error(err); }
+}
+
+function renderGraficoTendencia(datos) {
+  const canvas = document.getElementById('chart-tendencia-ventas');
+  if (!canvas) return;
+  destruirGrafico('chart-tendencia-ventas');
+  const textoMuted = colorCss('--color-text-faint');
+  const borde = colorCss('--color-border');
+  GRAFICOS_DASHBOARD['chart-tendencia-ventas'] = new Chart(canvas, {
+    data: {
+      labels: datos.map((d) => d.etiqueta),
+      datasets: [
+        { type: 'bar', label: 'Pedidos', data: datos.map((d) => d.pedidos), backgroundColor: 'rgba(188,186,194,0.55)', yAxisID: 'y1', order: 2, borderRadius: 3, maxBarThickness: 22 },
+        { type: 'line', label: 'Ingresos (S/)', data: datos.map((d) => d.ingresos), borderColor: '#7a2030', backgroundColor: 'rgba(122,32,48,0.12)', tension: 0.35, fill: true, yAxisID: 'y', order: 1, pointRadius: 3, pointBackgroundColor: '#7a2030' },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: textoMuted, font: { size: 11 }, boxWidth: 12 } } },
+      scales: {
+        x: { ticks: { color: textoMuted, font: { size: 10 } }, grid: { display: false } },
+        y: { position: 'left', beginAtZero: true, ticks: { color: textoMuted, font: { size: 10 }, callback: (v) => `S/ ${v}` }, grid: { color: borde } },
+        y1: { position: 'right', beginAtZero: true, ticks: { color: textoMuted, font: { size: 10 }, stepSize: 1 }, grid: { display: false } },
+      },
+    },
+  });
+}
+
+function renderGraficoDona(canvasId, entradas) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  destruirGrafico(canvasId);
+  if (!entradas.length) return;
+  const textoMuted = colorCss('--color-text-faint');
+  GRAFICOS_DASHBOARD[canvasId] = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: entradas.map(([etiqueta]) => etiqueta),
+      datasets: [{ data: entradas.map(([, cantidad]) => cantidad), backgroundColor: PALETA_GRAFICOS, borderColor: colorCss('--color-bg-card'), borderWidth: 2 }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: textoMuted, font: { size: 11 }, boxWidth: 12, padding: 10 } } },
+    },
+  });
+}
+
+function renderGraficoTopPerfumes(top) {
+  const canvas = document.getElementById('chart-top-perfumes');
+  if (!canvas) return;
+  destruirGrafico('chart-top-perfumes');
+  if (!top.length) return;
+  const textoMuted = colorCss('--color-text-faint');
+  const borde = colorCss('--color-border');
+  GRAFICOS_DASHBOARD['chart-top-perfumes'] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: top.map((p) => `${p.marca} — ${p.nombre}`),
+      datasets: [{ data: top.map((p) => p.unidades), backgroundColor: '#7a2030', borderRadius: 3, maxBarThickness: 18 }],
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { color: textoMuted, font: { size: 10 }, stepSize: 1 }, grid: { color: borde } },
+        y: { ticks: { color: textoMuted, font: { size: 10 } }, grid: { display: false } },
+      },
+    },
+  });
 }
 
 /* ================= PRODUCTOS ================= */
@@ -211,23 +361,48 @@ function imagenProductoAdmin(p) {
   return `<span style="color:var(--color-text-faint);">${ICONO_PRODUCTO_FALLBACK}</span>`;
 }
 
+const PRODUCTOS_POR_PAGINA = 20;
+let productosPaginaActual = 1;
+
 let productosBusquedaTimeout;
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('productos-busqueda')?.addEventListener('input', (e) => {
     clearTimeout(productosBusquedaTimeout);
-    productosBusquedaTimeout = setTimeout(() => cargarProductos(e.target.value), 350);
+    productosBusquedaTimeout = setTimeout(() => { productosPaginaActual = 1; cargarProductos(e.target.value); }, 350);
   });
-  document.getElementById('productos-filtro')?.addEventListener('change', () => cargarProductos(document.getElementById('productos-busqueda')?.value));
+  ['productos-filtro', 'productos-genero-filtro', 'productos-casa-filtro'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', () => {
+      productosPaginaActual = 1;
+      cargarProductos(document.getElementById('productos-busqueda')?.value);
+    });
+  });
   document.getElementById('btn-nuevo-producto')?.addEventListener('click', () => abrirModalProducto());
 });
 
 async function cargarProductos(busqueda) {
   const mount = document.getElementById('productos-grid');
   const filtro = document.getElementById('productos-filtro')?.value;
+  const genero = document.getElementById('productos-genero-filtro')?.value;
+  const tipoCasa = document.getElementById('productos-casa-filtro')?.value;
   try {
-    const productos = await obtenerProductosAdmin({ busqueda, filtro });
+    let resultado = await obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina: productosPaginaActual, porPagina: PRODUCTOS_POR_PAGINA });
+    // Si al borrar/filtrar la página actual quedó vacía pero sí hay resultados más atrás
+    // (ej. eliminaste el único producto de la última página), vuelve a la página 1 en vez de
+    // mostrar una grilla vacía con paginación fantasma.
+    if (!resultado.productos.length && productosPaginaActual > 1 && resultado.total > 0) {
+      productosPaginaActual = 1;
+      resultado = await obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina: productosPaginaActual, porPagina: PRODUCTOS_POR_PAGINA });
+    }
+    const { productos, total, totalPaginas } = resultado;
+    const conteo = document.getElementById('productos-conteo');
+    if (conteo) conteo.textContent = total ? `${total} perfume${total === 1 ? '' : 's'}` : '';
     mount.innerHTML = productos.length ? productos.map(tarjetaProductoAdmin).join('') : '<div class="admin-empty">Sin productos.</div>';
     conectarEventosProductos();
+    renderPaginacionAdmin('productos-paginacion', productosPaginaActual, totalPaginas, (pagina) => {
+      productosPaginaActual = pagina;
+      cargarProductos(busqueda);
+      mount.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   } catch (err) {
     mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
   }
@@ -240,7 +415,7 @@ function tarjetaProductoAdmin(p) {
       <div class="admin-card-top">
         <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
         <div style="min-width:0;">
-          <span class="admin-card-sub">${escapeHtml(p.marca)} &middot; #${p.id}</span>
+          <span class="admin-card-sub">${escapeHtml(p.marca)} &middot; #${p.id} &middot; ${escapeHtml(p.genero)} &middot; ${escapeHtml(p.tipo_casa || 'Sin definir')}</span>
           <h3 class="admin-card-title">${escapeHtml(p.nombre)}${p.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}${p.es_decant ? ' <span class="badge badge-decant">Decant</span>' : ''}${p.activo === false ? ' <span class="badge badge-out">Oculto</span>' : ''}</h3>
           <span style="font-size:0.72rem; color:var(--color-text-faint);">${p.mililitros} ml &middot; ${escapeHtml(p.concentracion || '—')}${p.id_decant_grupo ? ` &middot; tamaño de #${p.id_decant_grupo}` : ''}</span>
         </div>
@@ -314,9 +489,11 @@ function conectarEventosProductos() {
   document.querySelectorAll('#productos-grid .btn-editar-producto').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = Number(btn.closest('.admin-card').dataset.id);
-      const productos = await obtenerProductosAdmin({});
-      const producto = productos.find((p) => p.id === id);
-      if (producto) abrirModalProducto(producto);
+      try {
+        abrirModalProducto(await obtenerProductoAdminPorId(id));
+      } catch (err) {
+        mostrarToast(err.message, 'error');
+      }
     });
   });
 }
@@ -398,13 +575,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ================= CALCULADORA DE MÁRGENES ================= */
 
+const MARGENES_POR_PAGINA = 20;
+let margenesPaginaActual = 1;
+
 let margenesBusquedaTimeout;
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('margenes-busqueda')?.addEventListener('input', () => {
     clearTimeout(margenesBusquedaTimeout);
-    margenesBusquedaTimeout = setTimeout(cargarMargenes, 350);
+    margenesBusquedaTimeout = setTimeout(() => { margenesPaginaActual = 1; cargarMargenes(); }, 350);
   });
-  document.getElementById('margenes-filtro')?.addEventListener('change', cargarMargenes);
+  document.getElementById('margenes-filtro')?.addEventListener('change', () => { margenesPaginaActual = 1; cargarMargenes(); });
   document.getElementById('btn-aplicar-margen-masivo')?.addEventListener('click', aplicarMargenMasivoDesdeUI);
   document.getElementById('margen-masivo-solo-pendientes')?.addEventListener('change', actualizarPreviewMargenMasivo);
 });
@@ -426,9 +606,19 @@ async function cargarMargenes() {
   const soloSinMargen = document.getElementById('margenes-filtro')?.value === 'pendientes';
   actualizarPreviewMargenMasivo();
   try {
-    const productos = await obtenerProductosParaMargenes({ busqueda, soloSinMargen });
+    let resultado = await obtenerProductosParaMargenes({ busqueda, soloSinMargen, pagina: margenesPaginaActual, porPagina: MARGENES_POR_PAGINA });
+    if (!resultado.productos.length && margenesPaginaActual > 1 && resultado.total > 0) {
+      margenesPaginaActual = 1;
+      resultado = await obtenerProductosParaMargenes({ busqueda, soloSinMargen, pagina: margenesPaginaActual, porPagina: MARGENES_POR_PAGINA });
+    }
+    const { productos, totalPaginas } = resultado;
     tbody.innerHTML = productos.length ? productos.map(filaMargenAdmin).join('') : '<tr><td colspan="7" class="admin-empty">Sin productos.</td></tr>';
     conectarEventosMargenes();
+    renderPaginacionAdmin('margenes-paginacion', margenesPaginaActual, totalPaginas, (pagina) => {
+      margenesPaginaActual = pagina;
+      cargarMargenes();
+      tbody.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="7" class="admin-empty">${err.message}</td></tr>`;
   }
@@ -506,12 +696,48 @@ async function aplicarMargenMasivoDesdeUI() {
   }
 }
 
-/* ================= PEDIDOS (TIENDA DIRECTA) ================= */
+/* ================= PEDIDOS ================= */
+
+// Número de WhatsApp del cliente (perfiles.telefono / direcciones_cliente) se guarda sin
+// código de país (9 dígitos, empieza con 9 -- mismo formato que valida contacto.js). Se le
+// antepone 51 acá para armar el link de wa.me; si el dato no calza con ese formato (vacío,
+// mal tipeado), no hay forma segura de armar el link y se devuelve null.
+function enlaceWhatsappCliente(telefono, mensaje) {
+  const digitos = String(telefono || '').replace(/\D/g, '').replace(/^51/, '');
+  if (!/^9\d{8}$/.test(digitos)) return null;
+  return `https://wa.me/51${digitos}?text=${encodeURIComponent(mensaje)}`;
+}
+
+function primerNombre(nombreCompleto) {
+  return (nombreCompleto || '').trim().split(/\s+/)[0] || '';
+}
+
+// Mensaje pre-armado para el botón "Notificar por WhatsApp" del detalle de pedido -- un clic
+// abre WhatsApp con el aviso listo (mismo patrón que usa el resto del sitio, ver
+// enlaceWhatsappPago en api.js), sin depender de ninguna integración de envío automático.
+function mensajeNotificacionPago(p) {
+  const nombre = primerNombre(p.cliente);
+  const saludo = nombre ? `Hola ${nombre}!` : 'Hola!';
+  if (p.estado_pago === 'Completado') {
+    return `${saludo} Te confirmamos que tu pedido #${p.id} (${formatoMoneda(p.monto_total)}) en Maison Zadaca ya está pagado por completo. ¡Gracias por tu compra!`;
+  }
+  return `${saludo} Tu pedido #${p.id} en Maison Zadaca (total ${formatoMoneda(p.monto_total)}) tiene un saldo pendiente de ${formatoMoneda(p.monto_saldo_pendiente)}. Puedes coordinar el pago por Yape, Plin o transferencia respondiendo este mensaje.`;
+}
+
+let pedidosTipoActual = 'Directo_Tienda';
 
 document.addEventListener('DOMContentLoaded', () => {
   let t;
   document.getElementById('pedidos-busqueda')?.addEventListener('input', () => { clearTimeout(t); t = setTimeout(cargarPedidos, 350); });
   document.getElementById('pedidos-filtro-estado')?.addEventListener('change', cargarPedidos);
+  document.querySelectorAll('#pedidos-tipo-tabs .admin-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#pedidos-tipo-tabs .admin-tab').forEach((t2) => t2.classList.remove('active'));
+      tab.classList.add('active');
+      pedidosTipoActual = tab.dataset.tipo;
+      cargarPedidos();
+    });
+  });
 });
 
 async function cargarPedidos() {
@@ -519,7 +745,7 @@ async function cargarPedidos() {
   const busqueda = document.getElementById('pedidos-busqueda').value;
   const estadoPago = document.getElementById('pedidos-filtro-estado').value;
   try {
-    const pedidos = await obtenerPedidosAdmin({ busqueda, estadoPago });
+    const pedidos = await obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido: pedidosTipoActual });
     tbody.innerHTML = pedidos.length ? pedidos.map(filaPedidoAdmin).join('') : '<tr><td colspan="7" class="admin-empty">No hay pedidos.</td></tr>';
     conectarEventosPedidos();
   } catch (err) {
@@ -530,7 +756,7 @@ async function cargarPedidos() {
 function filaPedidoAdmin(p) {
   return `
     <tr data-id="${p.id}">
-      <td>#${p.id}</td>
+      <td>#${p.id}${p.campana ? `<br><span style="font-size:0.7rem; color:var(--color-text-faint);">${escapeHtml(p.campana)}</span>` : ''}</td>
       <td>${escapeHtml(p.cliente)}<br><span style="font-size:0.72rem; color:var(--color-text-faint);">${escapeHtml(p.correo_cliente || '')}</span></td>
       <td>${new Date(p.fecha_creacion).toLocaleDateString('es-PE')}</td>
       <td>${formatoMoneda(p.monto_total)}</td>
@@ -556,6 +782,7 @@ async function abrirDetallePedido(id) {
     const dir = p.direccion;
     mount.innerHTML = `
       <p style="font-size:0.85rem; color:var(--color-text-muted); margin-bottom:6px;"><strong style="color:var(--color-text);">${escapeHtml(p.cliente)}</strong> &middot; ${escapeHtml(p.correo_cliente || '')} ${p.telefono_cliente ? `&middot; ${escapeHtml(p.telefono_cliente)}` : ''}</p>
+      ${p.campana ? `<p style="font-size:0.78rem; color:var(--color-gold); margin-bottom:6px;">Consolidado: ${escapeHtml(p.campana)}</p>` : ''}
       <p style="font-size:0.8rem; color:var(--color-text-faint); margin-bottom:20px;">${dir ? `${escapeHtml(dir.direccion_detalle)}, ${escapeHtml(dir.ubigeo?.distrito || '')} &middot; ${escapeHtml(dir.tipo_despacho?.replace(/_/g, ' ') || '')}` : 'Sin dirección registrada'}</p>
 
       <strong style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--color-gold);">Productos</strong>
@@ -605,6 +832,15 @@ async function abrirDetallePedido(id) {
         </div>
       </div>
       <button class="btn btn-outline btn-sm" id="btn-registrar-pago">Registrar Pago</button>
+
+      <div style="margin-top:14px;">
+        ${(() => {
+          const enlaceWa = enlaceWhatsappCliente(p.telefono_cliente, mensajeNotificacionPago(p));
+          return enlaceWa
+            ? `<a class="btn btn-whatsapp btn-sm" href="${enlaceWa}" target="_blank" rel="noopener">Notificar estado de pago por WhatsApp</a>`
+            : '<span class="form-hint">Este cliente no tiene un WhatsApp válido registrado — no se puede armar el link de notificación.</span>';
+        })()}
+      </div>
     `;
 
     document.getElementById('btn-guardar-envio').addEventListener('click', async () => {
@@ -769,11 +1005,15 @@ function conectarEventosConsolidados(consolidados) {
       panel.innerHTML = '<div class="admin-empty">Cargando…</div>';
       try {
         const reservas = await obtenerReservasDeConsolidadoAdmin(Number(card.dataset.id));
+        const codigoCampana = consolidados.find((c) => c.id === Number(card.dataset.id))?.codigo_campana || '';
         panel.innerHTML = reservas.length ? `
           <div class="admin-table-wrap"><table class="data-table">
-            <thead><tr><th>Cliente</th><th>Producto</th><th>Cant.</th><th>Precio</th><th>Estado</th></tr></thead>
+            <thead><tr><th>Cliente</th><th>Producto</th><th>Cant.</th><th>Precio</th><th>Estado</th><th></th></tr></thead>
             <tbody>
-              ${reservas.map((r) => `
+              ${reservas.map((r) => {
+                const mensaje = `Hola ${primerNombre(r.cliente)}! Confirmamos tu reserva en la campaña ${codigoCampana}: ${r.cantidad} x ${r.marca} — ${r.nombre} a ${formatoMoneda(r.precio_consolidado_aplicado)} c/u (total ${formatoMoneda(r.cantidad * r.precio_consolidado_aplicado)}). Te avisamos apenas cierre la campaña para coordinar el pago.`;
+                const enlaceWa = enlaceWhatsappCliente(r.telefono_cliente, mensaje);
+                return `
                 <tr data-reserva-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(122,32,48,0.08);"' : ''}>
                   <td>${escapeHtml(r.cliente)}<br><span style="font-size:0.7rem; color:var(--color-text-faint);">${escapeHtml(r.correo_cliente || '')}</span></td>
                   <td>${escapeHtml(r.marca)} — ${escapeHtml(r.nombre)}</td>
@@ -782,8 +1022,10 @@ function conectarEventosConsolidados(consolidados) {
                   <td><select class="status-select select-estado-reserva" ${r.estado_item === 'Convertido_A_Pedido' ? 'disabled title="Ya se generó un pedido para esta reserva -- revertirla crearía un pedido duplicado al volver a generar pedidos"' : ''}>
                     ${ESTADOS_RESERVA.map((e) => `<option value="${e}" ${r.estado_item === e ? 'selected' : ''}>${e}</option>`).join('')}
                   </select></td>
+                  <td>${enlaceWa ? `<a class="btn btn-whatsapp btn-sm" href="${enlaceWa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</td>
                 </tr>
-              `).join('')}
+              `;
+              }).join('')}
             </tbody>
           </table></div>
         ` : '<p class="admin-empty">Sin reservas en esta campaña.</p>';
@@ -1021,7 +1263,10 @@ async function cargarTodasLasReservas() {
   const busqueda = document.getElementById('reservas-busqueda').value;
   try {
     const reservas = await obtenerTodasLasReservasAdmin({ busqueda });
-    tbody.innerHTML = reservas.length ? reservas.map((r) => `
+    tbody.innerHTML = reservas.length ? reservas.map((r) => {
+      const mensaje = `Hola ${primerNombre(r.cliente)}! Confirmamos tu reserva en la campaña ${r.campana || ''}: ${r.cantidad} x ${r.producto} a ${formatoMoneda(r.precio_consolidado_aplicado)} c/u (total ${formatoMoneda(r.cantidad * r.precio_consolidado_aplicado)}). Te avisamos apenas cierre la campaña para coordinar el pago.`;
+      const enlaceWa = enlaceWhatsappCliente(r.telefono_cliente, mensaje);
+      return `
       <tr data-id="${r.id}"${r.estado_item === 'Pendiente_Aprobacion' ? ' style="background:rgba(122,32,48,0.08);"' : ''}>
         <td>${escapeHtml(r.cliente)}</td>
         <td>${escapeHtml(r.producto)}</td>
@@ -1030,8 +1275,10 @@ async function cargarTodasLasReservas() {
         <td>${formatoMoneda(r.precio_consolidado_aplicado)}</td>
         <td><select class="status-select select-estado-reserva-global" ${r.estado_item === 'Convertido_A_Pedido' ? 'disabled title="Ya se generó un pedido para esta reserva -- revertirla crearía un pedido duplicado al volver a generar pedidos"' : ''}>${ESTADOS_RESERVA.map((e) => `<option value="${e}" ${r.estado_item === e ? 'selected' : ''}>${e}</option>`).join('')}</select></td>
         <td><span class="status-tag">${escapeHtml(r.estado_consolidado || '')}</span></td>
+        <td>${enlaceWa ? `<a class="btn btn-whatsapp btn-sm" href="${enlaceWa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</td>
       </tr>
-    `).join('') : '<tr><td colspan="7" class="admin-empty">Sin reservas.</td></tr>';
+    `;
+    }).join('') : '<tr><td colspan="8" class="admin-empty">Sin reservas.</td></tr>';
 
     tbody.querySelectorAll('.select-estado-reserva-global').forEach((sel) => {
       const valorOriginal = sel.value;
@@ -1047,7 +1294,7 @@ async function cargarTodasLasReservas() {
       });
     });
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="admin-empty">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="admin-empty">${err.message}</td></tr>`;
   }
 }
 
@@ -1256,6 +1503,48 @@ async function cargarConfiguracion() {
     Object.keys(cfg).forEach((campo) => {
       if (form.elements[campo]) form.elements[campo].value = cfg[campo] ?? '';
     });
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+  }
+}
+
+/* ================= PUBLICIDAD (popup del inicio) ================= */
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('form-publicidad')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+    data.activo = e.target.elements.activo.checked;
+    data.fecha_inicio = data.fecha_inicio ? new Date(data.fecha_inicio).toISOString() : null;
+    data.fecha_fin = data.fecha_fin ? new Date(data.fecha_fin).toISOString() : null;
+    ['titulo', 'mensaje', 'imagen_url', 'texto_boton', 'url_boton'].forEach((campo) => { if (!data[campo]) data[campo] = null; });
+    const boton = e.target.querySelector('button[type="submit"]');
+    boton.disabled = true;
+    try {
+      await actualizarPublicidad(data);
+      mostrarToast('Publicidad guardada');
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    } finally {
+      boton.disabled = false;
+    }
+  });
+});
+
+async function cargarPublicidad() {
+  const form = document.getElementById('form-publicidad');
+  try {
+    const p = await obtenerPublicidadAdmin();
+    form.elements.activo.checked = p.activo;
+    form.titulo.value = p.titulo || '';
+    form.mensaje.value = p.mensaje || '';
+    form.imagen_url.value = p.imagen_url || '';
+    form.texto_boton.value = p.texto_boton || '';
+    form.url_boton.value = p.url_boton || '';
+    // datetime-local espera "YYYY-MM-DDTHH:mm" -- el timestamp de Postgres viene con segundos
+    // y offset, se recorta a los primeros 16 caracteres tal como hace cuenta.js con fechas.
+    form.fecha_inicio.value = p.fecha_inicio ? p.fecha_inicio.slice(0, 16) : '';
+    form.fecha_fin.value = p.fecha_fin ? p.fecha_fin.slice(0, 16) : '';
   } catch (err) {
     mostrarToast(err.message, 'error');
   }

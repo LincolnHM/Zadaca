@@ -79,16 +79,119 @@ async function obtenerStockBajoDashboard(limite = 5) {
     .map((i) => ({ id: i.perfumes.id, nombre: i.perfumes.nombre, marca: i.perfumes.marca, stock: i.stock_fisico }));
 }
 
+/* ================= DASHBOARD: TENDENCIAS Y GRÁFICOS ================= */
+
+// Ingresos cobrados (pagos Aprobados) y pedidos creados por día, últimos "dias" días -- arma
+// la serie completa en JS porque PostgREST no agrupa por fecha del lado del servidor. Mismo
+// alcance "Tienda Directa" que el resto del dashboard (ver obtenerEstadisticasDashboard).
+async function obtenerTendenciaVentas(dias = 14) {
+  const desde = new Date();
+  desde.setHours(0, 0, 0, 0);
+  desde.setDate(desde.getDate() - (dias - 1));
+
+  const [{ data: pagos, error: e1 }, { data: pedidos, error: e2 }] = await Promise.all([
+    supabaseClient.from('pagos').select('monto, fecha_pago').eq('estado_pago', 'Aprobado').gte('fecha_pago', desde.toISOString()),
+    supabaseClient.from('pedidos').select('id, fecha_creacion').eq('tipo_pedido', 'Directo_Tienda').gte('fecha_creacion', desde.toISOString()),
+  ]);
+  if (e1) throw new Error(e1.message);
+  if (e2) throw new Error(e2.message);
+
+  const claveDia = (fecha) => new Date(fecha).toISOString().slice(0, 10);
+  const ingresosPorDia = new Map();
+  (pagos || []).forEach((p) => ingresosPorDia.set(claveDia(p.fecha_pago), (ingresosPorDia.get(claveDia(p.fecha_pago)) || 0) + Number(p.monto)));
+  const pedidosPorDia = new Map();
+  (pedidos || []).forEach((p) => pedidosPorDia.set(claveDia(p.fecha_creacion), (pedidosPorDia.get(claveDia(p.fecha_creacion)) || 0) + 1));
+
+  const serie = [];
+  for (let i = 0; i < dias; i++) {
+    const d = new Date(desde);
+    d.setDate(d.getDate() + i);
+    const clave = claveDia(d);
+    serie.push({
+      etiqueta: d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }),
+      ingresos: ingresosPorDia.get(clave) || 0,
+      pedidos: pedidosPorDia.get(clave) || 0,
+    });
+  }
+  return serie;
+}
+
+// Composición del catálogo visible (activo, sin decants -- mismo universo que ve un cliente en
+// el catálogo/consolidado) por tipo de casa y por género. tipo_casa null se agrupa en "Sin
+// definir" -- así el admin ve de un vistazo cuánto le falta por clasificar.
+async function obtenerComposicionCatalogo() {
+  const { data, error } = await supabaseClient.from('perfumes').select('genero, tipo_casa').eq('activo', true).eq('es_decant', false);
+  if (error) throw new Error(error.message);
+  const porGenero = new Map();
+  const porCasa = new Map();
+  (data || []).forEach((p) => {
+    porGenero.set(p.genero, (porGenero.get(p.genero) || 0) + 1);
+    const casa = p.tipo_casa || 'Sin definir';
+    porCasa.set(casa, (porCasa.get(casa) || 0) + 1);
+  });
+  return { porGenero: [...porGenero.entries()], porCasa: [...porCasa.entries()] };
+}
+
+// Ranking de perfumes más vendidos por unidades, solo pedidos de Tienda Directa (mismo alcance
+// que el resto del dashboard). "pedidos!inner" fuerza el join para poder filtrar por
+// tipo_pedido desde detalle_pedido (mismo patrón que inventario!inner en api.js).
+async function obtenerTopPerfumesVendidos(limite = 6) {
+  const { data, error } = await supabaseClient
+    .from('detalle_pedido')
+    .select('cantidad, perfumes(id, nombre, marca), pedidos!inner(tipo_pedido)')
+    .eq('pedidos.tipo_pedido', 'Directo_Tienda');
+  if (error) throw new Error(error.message);
+
+  const porProducto = new Map();
+  (data || []).forEach((d) => {
+    if (!d.perfumes) return;
+    const key = d.perfumes.id;
+    if (!porProducto.has(key)) porProducto.set(key, { ...d.perfumes, unidades: 0 });
+    porProducto.get(key).unidades += d.cantidad;
+  });
+  return [...porProducto.values()].sort((a, b) => b.unidades - a.unidades).slice(0, limite);
+}
+
 /* ================= PRODUCTOS ================= */
 
-async function obtenerProductosAdmin({ busqueda, filtro } = {}) {
-  let query = supabaseClient.from('perfumes').select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)').order('fecha_creacion', { ascending: false });
+// Paginado (catálogo real ya pasa de 80 perfumes y sigue creciendo) + filtros de género y
+// tipo de casa -- los mismos que ya existía en el catálogo público (ver TIPOS_CASA en api.js),
+// para que el admin pueda encontrar rápido "todos los Árabe sin clasificar" o "los Hombre".
+// tipoCasa === '__sin_definir__' es un valor especial (no un tipo_casa real) para ubicar
+// productos que todavía no se clasificaron -- ver constraint chk en perfumes.tipo_casa.
+async function obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina = 1, porPagina = 20 } = {}) {
+  let query = supabaseClient
+    .from('perfumes')
+    .select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)', { count: 'exact' })
+    .order('fecha_creacion', { ascending: false });
   if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
   if (filtro === 'decants') query = query.eq('es_decant', true);
   if (filtro === 'liquidaciones') query = query.eq('es_liquidacion', true);
-  const { data, error } = await query;
+  if (filtro === 'ocultos') query = query.eq('activo', false);
+  if (genero) query = query.eq('genero', genero);
+  if (tipoCasa === '__sin_definir__') query = query.is('tipo_casa', null);
+  else if (tipoCasa) query = query.eq('tipo_casa', tipoCasa);
+
+  const desde = (pagina - 1) * porPagina;
+  query = query.range(desde, desde + porPagina - 1);
+
+  const { data, error, count } = await query;
   if (error) throw new Error(error.message);
-  return data.map((p) => ({ ...p, inventario: Array.isArray(p.inventario) ? p.inventario[0] : p.inventario }));
+  const productos = (data || []).map((p) => ({ ...p, inventario: Array.isArray(p.inventario) ? p.inventario[0] : p.inventario }));
+  return { productos, total: count || 0, totalPaginas: Math.max(1, Math.ceil((count || 0) / porPagina)) };
+}
+
+// Trae un solo producto por id (para abrir el modal de edición) -- separado de
+// obtenerProductosAdmin() porque ese ahora viene paginado: el producto que se quiere editar
+// puede estar en cualquier página, no solo en la que está visible en pantalla.
+async function obtenerProductoAdminPorId(id) {
+  const { data, error } = await supabaseClient
+    .from('perfumes')
+    .select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)')
+    .eq('id', id)
+    .single();
+  if (error) throw new Error(error.message);
+  return { ...data, inventario: Array.isArray(data.inventario) ? data.inventario[0] : data.inventario };
 }
 
 function generarSlug(nombre, marca) {
@@ -123,16 +226,20 @@ async function actualizarInventario(idProducto, cambios) {
 
 /* ================= CALCULADORA DE MÁRGENES ================= */
 
-async function obtenerProductosParaMargenes({ busqueda, soloSinMargen } = {}) {
+async function obtenerProductosParaMargenes({ busqueda, soloSinMargen, pagina = 1, porPagina = 20 } = {}) {
   let query = supabaseClient
     .from('perfumes')
-    .select('id, nombre, marca, costo_importacion_pen, precio_consolidado_fijo, precio_tienda_regular, margen_aplicado')
+    .select('id, nombre, marca, costo_importacion_pen, precio_consolidado_fijo, precio_tienda_regular, margen_aplicado', { count: 'exact' })
     .order('marca', { ascending: true });
   if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
   if (soloSinMargen) query = query.eq('margen_aplicado', false);
-  const { data, error } = await query;
+
+  const desde = (pagina - 1) * porPagina;
+  query = query.range(desde, desde + porPagina - 1);
+
+  const { data, error, count } = await query;
   if (error) throw new Error(error.message);
-  return data;
+  return { productos: data || [], total: count || 0, totalPaginas: Math.max(1, Math.ceil((count || 0) / porPagina)) };
 }
 
 async function contarProductosConCosto({ soloSinMargen } = {}) {
@@ -155,11 +262,17 @@ async function aplicarMargenMasivo(margenConsolidado, margenTienda, soloSinMarge
 
 /* ================= PEDIDOS (TIENDA DIRECTA) ================= */
 
-async function obtenerPedidosAdmin({ busqueda, estadoPago } = {}) {
+// tipoPedido: 'Directo_Tienda' (default, compras normales) o 'Consolidado' (pedidos generados
+// al cerrar una campaña -- ver generar_pedidos_de_consolidado en schema.sql). Antes solo se
+// podía ver/gestionar pago de los de Tienda Directa desde acá; los de Consolidado quedaban sin
+// ningún lugar del admin para registrarles pago o avisarle al cliente una vez generados.
+// "consolidados(codigo_campana)" sale null para pedidos de Tienda Directa (no tienen campaña
+// asociada) -- no hace falta pedirlo condicionalmente.
+async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo_Tienda' } = {}) {
   let query = supabaseClient
     .from('pedidos')
-    .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, fecha_creacion, perfiles(nombres, apellidos, correo, telefono), envios(estado_envio, numero_guia_seguimiento, empresa_transporte)')
-    .eq('tipo_pedido', 'Directo_Tienda')
+    .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, fecha_creacion, perfiles(nombres, apellidos, correo, telefono), envios(estado_envio, numero_guia_seguimiento, empresa_transporte), consolidados(codigo_campana)')
+    .eq('tipo_pedido', tipoPedido)
     .order('fecha_creacion', { ascending: false });
   if (estadoPago) query = query.eq('estado_pago', estadoPago);
   const { data, error } = await query;
@@ -170,6 +283,7 @@ async function obtenerPedidosAdmin({ busqueda, estadoPago } = {}) {
     correo_cliente: p.perfiles?.correo,
     telefono_cliente: p.perfiles?.telefono,
     envio: Array.isArray(p.envios) ? p.envios[0] : p.envios,
+    campana: p.consolidados?.codigo_campana,
   }));
   if (busqueda) {
     const q = busqueda.toLowerCase();
@@ -181,7 +295,7 @@ async function obtenerPedidosAdmin({ busqueda, estadoPago } = {}) {
 async function obtenerDetallePedidoAdmin(id) {
   const { data: pedido, error } = await supabaseClient
     .from('pedidos')
-    .select('*, perfiles(nombres, apellidos, correo, telefono), envios(*), direcciones_cliente(direccion_detalle, etiqueta, tipo_despacho, agencia_nombre, ubigeo(departamento, provincia, distrito))')
+    .select('*, perfiles(nombres, apellidos, correo, telefono), envios(*), direcciones_cliente(direccion_detalle, etiqueta, tipo_despacho, agencia_nombre, ubigeo(departamento, provincia, distrito)), consolidados(codigo_campana)')
     .eq('id', id)
     .single();
   if (error) throw new Error('Pedido no encontrado');
@@ -200,6 +314,7 @@ async function obtenerDetallePedidoAdmin(id) {
     telefono_cliente: pedido.perfiles?.telefono,
     envio: Array.isArray(pedido.envios) ? pedido.envios[0] : pedido.envios,
     direccion: pedido.direcciones_cliente,
+    campana: pedido.consolidados?.codigo_campana,
     items: (items || []).map((i) => ({ ...i, ...i.perfumes })),
     pagos: pagos || [],
   };
@@ -280,13 +395,14 @@ async function obtenerReservasDeConsolidadoAdmin(idConsolidado) {
 async function obtenerTodasLasReservasAdmin({ busqueda } = {}) {
   let query = supabaseClient
     .from('detalle_consolidado')
-    .select('id, cantidad, precio_consolidado_aplicado, estado_item, fecha_reserva, consolidados(id, codigo_campana, estado), perfiles(nombres, apellidos, correo), perfumes(nombre, marca)')
+    .select('id, cantidad, precio_consolidado_aplicado, estado_item, fecha_reserva, consolidados(id, codigo_campana, estado), perfiles(nombres, apellidos, correo, telefono), perfumes(nombre, marca)')
     .order('fecha_reserva', { ascending: false });
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   let reservas = data.map((r) => ({
     ...r,
     cliente: r.perfiles ? `${r.perfiles.nombres} ${r.perfiles.apellidos}` : '—',
+    telefono_cliente: r.perfiles?.telefono,
     campana: r.consolidados?.codigo_campana,
     id_consolidado: r.consolidados?.id,
     estado_consolidado: r.consolidados?.estado,
@@ -548,6 +664,19 @@ async function obtenerConfiguracionSitioAdmin() {
 
 async function actualizarConfiguracionSitio(data) {
   const { error } = await supabaseClient.from('configuracion_sitio').update({ ...data, actualizado_en: new Date().toISOString() }).eq('id', 1);
+  if (error) throw new Error(error.message);
+}
+
+/* ================= PUBLICIDAD (popup del inicio) ================= */
+
+async function obtenerPublicidadAdmin() {
+  const { data, error } = await supabaseClient.from('publicidad_popup').select('*').eq('id', 1).single();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function actualizarPublicidad(data) {
+  const { error } = await supabaseClient.from('publicidad_popup').update({ ...data, actualizado_en: new Date().toISOString() }).eq('id', 1);
   if (error) throw new Error(error.message);
 }
 

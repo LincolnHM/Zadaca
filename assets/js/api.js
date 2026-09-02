@@ -114,6 +114,17 @@ const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfati
 // soloConStock=false (por default) es el comportamiento de siempre: todo el catálogo, sin
 // mirar stock — lo usa el buscador de consolidado.js, porque una reserva de consolidado se
 // importa bajo pedido y no depende de lo que haya físicamente en la tienda ahora mismo.
+// Un perfume Unisex sirve tanto para "Hombre" como para "Mujer" -- si el filtro pide un
+// género puntual, se incluye también lo Unisex en vez de dejarlo fuera con un .eq() estricto
+// (antes un perfume marcado Unisex solo aparecía filtrando "Unisex", nunca en "Hombre" ni
+// "Mujer" aunque calzara igual). Filtrar por "Unisex" en sí sigue siendo exacto: no tendría
+// sentido mezclarle ahí productos exclusivos de Hombre o Mujer.
+function aplicarFiltroGenero(query, genero) {
+  if (genero === 'Hombre' || genero === 'Mujer') return query.in('genero', [genero, 'Unisex']);
+  if (genero) return query.eq('genero', genero);
+  return query;
+}
+
 async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12, soloConStock = false } = {}) {
   let query = supabaseClient
     .from('perfumes')
@@ -121,7 +132,7 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
     .eq('activo', true);
 
   if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
-  if (genero) query = query.eq('genero', genero);
+  query = aplicarFiltroGenero(query, genero);
   if (marca) query = query.eq('marca', marca);
   if (familia) query = query.eq('familia_olfativa', familia);
   if (tipo_casa) query = query.eq('tipo_casa', tipo_casa);
@@ -172,7 +183,7 @@ async function obtenerProductosConsolidado({ genero, marca, familia, tipo_casa, 
   // en obtenerProductos()).
   let query = supabaseClient.from('perfumes').select(CAMPOS_PRODUCTO_PUBLICO, { count: 'exact' }).eq('activo', true).eq('es_decant', false);
 
-  if (genero) query = query.eq('genero', genero);
+  query = aplicarFiltroGenero(query, genero);
   if (marca) query = query.eq('marca', marca);
   if (familia) query = query.eq('familia_olfativa', familia);
   if (tipo_casa) query = query.eq('tipo_casa', tipo_casa);
@@ -276,13 +287,26 @@ async function obtenerProductoPorSlug(slug) {
     tamanosDecant = (tamanos || []).map(normalizarProducto);
   }
 
-  const { data: relacionadosCrudos } = await supabaseClient
-    .from('perfumes')
-    .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
-    .eq('marca', producto.marca)
-    .eq('activo', true)
-    .neq('id', producto.id)
-    .limit(8);
+  // Un decant "también te puede interesar" debe ofrecer OTROS decants con stock real -- antes
+  // filtraba solo por marca igual que un perfume normal, así que en la ficha de un decant
+  // podían salir botellas completas, sets, o productos agotados de la misma marca (nada que
+  // ver con "prueba antes de comprar", la lógica de decants). Reutiliza obtenerProductos() con
+  // el mismo filtro que ya usa decants/index.html (destacado:'decant' + soloConStock) en vez
+  // de duplicar esa consulta acá.
+  let relacionadosCrudos;
+  if (producto.es_decant) {
+    const { productos } = await obtenerProductos({ destacado: 'decant', soloConStock: true, orden: 'recientes', porPagina: 8 });
+    relacionadosCrudos = productos;
+  } else {
+    const { data } = await supabaseClient
+      .from('perfumes')
+      .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
+      .eq('marca', producto.marca)
+      .eq('activo', true)
+      .neq('id', producto.id)
+      .limit(8);
+    relacionadosCrudos = data;
+  }
 
   // Los otros tamaños del mismo decant ya se muestran como pastillas de tamaño arriba -- no
   // tiene sentido repetirlos acá abajo como "también te puede interesar".
@@ -341,9 +365,58 @@ async function esFavorito(idProducto) {
 
 /* ---------------- Carrito ---------------- */
 
+// Un visitante sin cuenta puede armar su carrito igual que uno logueado -- se guarda en
+// localStorage (solo id de producto + cantidad, el detalle se resuelve siempre fresco contra
+// la base) hasta que confirma el pedido, momento en el que recién se le pide identificarse
+// (ver crearPedidoInvitado más abajo). Antes agregarAlCarrito() mandaba a la pantalla de login
+// apenas alguien sin cuenta tocaba "Agregar al Carrito", incluso antes de ver el carrito.
+const CLAVE_CARRITO_INVITADO = 'zadaca_carrito_invitado';
+
+function leerCarritoInvitado() {
+  try {
+    return JSON.parse(localStorage.getItem(CLAVE_CARRITO_INVITADO) || '[]');
+  } catch {
+    return [];
+  }
+}
+function guardarCarritoInvitado(items) {
+  try {
+    localStorage.setItem(CLAVE_CARRITO_INVITADO, JSON.stringify(items));
+  } catch { /* localStorage bloqueado (modo privado, etc.) -- el carrito de invitado no persiste entre visitas, pero no rompe nada en la actual */ }
+}
+
+async function obtenerCarritoInvitado() {
+  const items = leerCarritoInvitado();
+  if (!items.length) return [];
+  const { data, error } = await supabaseClient
+    .from('perfumes')
+    .select('id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, imagen_url, inventario(stock_disponible)')
+    .in('id', items.map((i) => i.id_producto))
+    .eq('activo', true);
+  if (error) throw new Error(error.message);
+  const porId = new Map(data.map((p) => [p.id, p]));
+  // Filtra ids que ya no existen o se ocultaron desde que se agregaron -- evita mostrar un
+  // renglón vacío en vez de silenciosamente reventar el .map() de abajo.
+  return items
+    .filter((i) => porId.has(i.id_producto))
+    .map((i) => {
+      const p = porId.get(i.id_producto);
+      return {
+        ...p,
+        id: `invitado-${p.id}`,
+        cantidad: i.cantidad,
+        stock_disponible: Math.max(Array.isArray(p.inventario) ? (p.inventario[0]?.stock_disponible ?? 0) : (p.inventario?.stock_disponible ?? 0), 0),
+      };
+    });
+}
+
+function idProductoDesdeItemCarrito(idItem) {
+  return Number(String(idItem).replace('invitado-', ''));
+}
+
 async function obtenerCarrito() {
   const session = await obtenerSesion();
-  if (!session) return [];
+  if (!session) return obtenerCarritoInvitado();
   const { data, error } = await supabaseClient
     .from('carrito_items')
     .select('id, cantidad, perfumes(id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, imagen_url, inventario(stock_disponible))')
@@ -360,7 +433,14 @@ async function obtenerCarrito() {
 
 async function agregarAlCarrito(idProducto, cantidad = 1) {
   const session = await obtenerSesion();
-  if (!session) return irALoginConRetorno();
+  if (!session) {
+    const items = leerCarritoInvitado();
+    const existente = items.find((i) => i.id_producto === idProducto);
+    if (existente) existente.cantidad += cantidad;
+    else items.push({ id_producto: idProducto, cantidad });
+    guardarCarritoInvitado(items);
+    return;
+  }
   const { data: existente } = await supabaseClient
     .from('carrito_items')
     .select('id, cantidad')
@@ -378,13 +458,54 @@ async function agregarAlCarrito(idProducto, cantidad = 1) {
 }
 
 async function actualizarCantidadCarrito(idItem, cantidad) {
+  const session = await obtenerSesion();
+  if (!session) {
+    const items = leerCarritoInvitado();
+    const item = items.find((i) => i.id_producto === idProductoDesdeItemCarrito(idItem));
+    if (item) { item.cantidad = cantidad; guardarCarritoInvitado(items); }
+    return;
+  }
   const { error } = await supabaseClient.from('carrito_items').update({ cantidad }).eq('id', idItem);
   if (error) throw new Error(error.message);
 }
 
 async function eliminarDelCarrito(idItem) {
+  const session = await obtenerSesion();
+  if (!session) {
+    guardarCarritoInvitado(leerCarritoInvitado().filter((i) => i.id_producto !== idProductoDesdeItemCarrito(idItem)));
+    return;
+  }
   const { error } = await supabaseClient.from('carrito_items').delete().eq('id', idItem);
   if (error) throw new Error(error.message);
+}
+
+// Se llama apenas hay sesión activa (ver iniciarLayout en main.js, que corre en cada página):
+// si el cliente armó un carrito de invitado y luego inició sesión o se registró -- ya sea por
+// el checkout de invitado (crearPedidoInvitado) o por el link "Ingresar" normal del header --,
+// esos productos se suman al carrito real de la cuenta en vez de perderse.
+async function fusionarCarritoInvitadoConCuenta() {
+  const items = leerCarritoInvitado();
+  if (!items.length) return;
+  const session = await obtenerSesion();
+  if (!session) return;
+  guardarCarritoInvitado([]); // se limpia antes de escribir: si algo falla a medias, no se reintenta en bucle en la próxima carga
+  for (const item of items) {
+    try {
+      const { data: existente } = await supabaseClient
+        .from('carrito_items')
+        .select('id, cantidad')
+        .eq('id_cliente', session.user.id)
+        .eq('id_producto', item.id_producto)
+        .maybeSingle();
+      if (existente) {
+        await supabaseClient.from('carrito_items').update({ cantidad: existente.cantidad + item.cantidad }).eq('id', existente.id);
+      } else {
+        await supabaseClient.from('carrito_items').insert({ id_cliente: session.user.id, id_producto: item.id_producto, cantidad: item.cantidad });
+      }
+    } catch (err) {
+      console.error(err); // un producto puntual que falle (ej. se desactivó) no debe frenar el resto de la fusión
+    }
+  }
 }
 
 /* ---------------- Direcciones ---------------- */
@@ -407,8 +528,9 @@ async function crearDireccion(direccion) {
   if (direccion.predeterminada) {
     await supabaseClient.from('direcciones_cliente').update({ predeterminada: false }).eq('id_cliente', session.user.id);
   }
-  const { error } = await supabaseClient.from('direcciones_cliente').insert({ ...direccion, id_cliente: session.user.id });
+  const { data: creada, error } = await supabaseClient.from('direcciones_cliente').insert({ ...direccion, id_cliente: session.user.id }).select('id').single();
   if (error) throw new Error(error.message);
+  return creada.id;
 }
 
 async function eliminarDireccion(id) {
@@ -428,6 +550,69 @@ async function crearPedido(idDireccion) {
   const { data, error } = await supabaseClient.rpc('crear_pedido_directo', { p_id_direccion: idDireccion });
   if (error) throw new Error(error.message);
   return data;
+}
+
+/* ---------------- Checkout de invitado ---------------- */
+
+// Todo el flujo de pedidos (direcciones_cliente, carrito_items, crear_pedido_directo) exige un
+// auth.uid() -- no hay forma de crear un pedido real sin alguna cuenta detrás. En vez de exigir
+// que el cliente "tenga cuenta" desde antes, el checkout de invitado (ver carrito.js) le pide
+// los mismos datos de un pedido normal (nombre, correo, teléfono, DNI, dirección) y crea la
+// cuenta con ESOS datos en el mismo paso -- lo enmarca como "para que veas tu pedido después",
+// no como una cuenta aparte que tenga que crear.
+//
+// Si Supabase tiene "Confirm email" activo en este proyecto, registrarUsuario() no devuelve
+// sesión todavía (el cliente tiene que abrir el link del correo primero) -- en ese caso NO se
+// puede crear el pedido ahora mismo (no hay auth.uid() hasta que confirme), así que se guarda
+// la dirección en localStorage y se completa solo la próxima vez que haya sesión activa (ver
+// intentarResumirCheckoutPendiente(), llamado desde iniciarLayout() en cada carga de página).
+const CLAVE_CHECKOUT_PENDIENTE = 'zadaca_checkout_pendiente';
+
+function guardarCheckoutPendiente(datosDireccion) {
+  try {
+    localStorage.setItem(CLAVE_CHECKOUT_PENDIENTE, JSON.stringify(datosDireccion));
+  } catch { /* si no se puede guardar, el cliente simplemente tendrá que repetir sus datos al confirmar el correo -- no es un error fatal */ }
+}
+
+// datosCuenta: { nombres, apellidos, dni_ce_ruc, telefono, correo, contrasena }
+// datosDireccion: mismos campos que usa el formulario de "Mis Direcciones" (direccion_detalle,
+// codigo_ubigeo, tipo_despacho, agencia_nombre, nombre_receptor) + predeterminada:true.
+// Devuelve { pedidoId } si el pedido quedó creado ya mismo, o { pedidoId: null } si la cuenta
+// quedó pendiente de confirmar el correo (el pedido se completa solo más adelante).
+async function crearPedidoInvitado(datosCuenta, datosDireccion) {
+  const resultadoRegistro = await registrarUsuario(datosCuenta);
+  if (!resultadoRegistro.session) {
+    guardarCheckoutPendiente(datosDireccion);
+    return { pedidoId: null };
+  }
+  await fusionarCarritoInvitadoConCuenta();
+  const idDireccion = await crearDireccion(datosDireccion);
+  const idPedido = await crearPedido(idDireccion);
+  return { pedidoId: idPedido };
+}
+
+// Corre en cada carga de página con sesión activa (ver iniciarLayout en main.js): si quedó un
+// checkout de invitado a medias por confirmación de correo pendiente, lo termina solo apenas
+// el cliente confirma e inicia sesión, sin que tenga que volver a llenar sus datos de envío.
+async function intentarResumirCheckoutPendiente() {
+  let pendiente;
+  try {
+    pendiente = JSON.parse(localStorage.getItem(CLAVE_CHECKOUT_PENDIENTE) || 'null');
+  } catch {
+    pendiente = null;
+  }
+  if (!pendiente) return null;
+  const session = await obtenerSesion();
+  if (!session) return null;
+  localStorage.removeItem(CLAVE_CHECKOUT_PENDIENTE);
+  try {
+    await fusionarCarritoInvitadoConCuenta();
+    const idDireccion = await crearDireccion(pendiente);
+    return await crearPedido(idDireccion);
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
 }
 
 async function obtenerPedidos() {
@@ -747,6 +932,20 @@ function aplicarPlaceholdersConfiguracion(texto, cfg) {
     .replace(/\{\{minimo_unidades\}\}/g, cfg.consolidado_minimo_unidades)
     .replace(/\{\{envio_dias\}\}/g, cfg.envio_dias_texto)
     .replace(/\{\{dia_cierre\}\}/g, cfg.consolidado_dia_cierre);
+}
+
+// Popup de publicidad del inicio (ver migración 0013) -- fila única, editable desde el panel
+// admin (Publicidad). maybeSingle + swallow de error: es un adorno opcional, si la tabla no
+// existe todavía (sitio sin migrar) o falla la consulta, la home no debe romperse por esto.
+async function obtenerPublicidadPopup() {
+  if (!SUPABASE_CONFIGURADO) return null;
+  try {
+    const { data, error } = await supabaseClient.from('publicidad_popup').select('*').eq('id', 1).maybeSingle();
+    if (error) return null;
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 async function obtenerPreguntasFrecuentes() {
