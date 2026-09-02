@@ -274,7 +274,14 @@ async function aplicarMargenMasivo(margenConsolidado, margenTienda, soloSinMarge
 // ningún lugar del admin para registrarles pago o avisarle al cliente una vez generados.
 // "consolidados(codigo_campana)" sale null para pedidos de Tienda Directa (no tienen campaña
 // asociada) -- no hace falta pedirlo condicionalmente.
-async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo_Tienda' } = {}) {
+// soloDecants (solo aplica con tipoPedido='Directo_Tienda'): true = solo pedidos con al menos
+// un decant adentro, false = solo pedidos SIN ningún decant (tienda "normal"), undefined = sin
+// filtrar por esto (usado para Consolidado, que no tiene esta distinción). El pestañeo
+// Tienda/Decants del admin necesita separarlos para que el admin sepa de un vistazo si un
+// pedido implica fraccionar un decant o solo despachar botellas selladas -- como ambos nacen
+// del mismo carrito/checkout (tipo_pedido='Directo_Tienda' para los dos), la única forma de
+// distinguirlos es mirando qué hay en detalle_pedido.
+async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo_Tienda', soloDecants } = {}) {
   let query = supabaseClient
     .from('pedidos')
     .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, fecha_creacion, perfiles(nombres, apellidos, correo, telefono), envios(estado_envio, numero_guia_seguimiento, empresa_transporte), consolidados(codigo_campana)')
@@ -291,6 +298,17 @@ async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo
     envio: Array.isArray(p.envios) ? p.envios[0] : p.envios,
     campana: p.consolidados?.codigo_campana,
   }));
+
+  if (tipoPedido === 'Directo_Tienda' && soloDecants !== undefined && pedidos.length) {
+    const { data: detalles, error: errorDetalle } = await supabaseClient
+      .from('detalle_pedido')
+      .select('id_pedido, perfumes(es_decant)')
+      .in('id_pedido', pedidos.map((p) => p.id));
+    if (errorDetalle) throw new Error(errorDetalle.message);
+    const idsConDecant = new Set((detalles || []).filter((d) => d.perfumes?.es_decant).map((d) => d.id_pedido));
+    pedidos = pedidos.filter((p) => (soloDecants ? idsConDecant.has(p.id) : !idsConDecant.has(p.id)));
+  }
+
   if (busqueda) {
     const q = busqueda.toLowerCase();
     pedidos = pedidos.filter((p) => p.cliente.toLowerCase().includes(q) || String(p.id).includes(q) || (p.correo_cliente || '').toLowerCase().includes(q));

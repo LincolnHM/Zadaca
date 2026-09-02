@@ -801,7 +801,12 @@ function mensajeNotificacionPago(p) {
   return `${saludo} Tu pedido #${p.id} en Maison Zadaca (total ${formatoMoneda(p.monto_total)}) tiene un saldo pendiente de ${formatoMoneda(p.monto_saldo_pendiente)}. Puedes coordinar el pago por Yape, Plin o transferencia respondiendo este mensaje.`;
 }
 
+// Tienda / Decants / Consolidado: los dos primeros son ambos tipo_pedido='Directo_Tienda' por
+// dentro (nacen del mismo carrito), separados según si el pedido tiene o no algún decant
+// adentro -- ver soloDecants en obtenerPedidosAdmin(). "Tienda" queda con undefined/false
+// (excluye los que sí tienen decant), "Decants" con true, "Consolidado" no usa esto.
 let pedidosTipoActual = 'Directo_Tienda';
+let pedidosSoloDecants = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   let t;
@@ -812,6 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.querySelectorAll('#pedidos-tipo-tabs .admin-tab').forEach((t2) => t2.classList.remove('active'));
       tab.classList.add('active');
       pedidosTipoActual = tab.dataset.tipo;
+      pedidosSoloDecants = tab.dataset.tipo === 'Consolidado' ? undefined : tab.dataset.decants === '1';
       cargarPedidos();
     });
   });
@@ -822,7 +828,7 @@ async function cargarPedidos() {
   const busqueda = document.getElementById('pedidos-busqueda').value;
   const estadoPago = document.getElementById('pedidos-filtro-estado').value;
   try {
-    const pedidos = await obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido: pedidosTipoActual });
+    const pedidos = await obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido: pedidosTipoActual, soloDecants: pedidosSoloDecants });
     tbody.innerHTML = pedidos.length ? pedidos.map(filaPedidoAdmin).join('') : '<tr><td colspan="7" class="admin-empty">No hay pedidos.</td></tr>';
     conectarEventosPedidos();
   } catch (err) {

@@ -140,6 +140,7 @@
             <option value="Árabe">Árabe</option>
             <option value="Diseñador">Diseñador</option>
             <option value="Nicho">Nicho</option>
+            <option value="Accesorios">Accesorios</option>
             <option value="__sin_definir__">Sin definir</option>
           </select>
           <span class="admin-toolbar-count" id="productos-conteo"></span>
@@ -181,8 +182,9 @@
       <section class="admin-section" id="section-pedidos">
         <div class="admin-page-header"><div><h1>Pedidos</h1><div class="sub">Registra pagos, envío y notifica al cliente por WhatsApp</div></div></div>
         <div class="admin-tabs" id="pedidos-tipo-tabs">
-          <button class="admin-tab active" data-tipo="Directo_Tienda">Tienda Directa</button>
-          <button class="admin-tab" data-tipo="Consolidado">Consolidado</button>
+          <button class="admin-tab active" data-tipo="Directo_Tienda" data-decants="">Tienda</button>
+          <button class="admin-tab" data-tipo="Directo_Tienda" data-decants="1">Decants</button>
+          <button class="admin-tab" data-tipo="Consolidado" data-decants="">Consolidado</button>
         </div>
         <div class="admin-toolbar">
           <input type="text" id="pedidos-busqueda" placeholder="Buscar por cliente o N° pedido..." />
@@ -348,6 +350,7 @@
               <option value="Árabe">Árabe</option>
               <option value="Diseñador">Diseñador</option>
               <option value="Nicho">Nicho</option>
+              <option value="Accesorios">Accesorios</option>
             </select>
           </div>
         </div>
