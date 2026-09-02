@@ -41,6 +41,7 @@
     <section class="section" style="padding-top:24px;">
       <div class="container">
         <div class="product-grid reveal-grid" id="grid-decants"><div class="loading-state">Cargando decants…</div></div>
+        <div class="pagination" id="paginacion"></div>
       </div>
     </section>
   </main>
@@ -51,18 +52,6 @@
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/supabase-config.js"></script>
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/api.js"></script>
   <script src="https://lincolnhm.github.io/Zadaca/assets/js/main.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      await iniciarLayout('decants/');
-      const mount = document.getElementById('grid-decants');
-      if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>'; return; }
-      try {
-        const { productos } = await obtenerProductos({ destacado: 'decant', porPagina: 48, orden: 'recientes', soloConStock: true });
-        mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No hay decants disponibles por el momento. Vuelve pronto.</div>';
-      } catch (err) {
-        mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
-      }
-    });
-  </script>
+  <script src="https://lincolnhm.github.io/Zadaca/assets/js/decants.js"></script>
 </body>
 </html>
