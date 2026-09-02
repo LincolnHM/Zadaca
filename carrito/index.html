@@ -20,6 +20,16 @@
     .cart-row .cr-qty input { width: 34px; text-align: center; background: none; border: none; color: var(--color-text); }
     .cart-row .cr-remove { background: none; border: none; color: var(--color-text-faint); }
     .cart-row .cr-remove:hover { color: var(--color-danger); }
+    /* Con las 4 columnas fijas del grid de arriba (90px 1fr auto auto), el nombre del producto
+       quedaba muy apretado en un teléfono angosto -- acá se pasa a un layout más suelto: imagen
+       + nombre arriba, cantidad y eliminar abajo, en la misma fila. */
+    @media (max-width: 480px) {
+      .cart-row { display: flex; flex-wrap: wrap; gap: 10px 14px; }
+      .cart-row .cr-media { width: 64px; height: 78px; }
+      .cart-row > div:nth-child(2) { flex: 1; min-width: 150px; }
+      .cart-row .cr-qty { order: 3; }
+      .cart-row .cr-remove { order: 4; margin-left: auto; }
+    }
     .summary-panel { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 26px; position: sticky; top: 100px; }
     .summary-line { display: flex; justify-content: space-between; font-size: 0.88rem; color: var(--color-text-muted); margin-bottom: 12px; }
     .summary-total { display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; padding-top: 14px; border-top: 1px solid var(--color-border); margin-bottom: 20px; }
