@@ -163,15 +163,16 @@ async function obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagin
   let query = supabaseClient
     .from('perfumes')
     .select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)', { count: 'exact' });
-  // "Solo Decants" ordena por marca/nombre/ml en vez de fecha de creación -- así los tamaños
-  // de un mismo perfume (5ml, 10ml...) salen seguidos en la grilla, no mezclados por cuándo se
-  // cargó cada uno (necesario para poder revisar de un vistazo qué tamaños ya tiene cada
-  // decant, ver "+ Tamaño" en tarjetaProductoAdmin).
+  // "Solo Decants" ordena por marca/nombre en vez de fecha de creación -- resultado más
+  // predecible para el dueño que recorrer la grilla por cuándo se cargó cada uno.
   query = filtro === 'decants'
-    ? query.order('marca', { ascending: true }).order('nombre', { ascending: true }).order('mililitros', { ascending: true })
+    ? query.order('marca', { ascending: true }).order('nombre', { ascending: true })
     : query.order('fecha_creacion', { ascending: false });
   if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
-  if (filtro === 'decants') query = query.eq('es_decant', true);
+  // id_decant_grupo is null: una familia de decant es UNA fila desde la migración 0016 -- las
+  // filas "hijas" que quedaron de antes siguen existiendo (desactivadas, para no romper
+  // pedidos históricos) pero no deben aparecer acá como si fueran otro producto más.
+  if (filtro === 'decants') query = query.eq('es_decant', true).is('id_decant_grupo', null);
   if (filtro === 'liquidaciones') query = query.eq('es_liquidacion', true);
   if (filtro === 'ocultos') query = query.eq('activo', false);
   if (genero) query = query.eq('genero', genero);
@@ -326,7 +327,7 @@ async function obtenerDetallePedidoAdmin(id) {
 
   const { data: items } = await supabaseClient
     .from('detalle_pedido')
-    .select('cantidad, precio_unitario_aplicado, subtotal, perfumes(nombre, marca, imagen_url)')
+    .select('cantidad, precio_unitario_aplicado, subtotal, talla_ml, perfumes(nombre, marca, imagen_url, es_decant)')
     .eq('id_pedido', id);
 
   const { data: pagos } = await supabaseClient.from('pagos').select('*').eq('id_pedido', id).order('fecha_pago', { ascending: false });

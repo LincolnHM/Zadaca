@@ -48,8 +48,11 @@ function renderCarrito() {
 
   CARRITO_ITEMS.forEach((item) => {
     const minimo = item.es_liquidacion ? Math.max(Number(item.liquidacion_unidad_minima) || 1, 1) : 1;
-    document.getElementById(`menos-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad - 1, minimo, item.stock_disponible));
-    document.getElementById(`mas-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad + 1, minimo, item.stock_disponible));
+    // Un decant no tiene stock por unidad (ver migración 0016) -- mismo tope razonable que usa
+    // producto.js en vez de item.stock_disponible (que ahí no significa nada por talla).
+    const maximo = item.es_decant ? 20 : item.stock_disponible;
+    document.getElementById(`menos-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad - 1, minimo, maximo));
+    document.getElementById(`mas-${item.id}`).addEventListener('click', () => cambiarCantidad(item.id, item.cantidad + 1, minimo, maximo));
     document.getElementById(`eliminar-${item.id}`).addEventListener('click', () => eliminarItem(item.id));
   });
 
@@ -57,6 +60,7 @@ function renderCarrito() {
 }
 
 function precioFinalItem(item) {
+  if (item.es_decant) return precioTallaDecant(item, item.talla_ml) ?? 0;
   return item.es_liquidacion ? Number(item.precio_liquidacion) : precioFinal(item.precio_tienda_regular, item.descuento_tienda_porcentaje);
 }
 
@@ -67,8 +71,8 @@ function filaCarrito(item) {
     <div class="cart-row">
       <div class="cr-media">${imagenProducto(item)}</div>
       <div>
-        <p class="cr-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}${item.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}</p>
-        <span class="cr-meta">${item.mililitros} ml &middot; ${formatoMoneda(final)} c/u${minimo > 1 ? ` &middot; mínimo ${minimo} uds.` : ''}</span>
+        <p class="cr-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}${item.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}${item.es_decant ? ' <span class="badge badge-decant">Decant</span>' : ''}</p>
+        <span class="cr-meta">${item.es_decant ? item.talla_ml : item.mililitros} ml &middot; ${formatoMoneda(final)} c/u${minimo > 1 ? ` &middot; mínimo ${minimo} uds.` : ''}</span>
       </div>
       <div class="cr-qty">
         <button type="button" id="menos-${item.id}">${ICONS.minus}</button>

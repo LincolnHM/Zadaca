@@ -363,6 +363,21 @@ function imagenProductoAdmin(p) {
 
 const PRODUCTOS_POR_PAGINA = 20;
 let productosPaginaActual = 1;
+// Con el filtro "Solo Decants" la casa se elige con pestañas (ver #productos-decant-tabs), no
+// con el <select> genérico de casa -- ese queda oculto en ese modo.
+let productosDecantCasaActual = '';
+
+// Alterna entre el modo "catálogo normal" (dropdown de casa, botón Agregar Perfume) y "Solo
+// Decants" (pestañas Diseñador/Nicho/Árabe para distinguirlos de un vistazo, botón Agregar
+// Decant) -- antes ambos modos se veían igual y era difícil distinguir un grupo de decants del
+// resto del catálogo.
+function actualizarModoProductosDecant() {
+  const esDecants = document.getElementById('productos-filtro')?.value === 'decants';
+  document.getElementById('productos-decant-tabs').style.display = esDecants ? '' : 'none';
+  document.getElementById('productos-casa-filtro').style.display = esDecants ? 'none' : '';
+  document.getElementById('btn-nuevo-producto').style.display = esDecants ? 'none' : '';
+  document.getElementById('btn-nuevo-decant').style.display = esDecants ? '' : 'none';
+}
 
 let productosBusquedaTimeout;
 document.addEventListener('DOMContentLoaded', () => {
@@ -372,18 +387,29 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   ['productos-filtro', 'productos-genero-filtro', 'productos-casa-filtro'].forEach((id) => {
     document.getElementById(id)?.addEventListener('change', () => {
+      if (id === 'productos-filtro') actualizarModoProductosDecant();
+      productosPaginaActual = 1;
+      cargarProductos(document.getElementById('productos-busqueda')?.value);
+    });
+  });
+  document.querySelectorAll('#productos-decant-tabs .admin-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#productos-decant-tabs .admin-tab').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      productosDecantCasaActual = btn.dataset.casa;
       productosPaginaActual = 1;
       cargarProductos(document.getElementById('productos-busqueda')?.value);
     });
   });
   document.getElementById('btn-nuevo-producto')?.addEventListener('click', () => abrirModalProducto());
+  document.getElementById('btn-nuevo-decant')?.addEventListener('click', () => abrirModalDecant());
 });
 
 async function cargarProductos(busqueda) {
   const mount = document.getElementById('productos-grid');
   const filtro = document.getElementById('productos-filtro')?.value;
   const genero = document.getElementById('productos-genero-filtro')?.value;
-  const tipoCasa = document.getElementById('productos-casa-filtro')?.value;
+  const tipoCasa = filtro === 'decants' ? productosDecantCasaActual : document.getElementById('productos-casa-filtro')?.value;
   try {
     let resultado = await obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina: productosPaginaActual, porPagina: PRODUCTOS_POR_PAGINA });
     // Si al borrar/filtrar la página actual quedó vacía pero sí hay resultados más atrás
@@ -408,7 +434,15 @@ async function cargarProductos(busqueda) {
   }
 }
 
+// Un decant "raíz" (es_decant=true, sin id_decant_grupo) es una familia completa desde la
+// migración 0016 -- tarjeta especial (tarjetaDecantAdmin) con precios por talla y el gauge del
+// frasco en vez de los campos genéricos. Las filas "hijas" que quedaron de antes de esa
+// migración (id_decant_grupo apunta a su raíz) siguen existiendo pero desactivadas (activo=
+// false, ver migración) -- si algún día se ven (filtro "Solo Ocultos"), caen a la tarjeta
+// genérica de siempre, sin ningún botón para seguir sumándoles tamaños.
 function tarjetaProductoAdmin(p) {
+  if (p.es_decant && !p.id_decant_grupo) return tarjetaDecantAdmin(p);
+
   const inv = p.inventario || {};
   return `
     <div class="admin-card" data-id="${p.id}" style="${p.activo === false ? 'opacity:0.6;' : ''}">
@@ -437,8 +471,57 @@ function tarjetaProductoAdmin(p) {
       <div class="admin-card-actions">
         <button class="btn btn-outline btn-sm btn-guardar-producto">Guardar</button>
         <button class="btn btn-ghost btn-sm btn-editar-producto">Editar</button>
-        ${p.es_decant && !p.id_decant_grupo ? '<button class="btn btn-outline btn-sm btn-agregar-tamano-decant">+ Tamaño</button>' : ''}
         <button class="btn btn-danger btn-sm btn-eliminar-producto">Eliminar</button>
+      </div>
+    </div>
+  `;
+}
+
+// Tarjeta unificada de un decant: una sola fila representa las 3 tallas (ver migración 0016).
+// Stock/Popular son toggles simples (estado/es_bestseller) -- un decant no lleva stock exacto
+// por unidad, así que no tiene sentido pedirle un número al admin como en un producto normal.
+function tarjetaDecantAdmin(p) {
+  const restante = p.mililitros_restantes;
+  const total = p.mililitros || 100;
+  const porcentaje = restante != null ? Math.max(0, Math.min(100, Math.round((Number(restante) / total) * 100))) : 0;
+  return `
+    <div class="admin-card" data-id="${p.id}" style="${p.activo === false ? 'opacity:0.6;' : ''}">
+      <div class="admin-card-top">
+        <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
+        <div style="min-width:0;">
+          <span class="admin-card-sub">${escapeHtml(p.tipo_casa || 'Sin definir')} &middot; ${escapeHtml(p.genero)}</span>
+          <h3 class="admin-card-title">${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)}${p.activo === false ? ' <span class="badge badge-out">Oculto</span>' : ''}</h3>
+          <span style="font-size:0.72rem; color:var(--color-text-faint);">${escapeHtml(p.familia_olfativa || '—')}</span>
+        </div>
+        <div class="admin-card-actions" style="margin-left:auto;">
+          <button class="btn btn-ghost btn-sm btn-editar-producto">Editar</button>
+          <button class="btn btn-danger btn-sm btn-eliminar-producto">Eliminar</button>
+        </div>
+      </div>
+
+      <div class="admin-field-row"><span>Stock</span><span class="decant-toggle"><label class="switch"><input type="checkbox" class="chk-decant-disponible" ${p.estado !== 'Agotado' ? 'checked' : ''}/><span class="switch-track"></span></label><span class="decant-toggle-label">${p.estado !== 'Agotado' ? 'Disponible' : 'Agotado'}</span></span></div>
+      <div class="admin-field-row"><span>Popular</span><span class="decant-toggle"><label class="switch"><input type="checkbox" class="chk-decant-bestseller" ${p.es_bestseller ? 'checked' : ''}/><span class="switch-track"></span></label><span class="decant-toggle-label">Popular</span></span></div>
+
+      <div class="decant-precios">
+        <div class="decant-precios-top">
+          <span class="decant-precios-label">Precios por talla (S/)</span>
+          <button class="btn btn-primary btn-sm btn-guardar-precios-decant">Guardar precios</button>
+        </div>
+        <div class="decant-precios-grid">
+          <label>3ml <input type="number" class="input-precio-3ml" min="0.01" step="0.01" value="${p.precio_3ml ?? ''}" placeholder="—" /></label>
+          <label>5ml <input type="number" class="input-precio-5ml" min="0.01" step="0.01" value="${p.precio_5ml ?? ''}" placeholder="—" /></label>
+          <label>10ml <input type="number" class="input-precio-10ml" min="0.01" step="0.01" value="${p.precio_10ml ?? ''}" placeholder="—" /></label>
+        </div>
+      </div>
+
+      <div class="decant-frasco">
+        <div class="decant-frasco-header"><span>Perfume en frasco:</span><strong>${restante ?? '—'} ml / ${total} ml</strong></div>
+        <div class="decant-frasco-bar"><div class="decant-frasco-fill" style="width:${porcentaje}%;"></div></div>
+        <div class="decant-frasco-inputs">
+          <label>Restante (ml) <input type="number" class="input-ml-restante" min="0" step="0.1" value="${restante ?? ''}" /></label>
+          <label>Total frasco (ml) <input type="number" class="input-ml-total" min="1" step="1" value="${total}" /></label>
+          <button class="btn btn-outline btn-sm btn-guardar-ml-decant">Guardar ml</button>
+        </div>
       </div>
     </div>
   `;
@@ -498,76 +581,137 @@ function conectarEventosProductos() {
     });
   });
 
-  document.querySelectorAll('#productos-grid .btn-agregar-tamano-decant').forEach((btn) => {
-    btn.addEventListener('click', () => abrirModalDecantTamano(Number(btn.closest('.admin-card').dataset.id)));
+  // ---- Tarjeta unificada de decant (ver tarjetaDecantAdmin): toggles que guardan solo, y los
+  // 2 botones "Guardar" propios (precios por talla / ml del frasco) -- no hay un botón
+  // genérico único como en la tarjeta normal porque son 2 grupos de datos independientes.
+  document.querySelectorAll('#productos-grid .chk-decant-disponible').forEach((chk) => {
+    chk.addEventListener('change', async () => {
+      const id = Number(chk.closest('.admin-card').dataset.id);
+      const label = chk.closest('.admin-field-row').querySelector('.decant-toggle-label');
+      try {
+        await actualizarProducto(id, { estado: chk.checked ? 'Disponible' : 'Agotado' });
+        if (label) label.textContent = chk.checked ? 'Disponible' : 'Agotado';
+      } catch (err) {
+        chk.checked = !chk.checked;
+        mostrarToast(err.message, 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('#productos-grid .chk-decant-bestseller').forEach((chk) => {
+    chk.addEventListener('change', async () => {
+      const id = Number(chk.closest('.admin-card').dataset.id);
+      try {
+        await actualizarProducto(id, { es_bestseller: chk.checked });
+      } catch (err) {
+        chk.checked = !chk.checked;
+        mostrarToast(err.message, 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('#productos-grid .btn-guardar-precios-decant').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.admin-card');
+      const id = Number(card.dataset.id);
+      const leer = (selector) => {
+        const v = card.querySelector(selector).value;
+        return v === '' ? null : Number(v);
+      };
+      const precio_3ml = leer('.input-precio-3ml');
+      const precio_5ml = leer('.input-precio-5ml');
+      const precio_10ml = leer('.input-precio-10ml');
+      if (precio_3ml == null && precio_5ml == null && precio_10ml == null) {
+        mostrarToast('Carga el precio de al menos una talla', 'error');
+        return;
+      }
+      try {
+        await actualizarProducto(id, { precio_3ml, precio_5ml, precio_10ml, margen_aplicado: true });
+        mostrarToast('Precios actualizados');
+      } catch (err) {
+        mostrarToast(err.message, 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('#productos-grid .btn-guardar-ml-decant').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const card = btn.closest('.admin-card');
+      const id = Number(card.dataset.id);
+      const restanteVal = card.querySelector('.input-ml-restante').value;
+      const totalVal = card.querySelector('.input-ml-total').value;
+      const total = Number(totalVal);
+      if (!total || total <= 0) {
+        mostrarToast('El total del frasco debe ser mayor a 0', 'error');
+        return;
+      }
+      try {
+        await actualizarProducto(id, { mililitros: total, mililitros_restantes: restanteVal === '' ? null : Number(restanteVal) });
+        mostrarToast('Frasco actualizado');
+        cargarProductos();
+      } catch (err) {
+        mostrarToast(err.message, 'error');
+      }
+    });
   });
 }
 
-/* ================= AGREGAR TAMAÑO DE DECANT ================= */
+/* ================= AGREGAR DECANT ================= */
 
-// Antes, para sumarle un tamaño nuevo a un decant ya cargado había que abrir "Agregar
-// Perfume" y volver a escribir marca, género, casa, descripción y notas a mano, más buscar el
-// #ID de la raíz para pegarlo en "ID decant raíz" -- fácil de errar o de dejar datos
-// desalineados entre tamaños del mismo perfume. Este modal solo pide lo que SÍ cambia entre
-// tamaños (ml, precio, stock) y clona el resto de la raíz automáticamente.
-let DECANT_TAMANO_RAIZ = null;
-
-async function abrirModalDecantTamano(id) {
-  try {
-    DECANT_TAMANO_RAIZ = await obtenerProductoAdminPorId(id);
-  } catch (err) {
-    mostrarToast(err.message, 'error');
-    return;
-  }
-  const form = document.getElementById('form-decant-tamano');
+function abrirModalDecant() {
+  const form = document.getElementById('form-decant');
   form.reset();
-  form.id_raiz.value = DECANT_TAMANO_RAIZ.id;
-  form.stock_fisico.value = 10;
-  document.getElementById('decant-tamano-info').textContent = `${DECANT_TAMANO_RAIZ.marca} — ${DECANT_TAMANO_RAIZ.nombre}`;
-  abrirModal('modal-decant-tamano');
+  form.mililitros.value = 100;
+  abrirModal('modal-decant');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('btn-cancelar-decant-tamano')?.addEventListener('click', () => cerrarModal('modal-decant-tamano'));
-  document.getElementById('form-decant-tamano')?.addEventListener('submit', async (e) => {
+  document.getElementById('btn-cancelar-decant')?.addEventListener('click', () => cerrarModal('modal-decant'));
+  document.getElementById('form-decant')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!DECANT_TAMANO_RAIZ) return;
     const data = Object.fromEntries(new FormData(e.target));
-    const mililitros = Number(data.mililitros);
-    const precioTienda = Number(data.precio_tienda_regular);
-    const precioConsolidado = Number(data.precio_consolidado_fijo);
-    const stockFisico = Number(data.stock_fisico || 0);
-    if (precioConsolidado > precioTienda) {
-      mostrarToast('El precio consolidado no puede ser mayor al precio tienda', 'error');
+    const leer = (v) => (v === '' ? null : Number(v));
+    const precio_3ml = leer(data.precio_3ml);
+    const precio_5ml = leer(data.precio_5ml);
+    const precio_10ml = leer(data.precio_10ml);
+    if (precio_3ml == null && precio_5ml == null && precio_10ml == null) {
+      mostrarToast('Carga el precio de al menos una talla', 'error');
       return;
     }
-    const raiz = DECANT_TAMANO_RAIZ;
+    // precio_tienda_regular/precio_consolidado_fijo son NOT NULL en la base y los sigue
+    // leyendo la Calculadora de Márgenes (que no filtra decants) -- se les copia la talla más
+    // grande cargada como referencia, aunque el checkout ya no los use para un decant (ver
+    // migración 0016).
+    const precioReferencia = precio_10ml ?? precio_5ml ?? precio_3ml;
     const payload = {
-      nombre: raiz.nombre,
-      marca: raiz.marca,
-      genero: raiz.genero,
-      concentracion: raiz.concentracion,
-      mililitros,
-      descripcion: raiz.descripcion,
-      notas_olfativas: raiz.notas_olfativas,
-      precio_tienda_regular: precioTienda,
-      precio_consolidado_fijo: precioConsolidado,
+      // Sufijo "-decant" para no chocar con el slug del mismo perfume en botella completa (el
+      // catálogo normal y el de decants sí pueden tener la misma marca+nombre, ver es_decant en
+      // obtenerProductos()) -- slug es unique en toda la tabla perfumes.
+      slug: `${generarSlug(data.nombre, data.marca)}-decant`,
+      nombre: data.nombre,
+      marca: data.marca,
+      genero: data.genero,
+      familia_olfativa: data.familia_olfativa || null,
+      concentracion: data.concentracion || null,
+      tipo_casa: data.tipo_casa || null,
+      imagen_url: data.imagen_url || null,
+      descripcion: data.descripcion || null,
+      notas_olfativas: data.notas_olfativas || null,
+      mililitros: Number(data.mililitros) || 100,
+      precio_3ml,
+      precio_5ml,
+      precio_10ml,
+      precio_tienda_regular: precioReferencia,
+      precio_consolidado_fijo: precioReferencia,
       margen_aplicado: true,
-      tipo_casa: raiz.tipo_casa,
-      imagen_url: raiz.imagen_url,
       estado: 'Disponible',
-      es_nuevo: raiz.es_nuevo,
-      es_bestseller: raiz.es_bestseller,
       es_decant: true,
-      id_decant_grupo: raiz.id_decant_grupo || raiz.id, // si la "raíz" clickeada ya era hija de otra, apunta a la raíz real
       activo: true,
-      slug: `${generarSlug(raiz.nombre, raiz.marca)}-decant-${mililitros}ml`,
     };
     try {
-      const nuevoId = await crearProducto(payload);
-      await actualizarInventario(nuevoId, { stock_fisico: stockFisico });
-      mostrarToast('Tamaño agregado');
-      cerrarModal('modal-decant-tamano');
+      await crearProducto(payload);
+      mostrarToast('Decant agregado');
+      cerrarModal('modal-decant');
       cargarProductos();
     } catch (err) {
       mostrarToast(err.message, 'error');
@@ -589,6 +733,18 @@ function abrirModalProducto(producto) {
       else field.value = val ?? '';
     });
   }
+  // Precio/stock/liquidación/mililitros de un decant se editan inline en su tarjeta (ver
+  // tarjetaDecantAdmin), no en este modal genérico -- se ocultan para no dar 2 lugares
+  // distintos para el mismo dato. "required" se apaga junto con el campo: un input oculto
+  // igual bloquea el submit si el navegador lo sigue validando.
+  const esDecant = !!producto?.es_decant;
+  document.querySelectorAll('#form-producto .campo-normal').forEach((el) => {
+    el.style.display = esDecant ? 'none' : '';
+    el.querySelectorAll('[required]').forEach((input) => { input.required = !esDecant; });
+  });
+  document.querySelectorAll('#form-producto .campo-decant').forEach((el) => {
+    el.style.display = esDecant ? '' : 'none';
+  });
   abrirModal('modal-producto');
 }
 
@@ -610,8 +766,10 @@ document.addEventListener('DOMContentLoaded', () => {
     data.es_liquidacion = e.target.elements.es_liquidacion.checked;
     data.precio_liquidacion = data.precio_liquidacion ? Number(data.precio_liquidacion) : null;
     data.liquidacion_unidad_minima = Number(data.liquidacion_unidad_minima || 1);
-    data.es_decant = e.target.elements.es_decant.checked;
-    data.id_decant_grupo = data.id_decant_grupo ? Number(data.id_decant_grupo) : null;
+    // Sin "es_decant"/"id_decant_grupo" en este formulario a propósito -- un decant se crea
+    // desde el modal "Agregar Decant" (ver abrirModalDecant) y esos 2 campos no se vuelven a
+    // tocar después, así que no van en el payload de acá (si fueran undefined y se mandaran
+    // igual, un producto ya marcado es_decant=true se desmarcaría solo al editar su nombre).
     // El <select> de "Tipo de Casa" nace en "Sin definir" (value=""), pero la constraint de la
     // base (chk en perfumes.tipo_casa) solo acepta 'Árabe'/'Diseñador'/'Nicho' o NULL -- un
     // string vacío no pasa el check y el insert/update fallaba con un error crudo de Postgres
@@ -623,10 +781,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (data.es_liquidacion && !data.precio_liquidacion) {
       mostrarToast('Ingresa el precio de liquidación', 'error');
-      return;
-    }
-    if (data.id_decant_grupo && !data.es_decant) {
-      mostrarToast('Si pones un "ID decant raíz", marca también "Es un Decant"', 'error');
       return;
     }
     // un precio de venta puesto a mano por el admin cuenta como "margen aplicado" (evita que
@@ -870,7 +1024,7 @@ async function abrirDetallePedido(id) {
 
       <strong style="font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--color-gold);">Productos</strong>
       <div style="margin:10px 0 20px;">
-        ${p.items.map((i) => `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:6px 0; border-bottom:1px solid var(--color-border);"><span>${i.cantidad} &times; ${escapeHtml(i.marca)} — ${escapeHtml(i.nombre)}</span><span>${formatoMoneda(i.subtotal)}</span></div>`).join('')}
+        ${p.items.map((i) => `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:6px 0; border-bottom:1px solid var(--color-border);"><span>${i.cantidad} &times; ${escapeHtml(i.marca)} — ${escapeHtml(i.nombre)}${i.es_decant ? ` (${i.talla_ml}ml)` : ''}</span><span>${formatoMoneda(i.subtotal)}</span></div>`).join('')}
         <div style="display:flex; justify-content:space-between; font-weight:700; padding-top:10px;"><span>Total</span><span>${formatoMoneda(p.monto_total)}</span></div>
       </div>
 

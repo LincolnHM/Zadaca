@@ -754,13 +754,17 @@ function imagenProducto(p, claseExtra = '') {
 
 function tarjetaProducto(p) {
   const esLiquidacion = !!p.es_liquidacion;
-  const final = esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
-  const tieneDescuento = !esLiquidacion && Number(p.descuento_tienda_porcentaje) > 0;
+  // Un decant ya no tiene un único precio de fila (ver migración 0016) -- la tarjeta muestra
+  // "Desde S/X" con la talla más barata que tenga precio cargado.
+  const tallas = p.es_decant ? tallasDecant(p) : null;
+  const final = p.es_decant ? (precioTallaDecant(p, tallas[0]) ?? 0) : (esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje));
+  const tieneDescuento = !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
   // "estado" es un campo manual que el admin no mantiene al día (ver misma nota en
   // producto.js) -- stock_disponible es el dato real, así que la badge "Agotado" también
   // tiene que mirarlo, o quedan productos sin stock mostrándose como disponibles en la
-  // grilla del catálogo.
-  const agotado = p.estado === 'Agotado' || p.stock_disponible <= 0;
+  // grilla del catálogo. Un decant no tiene stock por unidad -- solo mira "estado" (toggle
+  // Disponible/Agotado del admin, ver migración 0016).
+  const agotado = p.es_decant ? p.estado === 'Agotado' : (p.estado === 'Agotado' || p.stock_disponible <= 0);
   return `
     <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="product-card">
       <div class="product-media">
@@ -776,9 +780,9 @@ function tarjetaProducto(p) {
       <div class="product-info">
         <span class="product-brand">${escapeHtml(p.marca)}</span>
         <h3 class="product-name">${escapeHtml(p.nombre)}</h3>
-        <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.mililitros ? ` · ${p.mililitros} ml` : ''}</span>
+        <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.es_decant ? (tallas.length ? ` · ${tallas.join('/')} ml` : '') : (p.mililitros ? ` · ${p.mililitros} ml` : '')}</span>
         <div class="product-price-row">
-          <span class="price-current">${formatoMoneda(final)}</span>
+          <span class="price-current">${p.es_decant ? 'Desde ' : ''}${formatoMoneda(final)}</span>
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
         </div>
         ${esLiquidacion ? `<div class="liq-unidad-note">${p.liquidacion_unidad_minima > 1 ? `Solo por mayor · mínimo ${p.liquidacion_unidad_minima} unidades` : 'Por unidad o por mayor'}</div>` : ''}

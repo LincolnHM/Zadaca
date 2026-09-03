@@ -125,6 +125,14 @@ create table perfumes (
     -- fila "raíz" y apunta al id de la raíz en las filas "hijas".
     es_decant boolean not null default false,
     id_decant_grupo bigint references perfumes(id) on delete set null,
+    -- Un decant vive en UNA sola fila con sus 3 precios adentro (ver migración 0016) -- una
+    -- talla en null significa que ese perfume no se vende en esa presentación. mililitros (de
+    -- arriba) pasa a significar "capacidad del frasco fuente" para estas filas, no una talla de
+    -- venta. mililitros_restantes es un gauge manual del admin (no bloquea ventas).
+    precio_3ml numeric(10,2) check (precio_3ml is null or precio_3ml > 0),
+    precio_5ml numeric(10,2) check (precio_5ml is null or precio_5ml > 0),
+    precio_10ml numeric(10,2) check (precio_10ml is null or precio_10ml > 0),
+    mililitros_restantes numeric(6,1) check (mililitros_restantes is null or mililitros_restantes >= 0),
     fecha_creacion timestamp default now(),
     constraint chk_precio_consolidado_menor check (precio_consolidado_fijo <= precio_tienda_regular),
     constraint chk_liquidacion_precio check (es_liquidacion = false or precio_liquidacion is not null),
@@ -187,8 +195,12 @@ create table carrito_items (
     id_cliente uuid not null references perfiles(id) on delete cascade,
     id_producto bigint not null references perfumes(id) on delete cascade,
     cantidad int not null default 1 check (cantidad > 0),
+    -- Solo decants: qué talla (3/5/10) se agregó -- 0 = no aplica (todo producto normal, ver
+    -- migración 0016). Entra en el unique de abajo para que un cliente pueda tener varias
+    -- filas del mismo decant, una por talla.
+    talla_ml smallint not null default 0,
     fecha_agregado timestamp default now(),
-    constraint uq_carrito_item unique (id_cliente, id_producto)
+    constraint uq_carrito_item unique (id_cliente, id_producto, talla_ml)
 );
 
 -- Rechaza el insert/update entero si la cantidad de un producto de liquidación no llega a su
@@ -432,7 +444,9 @@ create table detalle_pedido (
     id_producto bigint not null references perfumes(id),
     cantidad int not null check (cantidad > 0),
     precio_unitario_aplicado numeric(10,2) not null check (precio_unitario_aplicado > 0),
-    subtotal numeric(10,2) generated always as (cantidad * precio_unitario_aplicado) stored
+    subtotal numeric(10,2) generated always as (cantidad * precio_unitario_aplicado) stored,
+    -- Solo decants: qué talla (3/5/10) se compró -- 0 = no aplica (ver migración 0016).
+    talla_ml smallint not null default 0
 );
 
 create table pagos (
@@ -513,18 +527,34 @@ begin
         raise exception 'El carrito está vacío';
     end if;
 
+    -- El precio de un decant sale de precio_3ml/5ml/10ml según la talla elegida (ver
+    -- migración 0016) -- si talla_ml no es 3/5/10 (item de carrito de ANTES de ese cambio, con
+    -- talla_ml=0 por default) cae al mismo cálculo de siempre con precio_tienda_regular, que
+    -- conserva su valor histórico intacto.
     for v_item in
-        select ci.id_producto, ci.cantidad,
-               case when p.es_liquidacion then p.precio_liquidacion
-                    else round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2) end as precio_final,
+        select ci.id_producto, ci.cantidad, ci.talla_ml,
+               case
+                   when p.es_decant and ci.talla_ml = 3 and p.precio_3ml is not null then p.precio_3ml
+                   when p.es_decant and ci.talla_ml = 5 and p.precio_5ml is not null then p.precio_5ml
+                   when p.es_decant and ci.talla_ml = 10 and p.precio_10ml is not null then p.precio_10ml
+                   when p.es_liquidacion then p.precio_liquidacion
+                   else round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2)
+               end as precio_final,
                coalesce(i.stock_disponible, 0) as stock_disponible,
-               p.nombre
+               p.es_decant, p.estado, p.nombre
         from carrito_items ci
         join perfumes p on p.id = ci.id_producto
         left join inventario i on i.id_producto = p.id
         where ci.id_cliente = auth.uid()
     loop
-        if v_item.cantidad > v_item.stock_disponible then
+        -- Un decant ya no tiene stock por unidad (sus 3 tallas comparten un mismo frasco, ver
+        -- migración 0016) -- el admin lo controla a mano con el toggle Disponible/Agotado en
+        -- vez de un número exacto.
+        if v_item.es_decant then
+            if v_item.estado = 'Agotado' then
+                raise exception 'Este decant está agotado: %', v_item.nombre;
+            end if;
+        elsif v_item.cantidad > v_item.stock_disponible then
             raise exception 'Stock insuficiente para "%": disponible %', v_item.nombre, v_item.stock_disponible;
         end if;
         v_monto_total := v_monto_total + (v_item.cantidad * v_item.precio_final);
@@ -535,16 +565,23 @@ begin
     returning id into v_id_pedido;
 
     for v_item in
-        select ci.id_producto, ci.cantidad,
-               case when p.es_liquidacion then p.precio_liquidacion
-                    else round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2) end as precio_final
+        select ci.id_producto, ci.cantidad, ci.talla_ml, p.es_decant,
+               case
+                   when p.es_decant and ci.talla_ml = 3 and p.precio_3ml is not null then p.precio_3ml
+                   when p.es_decant and ci.talla_ml = 5 and p.precio_5ml is not null then p.precio_5ml
+                   when p.es_decant and ci.talla_ml = 10 and p.precio_10ml is not null then p.precio_10ml
+                   when p.es_liquidacion then p.precio_liquidacion
+                   else round(p.precio_tienda_regular * (1 - p.descuento_tienda_porcentaje / 100.0), 2)
+               end as precio_final
         from carrito_items ci join perfumes p on p.id = ci.id_producto
         where ci.id_cliente = auth.uid()
     loop
-        insert into detalle_pedido (id_pedido, id_producto, cantidad, precio_unitario_aplicado)
-        values (v_id_pedido, v_item.id_producto, v_item.cantidad, v_item.precio_final);
+        insert into detalle_pedido (id_pedido, id_producto, cantidad, precio_unitario_aplicado, talla_ml)
+        values (v_id_pedido, v_item.id_producto, v_item.cantidad, v_item.precio_final, v_item.talla_ml);
 
-        update inventario set stock_fisico = stock_fisico - v_item.cantidad where id_producto = v_item.id_producto;
+        if not v_item.es_decant then
+            update inventario set stock_fisico = stock_fisico - v_item.cantidad where id_producto = v_item.id_producto;
+        end if;
     end loop;
 
     insert into envios (id_pedido, estado_envio) values (v_id_pedido, 'Preparando');

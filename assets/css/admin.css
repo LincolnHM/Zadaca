@@ -164,9 +164,8 @@ body.admin-body { min-height: 100vh; }
   width: 90px; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text);
   padding: 6px 8px; border-radius: var(--radius); font-size: 0.82rem; text-align: right;
 }
-/* flex-wrap: la tarjeta de un decant raíz ahora puede tener 4 botones (Guardar, Editar,
-   + Tamaño, Eliminar) -- sin esto se apretaban o se cortaban en una tarjeta angosta (280px,
-   el mínimo del grid de arriba, típico en mobile). */
+/* flex-wrap: una tarjeta angosta (280px, el mínimo del grid de arriba, típico en mobile) puede
+   apretar varios botones de acción -- sin esto se cortaban en vez de pasar a una 2da línea. */
 .admin-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
 
 /* ---------- Toggle switch ---------- */
@@ -176,6 +175,26 @@ body.admin-body { min-height: 100vh; }
 .switch-track::before { content: ''; position: absolute; width: 15px; height: 15px; left: 3px; top: 3px; background: var(--color-text-faint); border-radius: 50%; transition: 0.2s; }
 .switch input:checked + .switch-track { background: rgba(122,32,48,0.35); }
 .switch input:checked + .switch-track::before { transform: translateX(17px); background: var(--color-gold); }
+
+/* ---------- Tarjeta unificada de decant (ver tarjetaDecantAdmin en admin.js) ---------- */
+.decant-toggle { display: flex; align-items: center; gap: 8px; }
+.decant-toggle-label { font-size: 0.8rem; color: var(--color-text-muted); }
+.decant-precios, .decant-frasco { padding-top: 10px; border-top: 1px solid var(--color-border); display: flex; flex-direction: column; gap: 8px; }
+.decant-precios-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.decant-precios-label { font-size: 0.78rem; color: var(--color-text-muted); }
+.decant-precios-grid { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.decant-precios-grid label, .decant-frasco-inputs label {
+  display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--color-text-faint);
+}
+.decant-precios-grid input, .decant-frasco-inputs input {
+  width: 64px; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text);
+  padding: 6px 8px; border-radius: var(--radius); font-size: 0.82rem; text-align: right;
+}
+.decant-frasco-header { display: flex; align-items: baseline; justify-content: space-between; font-size: 0.8rem; color: var(--color-text-muted); }
+.decant-frasco-header strong { color: var(--color-text); }
+.decant-frasco-bar { height: 6px; border-radius: 4px; background: var(--color-border); overflow: hidden; }
+.decant-frasco-fill { height: 100%; background: var(--color-gold); border-radius: inherit; }
+.decant-frasco-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 
 /* ---------- Tables ---------- */
 .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }

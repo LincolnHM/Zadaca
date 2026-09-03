@@ -105,7 +105,10 @@ function escaparFiltroSupabase(texto) {
 // la respuesta JSON aunque la UI nunca los pinte: cualquiera que abra el Network tab del
 // navegador los puede leer. RLS es a nivel de fila, no de columna, así que la única forma de
 // no filtrarlos es no pedirlos.
-const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa, es_decant, id_decant_grupo';
+// precio_3ml/5ml/10ml: solo decants (ver migración 0016), null = esa talla no se vende. A
+// propósito NO incluye mililitros_restantes -- es un gauge interno del admin (cuánto queda del
+// frasco fuente), nunca se muestra al cliente, mismo criterio que costo_importacion_pen/usd.
+const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa, es_decant, id_decant_grupo, precio_3ml, precio_5ml, precio_10ml';
 
 // soloConStock=true es el catálogo de TIENDA FÍSICA: solo perfumes con stock_fisico > 0 (lo
 // que el admin cargó en "Stock físico" por producto). Usa !inner para forzar el join con
@@ -126,12 +129,17 @@ function aplicarFiltroGenero(query, genero) {
 }
 
 async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12, soloConStock = false } = {}) {
+  // Un decant no tiene stock por unidad que mirar en "inventario" (sus 3 tallas comparten un
+  // mismo frasco, ver migración 0016) -- "disponible" para ellos es el toggle Disponible/
+  // Agotado del admin (columna estado), no inventario.stock_disponible.
+  const filtrarPorInventario = soloConStock && destacado !== 'decant';
   let query = supabaseClient
     .from('perfumes')
-    .select(soloConStock ? `${CAMPOS_PRODUCTO_PUBLICO}, inventario!inner(stock_disponible)` : `${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`, { count: 'exact' })
+    .select(filtrarPorInventario ? `${CAMPOS_PRODUCTO_PUBLICO}, inventario!inner(stock_disponible)` : `${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`, { count: 'exact' })
     .eq('activo', true);
 
-  if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
+  if (filtrarPorInventario) query = query.gt('inventario.stock_disponible', 0);
+  if (soloConStock && destacado === 'decant') query = query.neq('estado', 'Agotado');
   query = aplicarFiltroGenero(query, genero);
   if (marca) query = query.eq('marca', marca);
   if (familia) query = query.eq('familia_olfativa', familia);
@@ -140,11 +148,10 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
   if (destacado === 'nuevo') query = query.eq('es_nuevo', true);
   if (destacado === 'bestseller') query = query.eq('es_bestseller', true);
   if (destacado === 'liquidacion') query = query.eq('es_liquidacion', true);
-  // Decants: cada tamaño (3ml/5ml/10ml...) es su propia fila de perfumes, agrupada bajo una
-  // fila "raíz" (id_decant_grupo is null) -- el catálogo de tienda normal nunca los muestra
-  // (viven en su propia sección, ver decants/index.html), y esa sección solo lista las raíces
-  // para no repetir el mismo perfume una vez por tamaño.
-  if (destacado === 'decant') query = query.eq('es_decant', true).is('id_decant_grupo', null);
+  // Decants: cada perfume es UNA fila con sus 3 precios por talla adentro (ver migración
+  // 0016) -- el catálogo de tienda normal nunca los muestra (viven en su propia sección, ver
+  // decants/index.html).
+  if (destacado === 'decant') query = query.eq('es_decant', true);
   else query = query.eq('es_decant', false);
 
   // 'marca' (default): agrupa por marca y, dentro de cada marca, por nombre -- así las
@@ -272,14 +279,8 @@ async function obtenerProductoPorSlug(slug) {
     .single();
   if (error || !producto) throw new Error('Producto no encontrado');
 
-  // Decants: la raíz (id_decant_grupo null) y sus tamaños hijos (id_decant_grupo = id de la
-  // raíz) se muestran juntos como pastillas de tamaño en la misma ficha -- ver producto.js.
-  const idRaiz = producto.es_decant ? (producto.id_decant_grupo || producto.id) : null;
-
-  // Tamaños del decant y "también te puede interesar" son dos consultas que no dependen una de
-  // la otra (recién se combinan al final, para no repetir un tamaño como "relacionado") -- se
-  // disparan en paralelo en vez de una detrás de la otra, para no sumar un viaje de red más
-  // antes de que la ficha del producto esté completa.
+  // Un decant ya trae sus 3 precios por talla en la misma fila (ver migración 0016) -- no hace
+  // falta ninguna consulta aparte para armar el selector de tamaño, ver producto.js.
   //
   // Un decant "también te puede interesar" debe ofrecer OTROS decants con stock real -- antes
   // filtraba solo por marca igual que un perfume normal, así que en la ficha de un decant
@@ -287,39 +288,22 @@ async function obtenerProductoPorSlug(slug) {
   // ver con "prueba antes de comprar", la lógica de decants). Reutiliza obtenerProductos() con
   // el mismo filtro que ya usa decants/index.html (destacado:'decant' + soloConStock) en vez
   // de duplicar esa consulta acá.
-  const [tamanosData, relacionadosCrudos] = await Promise.all([
-    idRaiz
-      ? supabaseClient
-          .from('perfumes')
-          .select(`${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`)
-          .eq('activo', true)
-          .eq('es_decant', true)
-          .or(`id.eq.${idRaiz},id_decant_grupo.eq.${idRaiz}`)
-          .order('mililitros', { ascending: true })
-          .then(({ data }) => data)
-      : Promise.resolve(null),
-    producto.es_decant
-      ? obtenerProductos({ destacado: 'decant', soloConStock: true, orden: 'recientes', porPagina: 8 }).then(({ productos }) => productos)
-      : supabaseClient
-          .from('perfumes')
-          .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
-          .eq('marca', producto.marca)
-          .eq('activo', true)
-          .neq('id', producto.id)
-          .limit(8)
-          .then(({ data }) => data),
-  ]);
-  const tamanosDecant = (tamanosData || []).map(normalizarProducto);
+  const relacionadosCrudos = producto.es_decant
+    ? await obtenerProductos({ destacado: 'decant', soloConStock: true, orden: 'recientes', porPagina: 8 }).then(({ productos }) => productos)
+    : await supabaseClient
+        .from('perfumes')
+        .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
+        .eq('marca', producto.marca)
+        .eq('activo', true)
+        .neq('id', producto.id)
+        .limit(8)
+        .then(({ data }) => data);
 
-  // Los otros tamaños del mismo decant ya se muestran como pastillas de tamaño arriba -- no
-  // tiene sentido repetirlos acá abajo como "también te puede interesar".
-  const idsPropioGrupoDecant = new Set(tamanosDecant.map((t) => t.id));
-  const relacionados = (relacionadosCrudos || []).filter((r) => !idsPropioGrupoDecant.has(r.id)).slice(0, 4);
+  const relacionados = (relacionadosCrudos || []).filter((r) => r.id !== producto.id).slice(0, 4);
 
   return {
     producto: normalizarProducto(producto),
     relacionados,
-    tamanosDecant,
   };
 }
 
@@ -393,7 +377,7 @@ async function obtenerCarritoInvitado() {
   if (!items.length) return [];
   const { data, error } = await supabaseClient
     .from('perfumes')
-    .select('id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, imagen_url, inventario(stock_disponible)')
+    .select('id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, imagen_url, es_decant, precio_3ml, precio_5ml, precio_10ml, estado, inventario(stock_disponible)')
     .in('id', items.map((i) => i.id_producto))
     .eq('activo', true);
   if (error) throw new Error(error.message);
@@ -404,17 +388,24 @@ async function obtenerCarritoInvitado() {
     .filter((i) => porId.has(i.id_producto))
     .map((i) => {
       const p = porId.get(i.id_producto);
+      const talla_ml = i.talla_ml || 0;
       return {
         ...p,
-        id: `invitado-${p.id}`,
+        id: `invitado-${p.id}-${talla_ml}`,
         cantidad: i.cantidad,
+        talla_ml,
         stock_disponible: Math.max(Array.isArray(p.inventario) ? (p.inventario[0]?.stock_disponible ?? 0) : (p.inventario?.stock_disponible ?? 0), 0),
       };
     });
 }
 
+// El id de un item de carrito de invitado codifica producto+talla ("invitado-{id}-{talla}")
+// para poder distinguir 2 filas del mismo decant en tallas distintas (ver migración 0016).
 function idProductoDesdeItemCarrito(idItem) {
-  return Number(String(idItem).replace('invitado-', ''));
+  return Number(String(idItem).replace('invitado-', '').split('-')[0]);
+}
+function tallaDesdeItemCarrito(idItem) {
+  return Number(String(idItem).replace('invitado-', '').split('-')[1] || 0);
 }
 
 async function obtenerCarrito() {
@@ -422,25 +413,26 @@ async function obtenerCarrito() {
   if (!session) return obtenerCarritoInvitado();
   const { data, error } = await supabaseClient
     .from('carrito_items')
-    .select('id, cantidad, perfumes(id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, imagen_url, inventario(stock_disponible))')
+    .select('id, cantidad, talla_ml, perfumes(id, slug, nombre, marca, genero, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, imagen_url, es_decant, precio_3ml, precio_5ml, precio_10ml, estado, inventario(stock_disponible))')
     .eq('id_cliente', session.user.id)
     .order('fecha_agregado', { ascending: false });
   if (error) throw new Error(error.message);
   return data.map((item) => ({
     id: item.id,
     cantidad: item.cantidad,
+    talla_ml: item.talla_ml,
     ...item.perfumes,
     stock_disponible: Math.max(item.perfumes.inventario?.[0]?.stock_disponible ?? item.perfumes.inventario?.stock_disponible ?? 0, 0),
   }));
 }
 
-async function agregarAlCarrito(idProducto, cantidad = 1) {
+async function agregarAlCarrito(idProducto, cantidad = 1, tallaMl = 0) {
   const session = await obtenerSesion();
   if (!session) {
     const items = leerCarritoInvitado();
-    const existente = items.find((i) => i.id_producto === idProducto);
+    const existente = items.find((i) => i.id_producto === idProducto && (i.talla_ml || 0) === tallaMl);
     if (existente) existente.cantidad += cantidad;
-    else items.push({ id_producto: idProducto, cantidad });
+    else items.push({ id_producto: idProducto, cantidad, talla_ml: tallaMl });
     guardarCarritoInvitado(items);
     return;
   }
@@ -449,13 +441,14 @@ async function agregarAlCarrito(idProducto, cantidad = 1) {
     .select('id, cantidad')
     .eq('id_cliente', session.user.id)
     .eq('id_producto', idProducto)
+    .eq('talla_ml', tallaMl)
     .maybeSingle();
 
   if (existente) {
     const { error } = await supabaseClient.from('carrito_items').update({ cantidad: existente.cantidad + cantidad }).eq('id', existente.id);
     if (error) throw new Error(error.message);
   } else {
-    const { error } = await supabaseClient.from('carrito_items').insert({ id_cliente: session.user.id, id_producto: idProducto, cantidad });
+    const { error } = await supabaseClient.from('carrito_items').insert({ id_cliente: session.user.id, id_producto: idProducto, cantidad, talla_ml: tallaMl });
     if (error) throw new Error(error.message);
   }
 }
@@ -464,7 +457,9 @@ async function actualizarCantidadCarrito(idItem, cantidad) {
   const session = await obtenerSesion();
   if (!session) {
     const items = leerCarritoInvitado();
-    const item = items.find((i) => i.id_producto === idProductoDesdeItemCarrito(idItem));
+    const idProducto = idProductoDesdeItemCarrito(idItem);
+    const talla = tallaDesdeItemCarrito(idItem);
+    const item = items.find((i) => i.id_producto === idProducto && (i.talla_ml || 0) === talla);
     if (item) { item.cantidad = cantidad; guardarCarritoInvitado(items); }
     return;
   }
@@ -475,7 +470,9 @@ async function actualizarCantidadCarrito(idItem, cantidad) {
 async function eliminarDelCarrito(idItem) {
   const session = await obtenerSesion();
   if (!session) {
-    guardarCarritoInvitado(leerCarritoInvitado().filter((i) => i.id_producto !== idProductoDesdeItemCarrito(idItem)));
+    const idProducto = idProductoDesdeItemCarrito(idItem);
+    const talla = tallaDesdeItemCarrito(idItem);
+    guardarCarritoInvitado(leerCarritoInvitado().filter((i) => !(i.id_producto === idProducto && (i.talla_ml || 0) === talla)));
     return;
   }
   const { error } = await supabaseClient.from('carrito_items').delete().eq('id', idItem);
@@ -494,16 +491,18 @@ async function fusionarCarritoInvitadoConCuenta() {
   guardarCarritoInvitado([]); // se limpia antes de escribir: si algo falla a medias, no se reintenta en bucle en la próxima carga
   for (const item of items) {
     try {
+      const talla_ml = item.talla_ml || 0;
       const { data: existente } = await supabaseClient
         .from('carrito_items')
         .select('id, cantidad')
         .eq('id_cliente', session.user.id)
         .eq('id_producto', item.id_producto)
+        .eq('talla_ml', talla_ml)
         .maybeSingle();
       if (existente) {
         await supabaseClient.from('carrito_items').update({ cantidad: existente.cantidad + item.cantidad }).eq('id', existente.id);
       } else {
-        await supabaseClient.from('carrito_items').insert({ id_cliente: session.user.id, id_producto: item.id_producto, cantidad: item.cantidad });
+        await supabaseClient.from('carrito_items').insert({ id_cliente: session.user.id, id_producto: item.id_producto, cantidad: item.cantidad, talla_ml });
       }
     } catch (err) {
       console.error(err); // un producto puntual que falle (ej. se desactivó) no debe frenar el resto de la fusión
@@ -980,6 +979,23 @@ function formatoMoneda(valor) {
 // monto_total real del pedido que se crea al hacer checkout (se nota más con cantidad > 1).
 function precioFinal(precioRegular, descuentoPorcentaje) {
   return Math.round(Number(precioRegular) * (1 - Number(descuentoPorcentaje || 0) / 100) * 100) / 100;
+}
+
+// Precio de un decant según la talla elegida (3/5/10 ml, ver migración 0016) -- null si esa
+// talla no tiene precio cargado (no se vende en esa presentación) o si tallaMl no es una de
+// las 3 válidas. Mismo cálculo que usa crear_pedido_directo() en el servidor.
+function precioTallaDecant(p, tallaMl) {
+  if (tallaMl === 3) return p.precio_3ml != null ? Number(p.precio_3ml) : null;
+  if (tallaMl === 5) return p.precio_5ml != null ? Number(p.precio_5ml) : null;
+  if (tallaMl === 10) return p.precio_10ml != null ? Number(p.precio_10ml) : null;
+  return null;
+}
+
+// Tallas que un decant realmente vende (las que tienen precio cargado), ordenadas de menor a
+// mayor -- usado tanto por el selector de tamaño de la ficha de producto como por la tarjeta
+// del catálogo ("Desde S/X").
+function tallasDecant(p) {
+  return [3, 5, 10].filter((t) => precioTallaDecant(p, t) != null);
 }
 
 function escapeHtml(texto) {

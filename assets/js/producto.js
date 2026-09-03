@@ -1,5 +1,8 @@
 let PRODUCTO_ACTUAL = null;
-let cargaDetalleSeq = 0; // descarta una respuesta vieja si el cliente cambió de tamaño varias veces rápido
+// Talla elegida en la ficha de un decant (3/5/10ml, ver migración 0016) -- cambiarla ya no
+// navega a otro producto (antes cada tamaño era una fila/slug distinto): el producto trae sus
+// 3 precios en la misma carga, así que la pastilla solo reacomoda el precio/cantidad in-place.
+let TALLA_SELECCIONADA = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   await iniciarLayout('catalogo/');
@@ -16,43 +19,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   await cargarProducto(slug);
-
-  // Atrás/adelante del navegador (ej. volvió de 10ml a 5ml con el botón "atrás") -- recarga la
-  // ficha con el slug que quedó en la URL, sin volver a empujar historial (el evento ya refleja
-  // el cambio, pushState de nuevo generaría una entrada duplicada).
-  window.addEventListener('popstate', () => {
-    const slugActual = new URLSearchParams(window.location.search).get('slug');
-    if (slugActual) cargarProducto(slugActual);
-  });
 });
 
-// Separado de renderDetalle() para que cambiar de tamaño de decant (3ml/5ml/10ml) no dispare
-// una navegación de página completa -- antes cada pastilla de tamaño era un <a href> normal, así
-// que cada clic recargaba TODO (header, footer, CSS, JS) por un cambio que en los datos es
-// mínimo. Acá se trae solo el producto nuevo y se vuelve a pintar in-place; el contenido
-// anterior se queda visible hasta que llega el nuevo (nada de pantalla en blanco de por medio).
-async function cargarProducto(slug, { actualizarHistoria = false } = {}) {
-  const idSolicitud = ++cargaDetalleSeq;
+async function cargarProducto(slug) {
   const mount = document.getElementById('detalle-mount');
-  if (!PRODUCTO_ACTUAL) mount.innerHTML = '<div class="container"><div class="loading-state">Cargando…</div></div>';
+  mount.innerHTML = '<div class="container"><div class="loading-state">Cargando…</div></div>';
   try {
     const data = await obtenerProductoPorSlug(slug);
-    if (idSolicitud !== cargaDetalleSeq) return;
     PRODUCTO_ACTUAL = data.producto;
-    if (actualizarHistoria) history.pushState(null, '', `${SITE_ROOT}producto/?slug=${slug}`);
+    TALLA_SELECCIONADA = PRODUCTO_ACTUAL.es_decant ? tallasDecant(PRODUCTO_ACTUAL)[0] ?? null : null;
     renderDetalle(data);
   } catch (err) {
-    if (idSolicitud !== cargaDetalleSeq) return;
     mount.innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
   }
 }
 
 function renderDetalle(data) {
   const p = data.producto;
-  // Sin el sufijo de ml, las 2-3 fichas de un mismo grupo de decant (mismo nombre/marca,
-  // distinto tamaño) compartirían <title> -- duplicado que a Google no le gusta.
-  const tituloPagina = p.es_decant ? `${p.marca} ${p.nombre} ${p.mililitros}ml — Maison Zadaca` : `${p.marca} ${p.nombre} — Maison Zadaca`;
-  const descripcionPagina = p.descripcion || `${p.marca} ${p.nombre}, ${p.mililitros}ml. Perfume original importado, disponible en tienda o consolidado.`;
+  const tituloPagina = `${p.marca} ${p.nombre} — Maison Zadaca`;
+  // mililitros ya no es "la talla que se vende" para un decant (es la capacidad del frasco
+  // fuente, ver migración 0016), así que el fallback de descripción no lo menciona para esos.
+  const descripcionPagina = p.descripcion || (p.es_decant
+    ? `${p.marca} ${p.nombre} en decant, fracción de perfume original importado.`
+    : `${p.marca} ${p.nombre}, ${p.mililitros}ml. Perfume original importado, disponible en tienda o consolidado.`);
   document.getElementById('page-title').textContent = tituloPagina;
   document.getElementById('page-description').setAttribute('content', descripcionPagina);
   document.getElementById('og-title').setAttribute('content', tituloPagina);
@@ -80,17 +69,28 @@ function renderDetalle(data) {
   document.getElementById('crumb-nombre').textContent = p.nombre;
 
   const esLiquidacion = !!p.es_liquidacion;
-  const final = esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
-  const tieneDescuento = !esLiquidacion && Number(p.descuento_tienda_porcentaje) > 0;
-  // "estado" es un campo que el admin llena a mano y en la práctica nunca usa (ningún
-  // producto del catálogo real está marcado "Agotado" hoy) -- stock_disponible es el número
-  // que sí se mantiene al día automáticamente (columna generada, ver schema.sql). Antes esto
-  // solo miraba "estado", así que un producto con stock_disponible=0 pero estado='Disponible'
-  // (bastante común: 118 de 200 productos activos hoy) mostraba el botón "Agregar al
-  // Carrito" habilitado y, peor, el selector de cantidad quedaba con max=1 desde el
-  // arranque -- el botón "+" no tenía a dónde subir y parecía roto.
-  const agotado = p.estado === 'Agotado' || p.stock_disponible <= 0;
+  // Un decant ya no tiene un único precio de fila: sale de precio_3ml/5ml/10ml según la talla
+  // elegida en las pastillas de abajo (ver migración 0016 y TALLA_SELECCIONADA).
+  const final = p.es_decant
+    ? (precioTallaDecant(p, TALLA_SELECCIONADA) ?? 0)
+    : esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
+  const tieneDescuento = !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
+  // "estado" es un campo que el admin llena a mano y en la práctica nunca usa para el catálogo
+  // normal (ningún producto real está marcado "Agotado" hoy) -- stock_disponible es el número
+  // que sí se mantiene al día automáticamente (columna generada, ver schema.sql), así que ESE
+  // es el que manda para un producto normal. Antes esto solo miraba "estado", así que un
+  // producto con stock_disponible=0 pero estado='Disponible' (bastante común: 118 de 200
+  // productos activos hoy) mostraba el botón "Agregar al Carrito" habilitado y, peor, el
+  // selector de cantidad quedaba con max=1 desde el arranque -- el botón "+" no tenía a dónde
+  // subir y parecía roto.
+  // Un decant ya no tiene stock por unidad (sus 3 tallas comparten un mismo frasco, ver
+  // migración 0016) -- el admin lo marca Agotado a mano en vez de llevar un número exacto; si
+  // ninguna talla tiene precio cargado (dato incompleto), también se trata como agotado.
+  const agotado = p.es_decant ? (p.estado === 'Agotado' || TALLA_SELECCIONADA == null) : (p.estado === 'Agotado' || p.stock_disponible <= 0);
   const unidadMinima = esLiquidacion ? Math.max(Number(p.liquidacion_unidad_minima) || 1, 1) : 1;
+  // Sin stock exacto para decants, el máximo del selector de cantidad es un tope razonable
+  // (no infinito, para no dejar escribir 500 unidades por accidente) en vez de stock_disponible.
+  const cantidadMaxima = p.es_decant ? 20 : Math.max(p.stock_disponible, unidadMinima);
 
   // Datos estructurados Product -- lo que le permite a Google mostrar precio directo en el
   // resultado de búsqueda (rich result) en vez de solo título y descripción.
@@ -124,11 +124,11 @@ function renderDetalle(data) {
           ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
           ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
         </div>
-        ${p.es_decant && data.tamanosDecant.length > 1 ? `
+        ${p.es_decant && tallasDecant(p).length > 1 ? `
         <div class="size-selector">
           <span class="size-selector-label">Tamaño</span>
           <div class="size-options">
-            ${data.tamanosDecant.map((t) => `<a href="${SITE_ROOT}producto/?slug=${t.slug}" data-slug="${t.slug}" class="size-option${t.slug === p.slug ? ' active' : ''}">${t.mililitros}ml</a>`).join('')}
+            ${tallasDecant(p).map((t) => `<button type="button" data-talla="${t}" class="size-option${t === TALLA_SELECCIONADA ? ' active' : ''}">${t}ml</button>`).join('')}
           </div>
         </div>` : ''}
         ${esLiquidacion
@@ -139,15 +139,15 @@ function renderDetalle(data) {
 
         <div class="pd-meta-row">
           <div><strong>Concentración</strong>${escapeHtml(p.concentracion || '—')}</div>
-          <div><strong>Contenido</strong>${p.mililitros} ml</div>
+          <div><strong>Contenido</strong>${p.es_decant ? (TALLA_SELECCIONADA ?? '—') : p.mililitros} ml</div>
           <div><strong>Familia</strong>${escapeHtml(p.familia_olfativa || '—')}</div>
-          <div><strong>Disponibilidad</strong>${agotado ? 'Agotado' : `${p.stock_disponible} unidades`}</div>
+          <div><strong>Disponibilidad</strong>${p.es_decant ? (agotado ? 'Agotado' : 'Disponible') : (agotado ? 'Agotado' : `${p.stock_disponible} unidades`)}</div>
         </div>
 
         <div class="pd-actions">
           <div class="qty-selector">
             <button type="button" id="qty-menos" ${agotado ? 'disabled' : ''}>${ICONS.minus}</button>
-            <input type="number" id="qty-input" value="${unidadMinima}" min="${unidadMinima}" max="${Math.max(p.stock_disponible, unidadMinima)}" ${agotado ? 'disabled' : ''} />
+            <input type="number" id="qty-input" value="${unidadMinima}" min="${unidadMinima}" max="${cantidadMaxima}" ${agotado ? 'disabled' : ''} />
             <button type="button" id="qty-mas" ${agotado ? 'disabled' : ''}>${ICONS.plus}</button>
           </div>
           <button class="btn btn-primary" id="btn-agregar-carrito" ${agotado ? 'disabled' : ''}>${agotado ? 'Agotado' : 'Agregar al Carrito'}</button>
@@ -157,7 +157,7 @@ function renderDetalle(data) {
 
         <div class="pd-tabs-content">
           <h4>Descripción</h4>
-          <p>${escapeHtml(p.descripcion || `Fragancia importada original, disponible en presentación de ${p.mililitros} ml.`)}</p>
+          <p>${escapeHtml(p.descripcion || (p.es_decant ? `Decant de ${p.marca} ${p.nombre}, fraccionado de un frasco original.` : `Fragancia importada original, disponible en presentación de ${p.mililitros} ml.`))}</p>
           <h4>Pirámide Olfativa</h4>
           <p>${escapeHtml(p.notas_olfativas || 'Información no disponible.')}</p>
         </div>
@@ -171,14 +171,16 @@ function renderDetalle(data) {
   document.getElementById('btn-favorito').addEventListener('click', favoritoUI);
   pintarEstadoFavorito();
 
-  // El href real se deja para clic derecho/medio/abrir en pestaña nueva -- un clic normal se
-  // intercepta y cambia de tamaño in-place (ver cargarProducto) en vez de navegar de página.
+  // Cambiar de talla ya no navega a otro producto (las 3 tallas viven en la misma fila, ver
+  // migración 0016) -- solo actualiza TALLA_SELECCIONADA y vuelve a pintar con los mismos
+  // datos ya cargados, sin ningún viaje de red de por medio.
   document.querySelectorAll('.size-option').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      e.preventDefault();
-      const nuevoSlug = el.dataset.slug;
-      if (nuevoSlug && nuevoSlug !== PRODUCTO_ACTUAL.slug) cargarProducto(nuevoSlug, { actualizarHistoria: true });
+    el.addEventListener('click', () => {
+      const talla = Number(el.dataset.talla);
+      if (talla && talla !== TALLA_SELECCIONADA) {
+        TALLA_SELECCIONADA = talla;
+        renderDetalle(data);
+      }
     });
   });
 
@@ -208,7 +210,7 @@ async function agregarAlCarritoUI() {
     return;
   }
   try {
-    await agregarAlCarrito(PRODUCTO_ACTUAL.id, cantidad);
+    await agregarAlCarrito(PRODUCTO_ACTUAL.id, cantidad, PRODUCTO_ACTUAL.es_decant ? TALLA_SELECCIONADA : 0);
     animarAgregarCarrito(document.getElementById('btn-agregar-carrito'));
     mostrarToast('Producto agregado al carrito');
     actualizarEstadoSesionHeader();

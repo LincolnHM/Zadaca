@@ -123,6 +123,7 @@
         <div class="admin-page-header">
           <div><h1>Productos</h1><div class="sub">Catálogo de perfumes</div></div>
           <button class="btn btn-primary btn-sm" id="btn-nuevo-producto">+ Agregar Perfume</button>
+          <button class="btn btn-primary btn-sm" id="btn-nuevo-decant" style="display:none;">+ Agregar Decant</button>
         </div>
         <div class="admin-toolbar">
           <input type="text" id="productos-busqueda" placeholder="Buscar por nombre o marca..." />
@@ -147,6 +148,14 @@
             <option value="__sin_definir__">Sin definir</option>
           </select>
           <span class="admin-toolbar-count" id="productos-conteo"></span>
+        </div>
+        <!-- Solo se muestra con el filtro "Solo Decants" -- agrupa los decants por casa para
+             distinguirlos de un vistazo (antes salían todos mezclados). -->
+        <div class="admin-tabs" id="productos-decant-tabs" style="display:none;">
+          <button class="admin-tab active" data-casa="">Todos</button>
+          <button class="admin-tab" data-casa="Diseñador">Diseñador</button>
+          <button class="admin-tab" data-casa="Nicho">Nicho</button>
+          <button class="admin-tab" data-casa="Árabe">Árabe</button>
         </div>
         <div class="admin-card-grid" id="productos-grid"><div class="admin-empty">Cargando…</div></div>
         <div class="pagination" id="productos-paginacion"></div>
@@ -359,42 +368,37 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>Concentración</label><input type="text" name="concentracion" placeholder="Eau de Parfum..." /></div>
-          <div class="form-group"><label>Mililitros *</label><input type="number" name="mililitros" required min="1" /></div>
+          <div class="form-group campo-normal"><label>Mililitros *</label><input type="number" name="mililitros" required min="1" /></div>
         </div>
-        <div class="form-row">
+        <div class="form-row campo-normal">
           <div class="form-group"><label>Costo importación (S/)</label><input type="number" name="costo_importacion_pen" min="0" step="0.01" /></div>
           <div class="form-group"><label>Costo importación (USD)</label><input type="number" name="costo_importacion_usd" min="0" step="0.01" /></div>
         </div>
-        <div class="form-row">
+        <div class="form-row campo-normal">
           <div class="form-group"><label>Precio Tienda (S/) *</label><input type="number" name="precio_tienda_regular" required min="0.01" step="0.01" /></div>
           <div class="form-group"><label>Precio Consolidado (S/) *</label><input type="number" name="precio_consolidado_fijo" required min="0.01" step="0.01" /></div>
         </div>
-        <div class="form-row">
+        <div class="form-row campo-normal">
           <div class="form-group"><label>Descuento tienda (%)</label><input type="number" name="descuento_tienda_porcentaje" min="0" max="100" step="1" value="0" /></div>
           <div class="form-group"><label>Estado</label>
             <select name="estado"><option value="Disponible">Disponible</option><option value="Agotado">Agotado</option><option value="Bajo_Pedido">Bajo Pedido</option></select>
           </div>
         </div>
-        <div class="form-row">
+        <div class="form-row campo-normal">
           <div class="form-group"><label>Precio Liquidación (S/)</label><input type="number" name="precio_liquidacion" min="0.01" step="0.01" placeholder="Solo si es liquidación" /></div>
           <div class="form-group"><label>Unidad Mínima Liquidación</label><input type="number" name="liquidacion_unidad_minima" min="1" step="1" value="1" /></div>
         </div>
         <div class="form-group"><label>Imagen (ruta o URL)</label><input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" /></div>
         <div class="form-group"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
         <div class="form-group"><label>Notas Olfativas</label><textarea name="notas_olfativas" rows="2" placeholder="Salida: ... | Corazón: ... | Fondo: ..."></textarea></div>
-        <div class="form-row">
+        <div class="form-row campo-normal">
           <label class="filter-option"><input type="checkbox" name="es_nuevo" /> Marcar como Nuevo</label>
           <label class="filter-option"><input type="checkbox" name="es_bestseller" /> Marcar como Best Seller</label>
         </div>
-        <div class="form-row">
+        <div class="form-row campo-normal">
           <label class="filter-option"><input type="checkbox" name="es_liquidacion" /> Marcar como Liquidación (por mayor y por unidad — completa el precio y la unidad mínima de arriba)</label>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label>ID decant raíz</label><input type="number" name="id_decant_grupo" min="1" placeholder="Vacío si este ES la raíz" /></div>
-        </div>
-        <div class="form-row">
-          <label class="filter-option"><input type="checkbox" name="es_decant" /> Marcar como Decant — crea acá solo el primer tamaño (deja "ID decant raíz" vacío); para agregarle más tamaños después, usa el botón "+ Tamaño" en su tarjeta dentro de Productos → Solo Decants</label>
-        </div>
+        <p class="form-hint campo-decant" style="margin:-6px 0 4px; display:none;">Precios por talla, disponibilidad y el frasco fuente se editan desde la tarjeta del decant en Productos → Solo Decants, no acá.</p>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="btn-cancelar-producto">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
@@ -403,25 +407,45 @@
     </div>
   </div>
 
-  <!-- ── Modal: Agregar Tamaño de Decant ───────────────────── -->
-  <div class="modal-overlay" id="modal-decant-tamano">
+  <!-- ── Modal: Agregar Decant ─────────────────────────────── -->
+  <div class="modal-overlay" id="modal-decant">
     <div class="modal-box">
-      <h3>Agregar Tamaño de Decant</h3>
-      <p class="form-hint" id="decant-tamano-info" style="margin-bottom:18px;"></p>
-      <form id="form-decant-tamano">
-        <input type="hidden" name="id_raiz" />
+      <h3>Agregar Decant</h3>
+      <form id="form-decant">
         <div class="form-row">
-          <div class="form-group"><label>Mililitros *</label><input type="number" name="mililitros" required min="1" step="1" /></div>
-          <div class="form-group"><label>Stock físico</label><input type="number" name="stock_fisico" min="0" step="1" value="10" /></div>
+          <div class="form-group"><label>Nombre *</label><input type="text" name="nombre" required /></div>
+          <div class="form-group"><label>Marca *</label><input type="text" name="marca" required /></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Precio Tienda (S/) *</label><input type="number" name="precio_tienda_regular" required min="0.01" step="0.01" /></div>
-          <div class="form-group"><label>Precio Consolidado (S/) *</label><input type="number" name="precio_consolidado_fijo" required min="0.01" step="0.01" /></div>
+          <div class="form-group"><label>Género</label>
+            <select name="genero"><option value="Unisex">Unisex</option><option value="Hombre">Hombre</option><option value="Mujer">Mujer</option></select>
+          </div>
+          <div class="form-group"><label>Familia Olfativa</label><input type="text" name="familia_olfativa" /></div>
         </div>
-        <p class="form-hint" style="margin:-6px 0 4px;">Marca, género, casa, descripción, notas y foto se copian del tamaño raíz — solo edita esos datos ahí si hace falta.</p>
+        <div class="form-row">
+          <div class="form-group"><label>Tipo de Casa</label>
+            <select name="tipo_casa">
+              <option value="">Sin definir</option>
+              <option value="Árabe">Árabe</option>
+              <option value="Diseñador">Diseñador</option>
+              <option value="Nicho">Nicho</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Concentración</label><input type="text" name="concentracion" placeholder="Eau de Parfum..." /></div>
+        </div>
+        <p class="form-hint" style="margin:-6px 0 4px;">Precio por talla (S/) — deja vacía la que no se venda. Al menos una es obligatoria.</p>
+        <div class="form-row-3">
+          <div class="form-group"><label>3ml</label><input type="number" name="precio_3ml" min="0.01" step="0.01" /></div>
+          <div class="form-group"><label>5ml</label><input type="number" name="precio_5ml" min="0.01" step="0.01" /></div>
+          <div class="form-group"><label>10ml</label><input type="number" name="precio_10ml" min="0.01" step="0.01" /></div>
+        </div>
+        <div class="form-group"><label>Total frasco (ml)</label><input type="number" name="mililitros" min="1" step="1" value="100" required /></div>
+        <div class="form-group"><label>Imagen (ruta o URL)</label><input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" /></div>
+        <div class="form-group"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
+        <div class="form-group"><label>Notas Olfativas</label><textarea name="notas_olfativas" rows="2" placeholder="Salida: ... | Corazón: ... | Fondo: ..."></textarea></div>
         <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="btn-cancelar-decant-tamano">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Agregar Tamaño</button>
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-decant">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Agregar Decant</button>
         </div>
       </form>
     </div>
