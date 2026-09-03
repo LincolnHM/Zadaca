@@ -1010,6 +1010,70 @@ function conectarEventosPedidos() {
   });
 }
 
+// Comprobante para armar el paquete al despachar -- ventana aparte con su propio HTML/CSS
+// mínimo (no depende de admin.css, así no arrastra el layout ni el sidebar del panel) que se
+// manda a imprimir apenas termina de cargar.
+function imprimirPedido(p) {
+  const dir = p.direccion;
+  const ventana = window.open('', '_blank');
+  if (!ventana) { mostrarToast('El navegador bloqueó la ventana de impresión -- habilítala para este sitio', 'error'); return; }
+  const direccionCompleta = dir
+    ? [dir.direccion_detalle, dir.ubigeo?.distrito, dir.ubigeo?.provincia, dir.ubigeo?.departamento].filter(Boolean).join(', ')
+    : 'Sin dirección registrada';
+  ventana.document.write(`
+    <!doctype html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Pedido #${p.id} — Maison Zadaca</title>
+      <style>
+        body { font-family: Arial, sans-serif; color: #1a1a1a; padding: 32px; max-width: 640px; margin: 0 auto; }
+        h1 { font-size: 1.3rem; margin: 0 0 4px; }
+        .sub { color: #666; font-size: 0.85rem; margin-bottom: 20px; }
+        .bloque { margin-bottom: 18px; }
+        .bloque h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #7a2030; margin: 0 0 6px; }
+        .bloque p { margin: 2px 0; font-size: 0.92rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        th, td { text-align: left; padding: 8px 4px; border-bottom: 1px solid #ddd; font-size: 0.9rem; }
+        th:last-child, td:last-child { text-align: right; }
+        tfoot td { font-weight: 700; border-bottom: none; padding-top: 10px; }
+        @media print { body { padding: 0; } }
+      </style>
+    </head>
+    <body>
+      <h1>Maison Zadaca — Pedido #${p.id}</h1>
+      <div class="sub">${new Date(p.fecha_creacion).toLocaleDateString('es-PE')}${p.campana ? ` &middot; Consolidado: ${escapeHtml(p.campana)}` : ''}</div>
+
+      <div class="bloque">
+        <h2>Cliente</h2>
+        <p>${escapeHtml(p.cliente)}</p>
+        <p>${escapeHtml(p.telefono_cliente || '—')}</p>
+        ${dir?.nombre_receptor ? `<p>Recibe: ${escapeHtml(dir.nombre_receptor)}</p>` : ''}
+      </div>
+
+      <div class="bloque">
+        <h2>Entrega</h2>
+        <p>${escapeHtml(direccionCompleta)}</p>
+        <p>${escapeHtml((dir?.tipo_despacho || '').replace(/_/g, ' '))}${dir?.agencia_nombre ? ` — ${escapeHtml(dir.agencia_nombre)}` : ''}</p>
+      </div>
+
+      <div class="bloque">
+        <h2>Productos</h2>
+        <table>
+          <thead><tr><th>Cant.</th><th>Producto</th><th>Subtotal</th></tr></thead>
+          <tbody>
+            ${p.items.map((i) => `<tr><td>${i.cantidad}</td><td>${escapeHtml(i.marca)} — ${escapeHtml(i.nombre)}${i.es_decant ? ` (${i.talla_ml}ml)` : ''}</td><td>${formatoMoneda(i.subtotal)}</td></tr>`).join('')}
+          </tbody>
+          <tfoot><tr><td colspan="2">Total</td><td>${formatoMoneda(p.monto_total)}</td></tr></tfoot>
+        </table>
+      </div>
+    </body>
+    </html>
+  `);
+  ventana.document.close();
+  ventana.onload = () => ventana.print();
+}
+
 async function abrirDetallePedido(id) {
   const mount = document.getElementById('modal-pedido-contenido');
   mount.innerHTML = '<div class="admin-empty">Cargando…</div>';
@@ -1042,6 +1106,7 @@ async function abrirDetallePedido(id) {
         <div class="form-group"><label>N° de guía</label><input type="text" id="det-numero-guia" value="${escapeHtml(p.envio?.numero_guia_seguimiento || '')}" /></div>
       </div>
       <button class="btn btn-outline btn-sm" id="btn-guardar-envio">Guardar Envío</button>
+      <button class="btn btn-ghost btn-sm" id="btn-imprimir-pedido">Imprimir</button>
 
       <strong style="display:block; margin-top:24px; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--color-gold);">Pagos — el comprobante se coordina por WhatsApp, esto solo registra lo ya confirmado</strong>
       <div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:8px 0; margin-bottom:6px;">
@@ -1093,6 +1158,8 @@ async function abrirDetallePedido(id) {
       }
     });
 
+    document.getElementById('btn-imprimir-pedido').addEventListener('click', () => imprimirPedido(p));
+
     mount.querySelectorAll('.btn-anular-pago').forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('¿Anular este pago? Se descuenta del total pagado del pedido.')) return;
@@ -1134,6 +1201,36 @@ const ESTADOS_CONSOLIDADO_LABEL = {
   Borrador: 'Borrador', Abierto: 'Abierto', Cerrado_Procesando: 'Cerrado — Procesando', Comprado_En_Transito: 'En tránsito',
   En_Aduanas: 'En aduanas', En_Almacen_Local: 'En almacén local', Finalizado: 'Finalizado', Cancelado: 'Cancelado',
 };
+
+// Agrupa reservas (de una campaña o de todas) por producto y suma cantidad -- para saber de un
+// vistazo cuántas unidades de CADA perfume hay que encargar, en vez de sumarlas a mano fila por
+// fila. Excluye 'Cancelado' -- todo lo demás (incluida Pendiente_Aprobacion) sí representa
+// demanda real a comprar.
+function resumenReservasPorProducto(reservas) {
+  const porProducto = new Map();
+  for (const r of reservas) {
+    if (r.estado_item === 'Cancelado') continue;
+    // r.producto ya viene armado así en obtenerTodasLasReservasAdmin; en
+    // obtenerReservasDeConsolidadoAdmin (una sola campaña) hay que armarlo acá porque esa
+    // trae marca/nombre sueltos (ver admin-api.js).
+    const clave = r.producto || `${r.marca} — ${r.nombre}`;
+    porProducto.set(clave, (porProducto.get(clave) || 0) + r.cantidad);
+  }
+  return [...porProducto.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function htmlResumenReservasPorProducto(reservas) {
+  const resumen = resumenReservasPorProducto(reservas);
+  if (!resumen.length) return '';
+  return `
+    <div style="background:var(--color-bg); border:1px solid var(--color-border); border-radius:var(--radius); padding:12px 14px; margin-bottom:14px;">
+      <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--color-gold);">Cuánto pedir de cada perfume</span>
+      <div style="display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:8px;">
+        ${resumen.map(([producto, cantidad]) => `<span style="font-size:0.82rem; color:var(--color-text-muted);">${escapeHtml(producto)} <strong style="color:var(--color-text);">&times;${cantidad}</strong></span>`).join('')}
+      </div>
+    </div>
+  `;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-nuevo-consolidado')?.addEventListener('click', () => abrirModalConsolidado());
@@ -1196,6 +1293,7 @@ function tarjetaConsolidadoAdmin(c) {
             ${ESTADOS_CONSOLIDADO.map((e) => `<option value="${e}" ${c.estado === e ? 'selected' : ''}>${ESTADOS_CONSOLIDADO_LABEL[e]}</option>`).join('')}
           </select>
           <button class="btn btn-ghost btn-sm btn-editar-consolidado">Editar</button>
+          <button class="btn btn-danger btn-sm btn-eliminar-consolidado">Eliminar</button>
         </div>
       </div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -1232,6 +1330,20 @@ function conectarEventosConsolidados(consolidados) {
     });
   });
 
+  document.querySelectorAll('#consolidados-lista .btn-eliminar-consolidado').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = Number(btn.closest('.campaign-detail-card').dataset.id);
+      if (!confirm('¿Eliminar esta campaña de consolidado? Esta acción no se puede deshacer.')) return;
+      try {
+        await eliminarConsolidadoAdmin(id);
+        mostrarToast('Campaña eliminada');
+        cargarConsolidados();
+      } catch (err) {
+        mostrarToast(err.message, 'error');
+      }
+    });
+  });
+
   document.querySelectorAll('#consolidados-lista .btn-ver-reservas').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const card = btn.closest('.campaign-detail-card');
@@ -1244,6 +1356,7 @@ function conectarEventosConsolidados(consolidados) {
         const reservas = await obtenerReservasDeConsolidadoAdmin(Number(card.dataset.id));
         const codigoCampana = consolidados.find((c) => c.id === Number(card.dataset.id))?.codigo_campana || '';
         panel.innerHTML = reservas.length ? `
+          ${htmlResumenReservasPorProducto(reservas)}
           <div class="admin-table-wrap"><table class="data-table">
             <thead><tr><th>Cliente</th><th>Producto</th><th>Cant.</th><th>Precio</th><th>Estado</th><th></th></tr></thead>
             <tbody>
@@ -1500,6 +1613,7 @@ async function cargarTodasLasReservas() {
   const busqueda = document.getElementById('reservas-busqueda').value;
   try {
     const reservas = await obtenerTodasLasReservasAdmin({ busqueda });
+    document.getElementById('reservas-resumen-producto').innerHTML = htmlResumenReservasPorProducto(reservas);
     tbody.innerHTML = reservas.length ? reservas.map((r) => {
       const mensaje = `Hola ${primerNombre(r.cliente)}! Confirmamos tu reserva en la campaña ${r.campana || ''}: ${r.cantidad} x ${r.producto} a ${formatoMoneda(r.precio_consolidado_aplicado)} c/u (total ${formatoMoneda(r.cantidad * r.precio_consolidado_aplicado)}). Te avisamos apenas cierre la campaña para coordinar el pago.`;
       const enlaceWa = enlaceWhatsappCliente(r.telefono_cliente, mensaje);
@@ -1820,6 +1934,16 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// Mensaje pre-armado para responder por WhatsApp -- mismo patrón que mensajeNotificacionPago:
+// retoma lo que pidió (marca, nombre, concentración/ml si los dejó) para no obligar al admin a
+// volver a mirar la fila antes de escribir.
+function mensajeRespuestaCotizacion(c) {
+  const nombre = primerNombre(c.cliente);
+  const saludo = nombre && nombre !== '—' ? `Hola ${nombre}!` : 'Hola!';
+  const detalle = [c.concentracion, c.mililitros ? `${c.mililitros}ml` : null].filter(Boolean).join(', ');
+  return `${saludo} Te escribimos por tu cotización de ${c.marca_solicitada} — ${c.nombre_perfume_solicitado}${detalle ? ` (${detalle})` : ''}.`;
+}
+
 async function cargarCotizaciones() {
   const mount = document.getElementById('cotizaciones-lista');
   try {
@@ -1828,18 +1952,22 @@ async function cargarCotizaciones() {
       <div class="admin-table-wrap"><table class="data-table">
         <thead><tr><th>Cliente</th><th>Perfume Solicitado</th><th>Marca</th><th>Estado</th><th></th></tr></thead>
         <tbody>
-          ${cotizaciones.map((c) => `
+          ${cotizaciones.map((c) => {
+            const enlaceWa = enlaceWhatsappCliente(c.telefono_cliente, mensajeRespuestaCotizacion(c));
+            return `
             <tr data-id="${c.id}">
               <td>${escapeHtml(c.cliente)}<br><span style="font-size:0.72rem; color:var(--color-text-faint);">${escapeHtml(c.correo_cliente || '')}</span></td>
               <td>${escapeHtml(c.nombre_perfume_solicitado)}${c.mililitros ? ` (${c.mililitros}ml)` : ''}</td>
               <td>${escapeHtml(c.marca_solicitada)}</td>
               <td><span class="status-tag">${escapeHtml(c.estado)}</span></td>
               <td>
+                ${enlaceWa ? `<a class="btn btn-whatsapp btn-sm" href="${enlaceWa}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
                 <button class="btn btn-outline btn-sm btn-responder-cotizacion">Responder</button>
                 ${c.estado !== 'Convertido_A_Producto' ? '<button class="btn btn-ghost btn-sm btn-convertir-cotizacion">Convertir a Producto</button>' : ''}
               </td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table></div>
     ` : '<div class="admin-empty">No hay cotizaciones.</div>';

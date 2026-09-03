@@ -320,7 +320,7 @@ async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo
 async function obtenerDetallePedidoAdmin(id) {
   const { data: pedido, error } = await supabaseClient
     .from('pedidos')
-    .select('*, perfiles(nombres, apellidos, correo, telefono), envios(*), direcciones_cliente(direccion_detalle, etiqueta, tipo_despacho, agencia_nombre, ubigeo(departamento, provincia, distrito)), consolidados(codigo_campana)')
+    .select('*, perfiles(nombres, apellidos, correo, telefono), envios(*), direcciones_cliente(direccion_detalle, etiqueta, tipo_despacho, agencia_nombre, nombre_receptor, ubigeo(departamento, provincia, distrito)), consolidados(codigo_campana)')
     .eq('id', id)
     .single();
   if (error) throw new Error('Pedido no encontrado');
@@ -387,6 +387,21 @@ async function crearConsolidadoAdmin(data) {
 async function actualizarConsolidadoAdmin(id, data) {
   const { error } = await supabaseClient.from('consolidados').update(data).eq('id', id);
   if (error) throw new Error(error.message);
+}
+
+// detalle_consolidado.id_consolidado y pedidos.id_consolidado_asociado referencian a
+// consolidados sin "on delete cascade" a propósito -- si la campaña ya tiene reservas o
+// pedidos generados, Postgres rechaza el delete (código 23503) en vez de arrastrarse todo el
+// historial. Acá se traduce ese error a algo que el admin entienda, en vez del mensaje crudo
+// de Postgres.
+async function eliminarConsolidadoAdmin(id) {
+  const { error } = await supabaseClient.from('consolidados').delete().eq('id', id);
+  if (error) {
+    if (error.code === '23503') {
+      throw new Error('No se puede eliminar: esta campaña ya tiene reservas o pedidos generados. Cámbiale el estado a Cancelado en vez de eliminarla.');
+    }
+    throw new Error(error.message);
+  }
 }
 
 async function cambiarEstadoConsolidado(id, nuevoEstado, descripcionPublica) {
@@ -648,7 +663,16 @@ async function obtenerCotizacionesAdmin({ estado } = {}) {
   if (estado) query = query.eq('estado', estado);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return data.map((c) => ({ ...c, cliente: c.perfiles ? `${c.perfiles.nombres} ${c.perfiles.apellidos}` : '—', correo_cliente: c.perfiles?.correo, telefono_cliente: c.perfiles?.telefono }));
+  // telefono_contacto es el que deja un invitado sin cuenta (el caso más común acá) --
+  // perfiles.telefono solo existe si cotizó con sesión iniciada. Se prioriza el de la cuenta
+  // por si el invitado dejó un teléfono viejo al registrarse después, pero casi siempre es el
+  // mismo dato viniendo de un solo lado.
+  return data.map((c) => ({
+    ...c,
+    cliente: c.perfiles ? `${c.perfiles.nombres} ${c.perfiles.apellidos}` : (c.nombre_contacto || '—'),
+    correo_cliente: c.perfiles?.correo || c.correo_contacto,
+    telefono_cliente: c.perfiles?.telefono || c.telefono_contacto,
+  }));
 }
 
 async function responderCotizacionAdmin(id, cambios) {
