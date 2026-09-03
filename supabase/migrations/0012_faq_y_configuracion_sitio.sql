@@ -48,7 +48,7 @@ insert into preguntas_frecuentes (pregunta, respuesta, orden) values
 ('¿Cuánto tarda en llegar un consolidado?', 'De {{envio_dias}} días después de que la campaña cierra (los cierres son todos los {{dia_cierre}}). Puedes seguir el estado de tu reserva desde "Mi cuenta".', 5),
 ('¿Puedo comprar por mayor?', 'Sí. En Liquidaciones cada producto tiene su propia cantidad mínima (desde 1 unidad hasta packs de 2 o 6), y en Consolidado puedes reservar más unidades para acceder a mejores precios por volumen.', 6),
 ('¿Los perfumes son 100% originales?', 'Sí, todo nuestro catálogo es original importado — no vendemos réplicas ni clones.', 7),
-('¿Puedo cambiar o devolver mi pedido?', 'Los decants no admiten cambio ni devolución por tratarse de fracciones ya manipuladas (razones de higiene). Para perfumes sellados con defecto de fábrica, tienes 48 horas desde la entrega para reportarlo. Revisa el detalle completo en <a href="https://lincolnhm.github.io/Zadaca/cambios-y-devoluciones/">Cambios y Devoluciones</a>.', 8);
+('¿Puedo cambiar o devolver mi pedido?', 'Los decants no admiten cambio ni devolución por tratarse de fracciones ya manipuladas (razones de higiene). Para perfumes sellados con defecto de fábrica, tienes 48 horas desde la entrega para reportarlo. Revisa el detalle completo en <a href="https://madisonzadaca.com/cambios-y-devoluciones/">Cambios y Devoluciones</a>.', 8);
 
 /* ---------- Configuración del sitio (una sola fila, editable desde admin) ---------- */
 

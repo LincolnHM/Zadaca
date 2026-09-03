@@ -9,7 +9,7 @@ Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MIC
 ```
 MAISON ZADACA WEB/
 ├── index.html, catalogo.html, producto.html, consolidados.html, ...
-├── robots.txt, sitemap.xml       <- SEO (reemplaza TU-DOMINIO antes de publicar)
+├── robots.txt, sitemap.xml       <- SEO (ya apuntan a https://madisonzadaca.com/)
 ├── assets/
 │   ├── css/style.css
 │   ├── js/
@@ -231,20 +231,29 @@ no de lo agregado esta ronda — vale la pena que los conozcas:
 
 ## SEO
 
-`robots.txt` y `sitemap.xml` están listos pero con `https://TU-DOMINIO` como placeholder en
-vez de una URL real — cámbialo por tu dominio de GitHub Pages o el propio antes de publicar
-(un sitemap con URLs que no resuelven no le sirve a Google). Lo mismo aplica a los tags
-`canonical`/`og:url` en el `<head>` de cada página, que hoy son rutas relativas. El catálogo
-(`producto.html?slug=...`) no está en el sitemap: son páginas que arma el navegador leyendo
-Supabase en el momento, no archivos fijos — cada una ya trae su propio `<title>`,
+El sitio ya está publicado en `https://madisonzadaca.com/` y todo lo estático está
+listo para indexar: `robots.txt` permite el rastreo salvo `/admin/`, `/cuenta/` y `/carrito/`
+y apunta al `sitemap.xml`; cada página fija (`index`, `catalogo`, `catalogo-consolidado`,
+`consolidados`, `liquidaciones`, `decants`, `contacto`, `terminos-condiciones`,
+`politica-privacidad`, `cambios-y-devoluciones`) trae `<title>`, meta `description`,
+`canonical`, Open Graph/Twitter y JSON-LD (`Store` en el home) con URLs absolutas; las
+páginas privadas (`cuenta`, `carrito`, `admin`, `consolidado/?id=...`) llevan
+`<meta name="robots" content="noindex">`; y las nueve páginas fijas están listadas en
+`sitemap.xml`.
+
+El catálogo (`producto/?slug=...`) no está en el sitemap: son páginas que arma el navegador
+leyendo Supabase en el momento, no archivos fijos — cada una ya trae su propio `<title>`,
 descripción y `og:image` dinámicos (buenos para cuando se comparte un link puntual), pero
 listarlas todas en el sitemap requeriría un script en el deploy que las genere leyendo la
-tabla `perfumes`, no algo que se pueda dejar hardcodeado.
+tabla `perfumes`, no algo que se pueda dejar hardcodeado. Como usan contenido cargado por
+JavaScript, Google las puede indexar (Googlebot renderiza JS) pero con más demora que una
+página estática — no hay forma de evitar eso sin generar HTML por producto en el deploy.
 
-Indexar de verdad (que Google efectivamente rastree y muestre el sitio) requiere que esté
-publicado en una URL real y que lo des de alta en
-[Google Search Console](https://search.google.com/search-console) — eso es un paso que solo
-puedes hacer tú, ya con el sitio en línea.
+Lo único que falta y que **solo tú puedes hacer** (requiere tu cuenta de Google): dar de alta
+el sitio en [Google Search Console](https://search.google.com/search-console), verificar la
+propiedad `https://madisonzadaca.com/` y enviar `sitemap.xml` desde ahí. Sin ese
+paso, Google puede tardar semanas en encontrar el sitio por su cuenta; con el sitemap
+enviado, el rastreo inicial suele tardar entre unos días y un par de semanas.
 
 ## Pendiente / notas importantes
 
@@ -255,6 +264,5 @@ puedes hacer tú, ya con el sitio en línea.
   configurado — confirma que sea el número real del negocio antes de publicar.
 - **Correo de contacto**: actualiza `contacto@maisonzadaca.com` en `contacto.html` y `main.js` por el correo real.
 - **Despliega `cotizacion-publica`** (ver `supabase/OPERACIONES.md`) para que el límite de solicitudes por IP sea real y no solo del navegador.
-- **Reemplaza `TU-DOMINIO`** en `robots.txt`, `sitemap.xml` y en los `<link rel="canonical">`/`og:url` del `<head>` de cada página, por tu URL real una vez publicado.
 - No hay pasarela de tarjeta (Culqi/Niubiz/MercadoPago) — los pagos van por Yape/Plin/transferencia coordinados por WhatsApp y registrados a mano por el admin.
 - El correo de notificaciones (`notify-email`) es opcional y necesita tu propia cuenta de Resend — sin eso, las notificaciones solo se ven en la web.

@@ -12,45 +12,63 @@
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://lincolnhm.github.io/Zadaca/</loc>
+    <loc>https://madisonzadaca.com/</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://lincolnhm.github.io/Zadaca/catalogo/</loc>
+    <loc>https://madisonzadaca.com/catalogo/</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://lincolnhm.github.io/Zadaca/catalogo-consolidado/</loc>
+    <loc>https://madisonzadaca.com/catalogo-consolidado/</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://lincolnhm.github.io/Zadaca/consolidados/</loc>
+    <loc>https://madisonzadaca.com/consolidados/</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://lincolnhm.github.io/Zadaca/liquidaciones/</loc>
+    <loc>https://madisonzadaca.com/liquidaciones/</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lincolnhm.github.io/Zadaca/decants/</loc>
+    <loc>https://madisonzadaca.com/decants/</loc>
     <lastmod>2026-08-25</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://lincolnhm.github.io/Zadaca/contacto/</loc>
+    <loc>https://madisonzadaca.com/contacto/</loc>
     <lastmod>2026-08-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://madisonzadaca.com/terminos-condiciones/</loc>
+    <lastmod>2026-09-02</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://madisonzadaca.com/politica-privacidad/</loc>
+    <lastmod>2026-09-02</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://madisonzadaca.com/cambios-y-devoluciones/</loc>
+    <lastmod>2026-09-02</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

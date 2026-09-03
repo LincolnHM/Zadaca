@@ -4,4 +4,4 @@ Disallow: /admin/
 Disallow: /cuenta/
 Disallow: /carrito/
 
-Sitemap: https://lincolnhm.github.io/Zadaca/sitemap.xml
+Sitemap: https://madisonzadaca.com/sitemap.xml

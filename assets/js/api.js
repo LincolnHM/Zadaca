@@ -6,7 +6,7 @@ const WHATSAPP_NUMERO = '51990278017';
 // navegación interna generada por JS, y también para resolver imágenes con ruta relativa que
 // vienen de la base de datos (columna imagen_url, ej. "assets/img/perfumes/x.jpg") y las URLs
 // de notificaciones (columna url_destino, ver supabase/migrations/0009_urls_limpias.sql).
-const SITE_ROOT = 'https://lincolnhm.github.io/Zadaca/';
+const SITE_ROOT = 'https://madisonzadaca.com/';
 
 /* ---------------- Sesión ---------------- */
 
