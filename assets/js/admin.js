@@ -697,6 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
       imagen_url: data.imagen_url || null,
       descripcion: data.descripcion || null,
       notas_olfativas: data.notas_olfativas || null,
+      inspirado_en: data.inspirado_en || null,
       mililitros: Number(data.mililitros) || 100,
       precio_3ml,
       precio_5ml,

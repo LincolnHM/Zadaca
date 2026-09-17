@@ -124,6 +124,7 @@ function renderDetalle(data) {
           ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
           ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
         </div>
+        ${p.inspirado_en ? `<div class="pd-inspired">${ICONS.check}<span>Inspirado en <strong>${escapeHtml(p.inspirado_en)}</strong></span></div>` : ''}
         ${p.es_decant && tallasDecant(p).length > 1 ? `
         <div class="size-selector">
           <span class="size-selector-label">Tamaño</span>
@@ -155,11 +156,17 @@ function renderDetalle(data) {
           <a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera consultar sobre ${p.marca} ${p.nombre}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Consultar</a>
         </div>
 
+        <div class="trust-row">
+          <div class="trust-item"><span>${ICONS.shield}</span>100% Original — nunca réplicas ni clones</div>
+          ${p.es_decant ? `<div class="trust-item"><span>${ICONS.box}</span>Decantado por nosotros al momento del pedido</div>` : ''}
+          <div class="trust-item"><span>${ICONS.truck}</span>Envíos a todo el Perú</div>
+        </div>
+
         <div class="pd-tabs-content">
           <h4>Descripción</h4>
           <p>${escapeHtml(p.descripcion || (p.es_decant ? `Decant de ${p.marca} ${p.nombre}, fraccionado de un frasco original.` : `Fragancia importada original, disponible en presentación de ${p.mililitros} ml.`))}</p>
-          <h4>Pirámide Olfativa</h4>
-          <p>${escapeHtml(p.notas_olfativas || 'Información no disponible.')}</p>
+          <h4>Notas Olfativas</h4>
+          ${renderNotasOlfativas(p.notas_olfativas)}
         </div>
       </div>
     </div>
@@ -188,6 +195,19 @@ function renderDetalle(data) {
     document.getElementById('relacionados-section').style.display = '';
     document.getElementById('grid-relacionados').innerHTML = data.relacionados.map(tarjetaProducto).join('');
   }
+}
+
+// El catálogo PDF trae los acordes como una lista plana ("Ámbar, Cálido, Dulce, Aromático"),
+// que acá se pinta como pills de solo lectura -- pero una ficha cargada a mano hace tiempo
+// pudo haber usado el formato viejo "Salida: ... | Corazón: ... | Fondo: ..." (así lo pide
+// todavía el placeholder del panel admin), así que ese caso se deja como párrafo simple en vez
+// de partirlo en pills sin sentido por las comas de adentro de cada sección.
+function renderNotasOlfativas(notas) {
+  if (!notas) return '<p>Información no disponible.</p>';
+  if (notas.includes('|')) return `<p>${escapeHtml(notas)}</p>`;
+  const acordes = notas.split(',').map((n) => n.trim()).filter(Boolean);
+  if (!acordes.length) return '<p>Información no disponible.</p>';
+  return `<div class="note-pills">${acordes.map((n) => `<span class="pill-note">${escapeHtml(n)}</span>`).join('')}</div>`;
 }
 
 function ajustarCantidad(delta) {

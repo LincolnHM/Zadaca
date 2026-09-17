@@ -108,7 +108,7 @@ function escaparFiltroSupabase(texto) {
 // precio_3ml/5ml/10ml: solo decants (ver migración 0016), null = esa talla no se vende. A
 // propósito NO incluye mililitros_restantes -- es un gauge interno del admin (cuánto queda del
 // frasco fuente), nunca se muestra al cliente, mismo criterio que costo_importacion_pen/usd.
-const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa, es_decant, id_decant_grupo, precio_3ml, precio_5ml, precio_10ml';
+const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, inspirado_en, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa, es_decant, id_decant_grupo, precio_3ml, precio_5ml, precio_10ml';
 
 // soloConStock=true es el catálogo de TIENDA FÍSICA: solo perfumes con stock_fisico > 0 (lo
 // que el admin cargó en "Stock físico" por producto). Usa !inner para forzar el join con
