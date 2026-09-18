@@ -1,0 +1,24 @@
+-- ==========================================================
+-- Foto para "Valentino Uomo Born In Roma Intense" (decant)
+--
+-- Revisé la carpeta "perfumes decants/" que dejaste con 16 fotos: 15 de
+-- esas 16 YA estaban asignadas a su producto activo correspondiente
+-- (Creed Aventus, Chanel Bleu de Chanel, Dior Sauvage, Versace Eros Flame,
+-- Dior Homme Intense, Paco Rabanne Invictus/Invictus Victory Elixir, Jean
+-- Paul Gaultier Le Beau Le Parfum/Le Male Elixir/Le Male Le Parfum,
+-- Azzaro The Most Wanted, Giorgio Armani Acqua Di Gio Profondo, Xerjoff
+-- Erba Pura, Valentino Born In Roma Extradosis) -- no había nada que
+-- hacer ahí, ya se veían bien en el sitio.
+--
+-- La única realmente sin foto era esta: id=526, el decant nuevo de
+-- "Valentino Uomo Born In Roma Intense" que se creó con el catálogo del
+-- PDF (ver actualizar_catalogo_pdf_sep2026.sql) -- ese producto no existía
+-- antes, así que nunca tuvo imagen. "valentino_intense.png" de la carpeta
+-- es justo esa botella (verificado visualmente) y no estaba usada en
+-- ningún otro producto todavía. Ya copiada a
+-- assets/img/perfumes/valentino-uomo-born-in-roma-intense-decant.png.
+--
+-- Ejecutar en el SQL Editor de Supabase.
+-- ==========================================================
+
+update perfumes set imagen_url = 'assets/img/perfumes/valentino-uomo-born-in-roma-intense-decant.png' where id = 526;
