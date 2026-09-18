@@ -803,8 +803,12 @@ function tarjetaProducto(p) {
 // importa bajo pedido, no depende del stock físico) y una nota de "unidad mínima" en vez de
 // las badges de tienda.
 function tarjetaProductoConsolidado(p) {
+  // "&origen=consolidado" le dice a producto.js que muestre el precio de consolidado (no el
+  // de tienda) como principal -- ver modoConsolidado en producto.js. Antes este link era
+  // idéntico al de una tarjeta de tienda normal, así que el precio de consolidado que se veía
+  // acá en la grilla cambiaba al de tienda apenas se hacía click en la tarjeta.
   return `
-    <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="product-card">
+    <a href="${SITE_ROOT}producto/?slug=${p.slug}&origen=consolidado" class="product-card">
       <div class="product-media">
         ${imagenProducto(p)}
         <div class="product-badges">

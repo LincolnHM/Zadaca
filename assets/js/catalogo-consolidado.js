@@ -168,7 +168,7 @@ function renderSugerencias(lista, texto) {
       ? `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
       : `<span class="fallback-icon">${ICONS.box}</span>`;
     return `
-      <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="search-suggest-item">
+      <a href="${SITE_ROOT}producto/?slug=${p.slug}&origen=consolidado" class="search-suggest-item">
         ${miniatura}
         <span class="ss-info">
           <span class="ss-marca">${escapeHtml(p.marca)}</span>

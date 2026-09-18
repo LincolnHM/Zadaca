@@ -69,12 +69,20 @@ function renderDetalle(data) {
   document.getElementById('crumb-nombre').textContent = p.nombre;
 
   const esLiquidacion = !!p.es_liquidacion;
+  // Llegar acá desde una tarjeta del catálogo de consolidado (ver tarjetaProductoConsolidado
+  // en main.js, que agrega "&origen=consolidado" al link) no debe mostrar el precio de tienda
+  // como si fuera lo mismo -- antes esta ficha era una sola, siempre con precio/CTA de tienda,
+  // así que un producto marcado "Consolidado" en la grilla cambiaba de precio apenas se le
+  // hacía click. Los decants y liquidaciones no se venden por consolidado (ver
+  // obtenerProductosConsolidado en api.js), así que el modo solo aplica a un producto normal.
+  const modoConsolidado = new URLSearchParams(window.location.search).get('origen') === 'consolidado' && !p.es_decant && !esLiquidacion;
   // Un decant ya no tiene un único precio de fila: sale de precio_3ml/5ml/10ml según la talla
   // elegida en las pastillas de abajo (ver migración 0016 y TALLA_SELECCIONADA).
   const final = p.es_decant
     ? (precioTallaDecant(p, TALLA_SELECCIONADA) ?? 0)
+    : modoConsolidado ? Number(p.precio_consolidado_fijo)
     : esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
-  const tieneDescuento = !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
+  const tieneDescuento = !modoConsolidado && !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
   // "estado" es un campo que el admin llena a mano y en la práctica nunca usa para el catálogo
   // normal (ningún producto real está marcado "Agotado" hoy) -- stock_disponible es el número
   // que sí se mantiene al día automáticamente (columna generada, ver schema.sql), así que ESE
@@ -86,7 +94,10 @@ function renderDetalle(data) {
   // Un decant ya no tiene stock por unidad (sus 3 tallas comparten un mismo frasco, ver
   // migración 0016) -- el admin lo marca Agotado a mano en vez de llevar un número exacto; si
   // ninguna talla tiene precio cargado (dato incompleto), también se trata como agotado.
-  const agotado = p.es_decant ? (p.estado === 'Agotado' || TALLA_SELECCIONADA == null) : (p.estado === 'Agotado' || p.stock_disponible <= 0);
+  // Un consolidado se importa bajo pedido y no depende del stock físico actual (ver
+  // obtenerProductosConsolidado en api.js) -- "agotado" ahí no tiene sentido, la campaña
+  // manda, no el stock de tienda.
+  const agotado = modoConsolidado ? false : p.es_decant ? (p.estado === 'Agotado' || TALLA_SELECCIONADA == null) : (p.estado === 'Agotado' || p.stock_disponible <= 0);
   const unidadMinima = esLiquidacion ? Math.max(Number(p.liquidacion_unidad_minima) || 1, 1) : 1;
   // Sin stock exacto para decants, el máximo del selector de cantidad es un tope razonable
   // (no infinito, para no dejar escribir 500 unidades por accidente) en vez de stock_disponible.
@@ -123,6 +134,7 @@ function renderDetalle(data) {
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
           ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
           ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
+          ${modoConsolidado ? '<span class="badge badge-consolidado">Consolidado</span>' : ''}
         </div>
         ${p.inspirado_en ? `<div class="pd-inspired">${ICONS.check}<span>Inspirado en <strong>${escapeHtml(p.inspirado_en)}</strong></span></div>` : ''}
         ${p.es_decant && tallasDecant(p).length > 1 ? `
@@ -132,26 +144,32 @@ function renderDetalle(data) {
             ${tallasDecant(p).map((t) => `<button type="button" data-talla="${t}" class="size-option${t === TALLA_SELECCIONADA ? ' active' : ''}">${t}ml</button>`).join('')}
           </div>
         </div>` : ''}
-        ${esLiquidacion
-          ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
-          : p.es_decant
-            ? ''
-            : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="${SITE_ROOT}consolidados/" class="link-arrow">ver campañas activas</a></div>`}
+        ${modoConsolidado
+          ? `<div class="pd-consolidado-note">Reserva de consolidado — se importa bajo pedido junto con el resto de clientes de la campaña, no depende del stock actual. Precio de tienda (stock inmediato): <strong>${formatoMoneda(precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje))}</strong> — <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="link-arrow">ver ficha de tienda</a></div>`
+          : esLiquidacion
+            ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
+            : p.es_decant
+              ? ''
+              : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="${SITE_ROOT}producto/?slug=${p.slug}&origen=consolidado" class="link-arrow">ver precio de consolidado</a></div>`}
 
         <div class="pd-meta-row">
           <div><strong>Concentración</strong>${escapeHtml(p.concentracion || '—')}</div>
           <div><strong>Contenido</strong>${p.es_decant ? (TALLA_SELECCIONADA ?? '—') : p.mililitros} ml</div>
           <div><strong>Familia</strong>${escapeHtml(p.familia_olfativa || '—')}</div>
-          <div><strong>Disponibilidad</strong>${p.es_decant ? (agotado ? 'Agotado' : 'Disponible') : (agotado ? 'Agotado' : `${p.stock_disponible} unidades`)}</div>
+          <div><strong>Disponibilidad</strong>${modoConsolidado ? 'Bajo pedido (consolidado)' : p.es_decant ? (agotado ? 'Agotado' : 'Disponible') : (agotado ? 'Agotado' : `${p.stock_disponible} unidades`)}</div>
         </div>
 
         <div class="pd-actions">
+          ${modoConsolidado ? `
+          <a class="btn btn-primary" href="${SITE_ROOT}consolidados/">${ICONS.plane} Ver Campañas de Consolidado Activas</a>
+          ` : `
           <div class="qty-selector">
             <button type="button" id="qty-menos" ${agotado ? 'disabled' : ''}>${ICONS.minus}</button>
             <input type="number" id="qty-input" value="${unidadMinima}" min="${unidadMinima}" max="${cantidadMaxima}" ${agotado ? 'disabled' : ''} />
             <button type="button" id="qty-mas" ${agotado ? 'disabled' : ''}>${ICONS.plus}</button>
           </div>
           <button class="btn btn-primary" id="btn-agregar-carrito" ${agotado ? 'disabled' : ''}>${agotado ? 'Agotado' : 'Agregar al Carrito'}</button>
+          `}
           <button class="heart-toggle" id="btn-favorito" aria-label="Agregar a favoritos" aria-pressed="false">${ICONS.heart}</button>
           <a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera consultar sobre ${p.marca} ${p.nombre}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Consultar</a>
         </div>
@@ -172,9 +190,11 @@ function renderDetalle(data) {
     </div>
   `;
 
-  document.getElementById('qty-menos').addEventListener('click', () => ajustarCantidad(-1));
-  document.getElementById('qty-mas').addEventListener('click', () => ajustarCantidad(1));
-  document.getElementById('btn-agregar-carrito').addEventListener('click', agregarAlCarritoUI);
+  if (!modoConsolidado) {
+    document.getElementById('qty-menos').addEventListener('click', () => ajustarCantidad(-1));
+    document.getElementById('qty-mas').addEventListener('click', () => ajustarCantidad(1));
+    document.getElementById('btn-agregar-carrito').addEventListener('click', agregarAlCarritoUI);
+  }
   document.getElementById('btn-favorito').addEventListener('click', favoritoUI);
   pintarEstadoFavorito();
 
