@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Libro de Reclamaciones — Maison Zadaca</title>
+  <meta name="description" content="Libro de Reclamaciones virtual de Maison Zadaca. Registra tu reclamo o queja: te respondemos en un plazo máximo de 15 días hábiles." />
+  <link rel="canonical" href="https://madisonzadaca.com/libro-de-reclamaciones/" />
+  <link rel="icon" type="image/png" href="https://madisonzadaca.com/assets/img/brand/favicon.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Maison Zadaca" />
+  <meta property="og:title" content="Libro de Reclamaciones — Maison Zadaca" />
+  <meta property="og:description" content="Libro de Reclamaciones virtual de Maison Zadaca. Registra tu reclamo o queja: te respondemos en un plazo máximo de 15 días hábiles." />
+  <meta property="og:url" content="https://madisonzadaca.com/libro-de-reclamaciones/" />
+  <meta property="og:image" content="https://madisonzadaca.com/assets/img/brand/logo-og.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://madisonzadaca.com/assets/css/style.css" />
+  <style>
+    .libro-grid { display: grid; grid-template-columns: 1fr; gap: 28px; max-width: 820px; }
+    .libro-form fieldset { border: 1px solid var(--color-border); border-radius: var(--radius); padding: 18px 20px 6px; margin: 0 0 18px; }
+    .libro-form legend { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-gold); padding: 0 6px; font-weight: 600; }
+    .libro-tipo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    @media (max-width: 560px) { .libro-tipo { grid-template-columns: 1fr; } }
+    .libro-tipo label { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--color-border); border-radius: var(--radius); padding: 12px 14px; cursor: pointer; font-size: 0.84rem; color: var(--color-text-muted); }
+    .libro-tipo label:has(input:checked) { border-color: var(--color-gold); background: rgba(122, 32, 48, 0.05); }
+    .libro-tipo strong { display: block; color: var(--color-text); font-size: 0.9rem; }
+    .libro-constancia { border: 1px solid var(--color-success); background: rgba(79, 140, 88, 0.06); border-radius: var(--radius); padding: 20px; }
+    .libro-constancia .hoja-reclamo h1 { font-size: 1rem; text-align: center; border: 1px solid var(--color-border); padding: 8px; }
+    .libro-constancia .hoja-reclamo h2 { font-size: 0.75rem; text-transform: uppercase; color: var(--color-gold); margin: 14px 0 6px; }
+    .libro-constancia table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .libro-constancia th, .libro-constancia td { border: 1px solid var(--color-border); padding: 6px 8px; text-align: left; vertical-align: top; }
+    .libro-constancia th { width: 32%; background: var(--color-bg-alt); }
+    .libro-constancia .hoja-nota { font-size: 0.74rem; color: var(--color-text-faint); }
+    .campo-trampa { position: absolute; left: -9999px; }
+  </style>
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <main>
+    <div class="page-header">
+      <div class="container">
+        <div class="breadcrumb"><a href="https://madisonzadaca.com/">Inicio</a> / Libro de Reclamaciones</div>
+        <h1>Libro de Reclamaciones</h1>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="container legal-content">
+        <div class="libro-grid">
+          <div>
+            <p>Conforme al Código de Protección y Defensa del Consumidor (Ley N.° 29571) y el Reglamento del Libro de Reclamaciones, ponemos a tu disposición este <strong>Libro de Reclamaciones virtual</strong>. Al registrar tu hoja recibirás su número y podrás imprimirla o guardarla como constancia. Te responderemos en un plazo máximo de <strong>15 días hábiles</strong> por el medio que elijas.</p>
+
+        <div class="legal-empresa">
+          <p><strong><span data-cfg="nombre_comercial">Maison Zadaca</span></strong> es el nombre comercial de <span data-cfg="razon_social" class="dato-pendiente">[Razón social pendiente]</span>, con RUC <span data-cfg="ruc" class="dato-pendiente">[RUC pendiente]</span> y domicilio en <span data-cfg="domicilio_fiscal" class="dato-pendiente">[Domicilio fiscal pendiente]</span>.</p>
+          <p>Tienda: <span data-cfg="direccion_chiclayo">Av. Los Incas 1090, La Victoria, Chiclayo</span> · WhatsApp <span data-cfg="telefono_contacto">+51 990 278 017</span> · Correo <span data-cfg="correo_reclamos" class="dato-pendiente">[correo pendiente]</span></p>
+        </div>
+            <p style="font-size:0.84rem;"><strong>Reclamo:</strong> disconformidad relacionada a los productos o servicios. <strong>Queja:</strong> disconformidad no relacionada a los productos o servicios, o malestar o descontento respecto a la atención al público.</p>
+          </div>
+
+          <div id="libro-mount">
+            <form id="libro-form" class="libro-form" novalidate>
+              <input type="text" name="sitio_web" class="campo-trampa" tabindex="-1" autocomplete="off" aria-hidden="true" />
+              <fieldset>
+                <legend>1. Identificación del consumidor reclamante</legend>
+                <div class="form-group"><label>Nombres y apellidos *</label><input type="text" name="consumidor_nombre" required maxlength="150" /></div>
+                <div class="form-row">
+                  <div class="form-group"><label>Tipo de documento *</label>
+                    <select name="consumidor_documento_tipo"><option value="DNI">DNI</option><option value="CE">Carné de extranjería</option><option value="Pasaporte">Pasaporte</option><option value="RUC">RUC</option></select>
+                  </div>
+                  <div class="form-group"><label>N° de documento *</label><input type="text" name="consumidor_documento" required maxlength="20" inputmode="numeric" /></div>
+                </div>
+                <div class="form-group"><label>Domicilio *</label><input type="text" name="consumidor_domicilio" required /></div>
+                <div class="form-row">
+                  <div class="form-group"><label>Teléfono</label><input type="tel" name="consumidor_telefono" maxlength="20" /></div>
+                  <div class="form-group"><label>Correo electrónico *</label><input type="email" name="consumidor_correo" required maxlength="150" /></div>
+                </div>
+                <label class="filter-option" style="margin-bottom:12px;"><input type="checkbox" name="es_menor" id="libro-es-menor" /> Soy menor de edad</label>
+                <div class="form-group" id="libro-apoderado" hidden><label>Nombre del padre, madre o apoderado *</label><input type="text" name="apoderado_nombre" maxlength="150" /></div>
+              </fieldset>
+
+              <fieldset>
+                <legend>2. Identificación del bien contratado</legend>
+                <div class="libro-tipo">
+                  <label><input type="radio" name="bien_tipo" value="Producto" checked /> <span><strong>Producto</strong>Un perfume, decant u otro artículo.</span></label>
+                  <label><input type="radio" name="bien_tipo" value="Servicio" /> <span><strong>Servicio</strong>Envío, atención, encargo por consolidado.</span></label>
+                </div>
+                <div class="form-group"><label>Descripción *</label><input type="text" name="bien_descripcion" required placeholder="Ej: Decant 10 ml de Asad Bourbon" /></div>
+                <div class="form-row">
+                  <div class="form-group"><label>Monto reclamado (S/)</label><input type="number" name="monto_reclamado" min="0" step="0.01" /></div>
+                  <div class="form-group"><label>N° de pedido (si lo tienes)</label><input type="text" name="numero_pedido" maxlength="30" /></div>
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend>3. Detalle de la reclamación y pedido del consumidor</legend>
+                <div class="libro-tipo">
+                  <label><input type="radio" name="tipo" value="Reclamo" checked /> <span><strong>Reclamo</strong>Disconformidad con el producto o servicio.</span></label>
+                  <label><input type="radio" name="tipo" value="Queja" /> <span><strong>Queja</strong>Malestar con la atención recibida.</span></label>
+                </div>
+                <div class="form-group"><label>Detalle *</label><textarea name="detalle" rows="4" required></textarea></div>
+                <div class="form-group"><label>Pedido (qué solución esperas) *</label><textarea name="pedido_consumidor" rows="3" required></textarea></div>
+                <div class="form-group"><label>¿Cómo quieres recibir la respuesta?</label>
+                  <select name="respuesta_por"><option value="Correo">Por correo electrónico</option><option value="Domicilio">Por carta a mi domicilio</option></select>
+                </div>
+              </fieldset>
+
+              <label class="filter-option" style="margin-bottom:16px;"><input type="checkbox" id="libro-acepto" required /> Declaro que los datos son verdaderos y acepto que se traten para atender mi reclamo, según la <a href="https://madisonzadaca.com/politica-privacidad/">Política de Privacidad</a>.</label>
+              <div id="libro-alerta"></div>
+              <button type="submit" class="btn btn-primary" id="libro-enviar">Registrar hoja de reclamación</button>
+              <p class="form-hint" style="margin-top:10px;">La formulación del reclamo no impide acudir a otras vías de solución de controversias ni es requisito previo para interponer una denuncia ante el INDECOPI.</p>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <div id="site-footer"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="https://madisonzadaca.com/assets/js/supabase-config.js" defer></script>
+  <script src="https://madisonzadaca.com/assets/js/api.js" defer></script>
+  <script src="https://madisonzadaca.com/assets/js/main.js" defer></script>
+  <script src="https://madisonzadaca.com/assets/js/libro-reclamaciones.js" defer></script>
+</body>
+</html>

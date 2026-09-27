@@ -19,17 +19,20 @@ async function obtenerEstadisticasDashboard() {
   // Estas cuentan solo pedidos de Tienda Directa (mismo alcance que la sección "Pedidos —
   // Tienda Directa"): si sumaran también los de Consolidado, el número no cuadraría con lo
   // que el admin ve al hacer clic en "Ver todos" desde acá.
-  const [pedidos, pedidosHoy, pagosSemana, pedidosPorConfirmar, consolidados, reservasPendientes, cotizacionesPendientes, resenasPendientes, stockBajo, productosSinMargen] = await Promise.all([
-    supabaseClient.from('pedidos').select('monto_adelanto_pagado', { count: 'exact' }).eq('tipo_pedido', 'Directo_Tienda'),
-    supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').gte('fecha_creacion', inicioHoy.toISOString()),
+  // Los pedidos anulados (cancelado=true) no cuentan en ninguna cifra de venta del dashboard.
+  const [pedidos, pedidosHoy, pagosSemana, pedidosPorConfirmar, consolidados, reservasPendientes, cotizacionesPendientes, resenasPendientes, stockBajo, productosSinMargen, porDespachar, reclamos] = await Promise.all([
+    supabaseClient.from('pedidos').select('monto_adelanto_pagado', { count: 'exact' }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false),
+    supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).gte('fecha_creacion', inicioHoy.toISOString()),
     supabaseClient.from('pagos').select('monto').eq('estado_pago', 'Aprobado').gte('fecha_pago', inicioSemana.toISOString()),
-    supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').in('estado_pago', ['Pendiente', 'Parcial']),
+    supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).in('estado_pago', ['Pendiente', 'Parcial']),
     supabaseClient.from('consolidados').select('id', { count: 'exact' }).eq('estado', 'Abierto'),
     supabaseClient.from('detalle_consolidado').select('id', { count: 'exact' }).eq('estado_item', 'Reservado'),
     supabaseClient.from('solicitudes_cotizacion').select('id', { count: 'exact' }).eq('estado', 'Pendiente'),
     supabaseClient.from('resenas').select('id', { count: 'exact' }).eq('aprobado', false),
-    supabaseClient.from('inventario').select('id_producto, stock_fisico, stock_minimo_alerta'),
+    obtenerStockBajoDashboard(1000),
     supabaseClient.from('perfumes').select('id', { count: 'exact' }).eq('margen_aplicado', false),
+    supabaseClient.from('pedidos').select('id, envios!inner(estado_envio)', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).eq('envios.estado_envio', 'Preparando'),
+    supabaseClient.from('libro_reclamaciones').select('id', { count: 'exact', head: true }).neq('estado', 'Respondido'),
   ]);
 
   // Suma lo realmente cobrado (monto_adelanto_pagado), no monto_total filtrado a "Completado"
@@ -39,9 +42,11 @@ async function obtenerEstadisticasDashboard() {
 
   const ingresosSemana = (pagosSemana.data || []).reduce((acc, p) => acc + Number(p.monto), 0);
 
-  const productosStockBajo = (stockBajo.data || []).filter((i) => i.stock_fisico <= i.stock_minimo_alerta).length;
+  const productosStockBajo = stockBajo.length;
 
   return {
+    pedidosPorDespachar: porDespachar.count || 0,
+    reclamosPendientes: reclamos.count || 0,
     totalPedidos: pedidos.count || 0,
     ingresos,
     pedidosHoy: pedidosHoy.count || 0,
@@ -59,24 +64,55 @@ async function obtenerEstadisticasDashboard() {
 async function obtenerUltimosPedidosDashboard(limite = 5) {
   const { data, error } = await supabaseClient
     .from('pedidos')
-    .select('id, monto_total, estado_pago, fecha_creacion, perfiles(nombres, apellidos)')
+    .select('id, monto_total, estado_pago, fecha_creacion, canal, cliente_nombre, cancelado, perfiles(nombres, apellidos)')
     .eq('tipo_pedido', 'Directo_Tienda')
     .order('fecha_creacion', { ascending: false })
     .limit(limite);
   if (error) throw new Error(error.message);
-  return data.map((p) => ({ ...p, cliente: p.perfiles ? `${p.perfiles.nombres} ${p.perfiles.apellidos}`.trim() : '—' }));
+  return data.map((p) => ({ ...p, cliente: nombreClientePedido(p) }));
 }
+
+// "Stock bajo" = lo que todavía se vende pero está por acabarse: perfumes de tienda activos con
+// 1..stock_minimo_alerta frascos cerrados, y decants cuyo frasco abierto baja de 20 ml (solo si
+// el admin lleva los ml). Lo que ya está en 0 no es "bajo", es agotado -- mezclarlo llenaba
+// este panel con todo el catálogo que nunca tuvo stock.
+const ML_ALERTA_DECANT = 20;
 
 async function obtenerStockBajoDashboard(limite = 5) {
   const { data, error } = await supabaseClient
-    .from('inventario')
-    .select('stock_fisico, stock_minimo_alerta, perfumes(id, nombre, marca)')
-    .order('stock_fisico', { ascending: true });
+    .from('perfumes')
+    .select('id, nombre, marca, es_decant, mililitros_restantes, inventario(stock_fisico, frascos_abiertos, stock_minimo_alerta)')
+    .eq('activo', true)
+    .is('id_decant_grupo', null);
   if (error) throw new Error(error.message);
-  return data
-    .filter((i) => i.perfumes && i.stock_fisico <= i.stock_minimo_alerta)
-    .slice(0, limite)
-    .map((i) => ({ id: i.perfumes.id, nombre: i.perfumes.nombre, marca: i.perfumes.marca, stock: i.stock_fisico }));
+  return (data || [])
+    .map((p) => {
+      const inv = Array.isArray(p.inventario) ? p.inventario[0] : p.inventario;
+      if (!inv) return null;
+      if (p.es_decant) {
+        const ml = p.mililitros_restantes == null ? null : Number(p.mililitros_restantes);
+        if (inv.frascos_abiertos > 0 && ml != null && ml < ML_ALERTA_DECANT) {
+          return { id: p.id, nombre: p.nombre, marca: p.marca, es_decant: true, stock: ml, detalle: `Decant: quedan ${ml} ml` };
+        }
+        return null;
+      }
+      if (inv.stock_fisico > 0 && inv.stock_fisico <= (inv.stock_minimo_alerta ?? 2)) {
+        return { id: p.id, nombre: p.nombre, marca: p.marca, es_decant: false, stock: inv.stock_fisico, detalle: `${inv.stock_fisico} frasco${inv.stock_fisico === 1 ? '' : 's'} cerrado${inv.stock_fisico === 1 ? '' : 's'}` };
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.stock - b.stock)
+    .slice(0, limite);
+}
+
+// Un pedido registrado a mano puede no tener cuenta detrás (perfiles null) -- el nombre sale de
+// la "foto" que guarda el propio pedido (migración 0018). Para pedidos viejos sin foto, se cae
+// al perfil como siempre.
+function nombreClientePedido(p) {
+  if (p.cliente_nombre) return p.cliente_nombre;
+  if (p.perfiles) return `${p.perfiles.nombres || ''} ${p.perfiles.apellidos || ''}`.trim() || '—';
+  return '—';
 }
 
 /* ================= DASHBOARD: TENDENCIAS Y GRÁFICOS ================= */
@@ -91,7 +127,7 @@ async function obtenerTendenciaVentas(dias = 14) {
 
   const [{ data: pagos, error: e1 }, { data: pedidos, error: e2 }] = await Promise.all([
     supabaseClient.from('pagos').select('monto, fecha_pago').eq('estado_pago', 'Aprobado').gte('fecha_pago', desde.toISOString()),
-    supabaseClient.from('pedidos').select('id, fecha_creacion').eq('tipo_pedido', 'Directo_Tienda').gte('fecha_creacion', desde.toISOString()),
+    supabaseClient.from('pedidos').select('id, fecha_creacion').eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).gte('fecha_creacion', desde.toISOString()),
   ]);
   if (e1) throw new Error(e1.message);
   if (e2) throw new Error(e2.message);
@@ -138,8 +174,9 @@ async function obtenerComposicionCatalogo() {
 async function obtenerTopPerfumesVendidos(limite = 6) {
   const { data, error } = await supabaseClient
     .from('detalle_pedido')
-    .select('cantidad, perfumes(id, nombre, marca), pedidos!inner(tipo_pedido)')
-    .eq('pedidos.tipo_pedido', 'Directo_Tienda');
+    .select('cantidad, perfumes(id, nombre, marca), pedidos!inner(tipo_pedido, cancelado)')
+    .eq('pedidos.tipo_pedido', 'Directo_Tienda')
+    .eq('pedidos.cancelado', false);
   if (error) throw new Error(error.message);
 
   const porProducto = new Map();
@@ -162,7 +199,7 @@ async function obtenerTopPerfumesVendidos(limite = 6) {
 async function obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina = 1, porPagina = 20 } = {}) {
   let query = supabaseClient
     .from('perfumes')
-    .select('*, inventario(stock_fisico, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)', { count: 'exact' });
+    .select('*, inventario(stock_fisico, frascos_abiertos, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)', { count: 'exact' });
   // "Solo Decants" ordena por marca/nombre en vez de fecha de creación -- resultado más
   // predecible para el dueño que recorrer la grilla por cuándo se cargó cada uno.
   query = filtro === 'decants'
@@ -282,23 +319,30 @@ async function aplicarMargenMasivo(margenConsolidado, margenTienda, soloSinMarge
 // pedido implica fraccionar un decant o solo despachar botellas selladas -- como ambos nacen
 // del mismo carrito/checkout (tipo_pedido='Directo_Tienda' para los dos), la única forma de
 // distinguirlos es mirando qué hay en detalle_pedido.
-async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo_Tienda', soloDecants } = {}) {
+// estadoEnvio: filtra por el estado del envío ('Preparando' = por despachar). anulados:
+// 'activos' (default, lo que se trabaja día a día), 'anulados' o 'todos'.
+async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo_Tienda', soloDecants, estadoEnvio, anulados = 'activos' } = {}) {
   let query = supabaseClient
     .from('pedidos')
-    .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, fecha_creacion, perfiles(nombres, apellidos, correo, telefono), envios(estado_envio, numero_guia_seguimiento, empresa_transporte), consolidados(codigo_campana)')
+    .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, fecha_creacion, canal, cancelado, cliente_nombre, cliente_dni, cliente_telefono, envio_tipo, envio_distrito, envio_provincia, envio_departamento, perfiles(nombres, apellidos, correo, telefono, dni_ce_ruc), envios(estado_envio, numero_guia_seguimiento, empresa_transporte), consolidados(codigo_campana)')
     .eq('tipo_pedido', tipoPedido)
     .order('fecha_creacion', { ascending: false });
   if (estadoPago) query = query.eq('estado_pago', estadoPago);
+  if (anulados === 'activos') query = query.eq('cancelado', false);
+  if (anulados === 'anulados') query = query.eq('cancelado', true);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   let pedidos = data.map((p) => ({
     ...p,
-    cliente: p.perfiles ? `${p.perfiles.nombres} ${p.perfiles.apellidos}` : '—',
+    cliente: nombreClientePedido(p),
     correo_cliente: p.perfiles?.correo,
-    telefono_cliente: p.perfiles?.telefono,
+    telefono_cliente: p.cliente_telefono || p.perfiles?.telefono,
+    dni_cliente: p.cliente_dni || p.perfiles?.dni_ce_ruc,
     envio: Array.isArray(p.envios) ? p.envios[0] : p.envios,
     campana: p.consolidados?.codigo_campana,
   }));
+
+  if (estadoEnvio) pedidos = pedidos.filter((p) => (p.envio?.estado_envio || 'Preparando') === estadoEnvio);
 
   if (tipoPedido === 'Directo_Tienda' && soloDecants !== undefined && pedidos.length) {
     const { data: detalles, error: errorDetalle } = await supabaseClient
@@ -311,38 +355,160 @@ async function obtenerPedidosAdmin({ busqueda, estadoPago, tipoPedido = 'Directo
   }
 
   if (busqueda) {
-    const q = busqueda.toLowerCase();
-    pedidos = pedidos.filter((p) => p.cliente.toLowerCase().includes(q) || String(p.id).includes(q) || (p.correo_cliente || '').toLowerCase().includes(q));
+    const q = busqueda.toLowerCase().trim();
+    const qDigitos = q.replace(/\D/g, '');
+    pedidos = pedidos.filter((p) =>
+      p.cliente.toLowerCase().includes(q)
+      || String(p.id).includes(q.replace(/^#/, ''))
+      || (p.correo_cliente || '').toLowerCase().includes(q)
+      || (qDigitos.length >= 3 && (String(p.dni_cliente || '').includes(qDigitos) || String(p.telefono_cliente || '').replace(/\D/g, '').includes(qDigitos))));
   }
   return pedidos;
 }
 
-async function obtenerDetallePedidoAdmin(id) {
-  const { data: pedido, error } = await supabaseClient
-    .from('pedidos')
-    .select('*, perfiles(nombres, apellidos, correo, telefono), envios(*), direcciones_cliente(direccion_detalle, etiqueta, tipo_despacho, agencia_nombre, nombre_receptor, ubigeo(departamento, provincia, distrito)), consolidados(codigo_campana)')
-    .eq('id', id)
-    .single();
-  if (error) throw new Error('Pedido no encontrado');
+// Columnas que necesita cualquier vista de "un pedido completo" (detalle, etiqueta de envío,
+// comprobante) -- una sola definición para que la etiqueta y el detalle nunca muestren datos
+// distintos del mismo pedido.
+const SELECT_PEDIDO_COMPLETO = '*, perfiles(nombres, apellidos, correo, telefono, dni_ce_ruc), envios(*), direcciones_cliente(direccion_detalle, etiqueta, tipo_despacho, agencia_nombre, nombre_receptor, ubigeo(departamento, provincia, distrito)), consolidados(codigo_campana), detalle_pedido(cantidad, precio_unitario_aplicado, subtotal, talla_ml, descripcion_libre, perfumes(id, nombre, marca, imagen_url, es_decant))';
 
-  const { data: items } = await supabaseClient
-    .from('detalle_pedido')
-    .select('cantidad, precio_unitario_aplicado, subtotal, talla_ml, perfumes(nombre, marca, imagen_url, es_decant)')
-    .eq('id_pedido', id);
+// Datos de envío unificados: primero la "foto" guardada en el pedido (migración 0018 --
+// pedidos manuales y web desde esa fecha, editable desde el detalle), si falta algún dato se
+// completa con el perfil y la dirección elegida (pedidos viejos / de consolidado).
+function datosEnvioPedido(p) {
+  const perfil = p.perfiles || {};
+  const dir = p.direcciones_cliente || {};
+  const ub = dir.ubigeo || {};
+  return {
+    cliente: nombreClientePedido(p),
+    dni: p.cliente_dni || perfil.dni_ce_ruc || '',
+    telefono: p.cliente_telefono || perfil.telefono || '',
+    correo: perfil.correo || '',
+    tipo: p.envio_tipo || dir.tipo_despacho || '',
+    agencia: p.envio_agencia || dir.agencia_nombre || '',
+    departamento: p.envio_departamento || ub.departamento || '',
+    provincia: p.envio_provincia || ub.provincia || '',
+    distrito: p.envio_distrito || ub.distrito || '',
+    direccion: p.envio_direccion || dir.direccion_detalle || '',
+    receptorNombre: p.envio_receptor_nombre || dir.nombre_receptor || '',
+    receptorDni: p.envio_receptor_dni || '',
+    receptorTelefono: p.envio_receptor_telefono || '',
+  };
+}
 
-  const { data: pagos } = await supabaseClient.from('pagos').select('*').eq('id_pedido', id).order('fecha_pago', { ascending: false });
+// Una línea de pedido puede ser un producto del catálogo o una línea libre (nombre y precio
+// escritos por el admin, sin producto -- migración 0019): se normalizan al mismo formato.
+function normalizarItemPedido(i) {
+  const prod = i.perfumes || null;
+  return {
+    ...i,
+    ...(prod || {}),
+    id_producto: prod?.id ?? null,
+    nombre: prod?.nombre ?? i.descripcion_libre ?? '—',
+    marca: prod?.marca ?? '',
+    es_decant: !!prod?.es_decant,
+    es_libre: !prod,
+  };
+}
 
+function nombreItemPedido(i) {
+  return `${i.marca ? `${i.marca} — ` : ''}${i.nombre}${i.es_decant ? ` (decant ${i.talla_ml}ml)` : ''}`;
+}
+
+function normalizarPedidoCompleto(pedido) {
+  const envioDatos = datosEnvioPedido(pedido);
   return {
     ...pedido,
-    cliente: pedido.perfiles ? `${pedido.perfiles.nombres} ${pedido.perfiles.apellidos}` : '—',
-    correo_cliente: pedido.perfiles?.correo,
-    telefono_cliente: pedido.perfiles?.telefono,
+    cliente: envioDatos.cliente,
+    correo_cliente: envioDatos.correo,
+    telefono_cliente: envioDatos.telefono,
+    dni_cliente: envioDatos.dni,
+    envioDatos,
     envio: Array.isArray(pedido.envios) ? pedido.envios[0] : pedido.envios,
     direccion: pedido.direcciones_cliente,
     campana: pedido.consolidados?.codigo_campana,
-    items: (items || []).map((i) => ({ ...i, ...i.perfumes })),
-    pagos: pagos || [],
+    items: (pedido.detalle_pedido || []).map(normalizarItemPedido),
   };
+}
+
+async function obtenerDetallePedidoAdmin(id) {
+  const { data: pedido, error } = await supabaseClient.from('pedidos').select(SELECT_PEDIDO_COMPLETO).eq('id', id).single();
+  if (error) throw new Error('Pedido no encontrado');
+
+  const [{ data: pagos }, { data: nota }] = await Promise.all([
+    supabaseClient.from('pagos').select('*').eq('id_pedido', id).order('fecha_pago', { ascending: false }),
+    supabaseClient.from('pedidos_notas_admin').select('nota').eq('id_pedido', id).maybeSingle(),
+  ]);
+
+  return { ...normalizarPedidoCompleto(pedido), pagos: pagos || [], nota_admin: nota?.nota || '' };
+}
+
+// Varios pedidos completos de una sola vez (impresión de etiquetas en lote).
+async function obtenerPedidosCompletos(ids) {
+  if (!ids.length) return [];
+  const { data, error } = await supabaseClient.from('pedidos').select(SELECT_PEDIDO_COMPLETO).in('id', ids).order('id');
+  if (error) throw new Error(error.message);
+  return (data || []).map(normalizarPedidoCompleto);
+}
+
+// Corrige la "foto" de envío guardada en el pedido (nombre, DNI, agencia, destino...) --
+// es lo que sale impreso en la etiqueta.
+async function actualizarDatosPedido(id, cambios) {
+  const { error } = await supabaseClient.from('pedidos').update(cambios).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+async function guardarNotaPedidoAdmin(idPedido, nota) {
+  const { error } = await supabaseClient
+    .from('pedidos_notas_admin')
+    .upsert({ id_pedido: idPedido, nota: nota || '', actualizado_en: new Date().toISOString() });
+  if (error) throw new Error(error.message);
+}
+
+// Pedido tomado por WhatsApp o en la tienda física, con o sin cuenta del cliente -- todo lo
+// valida y descuenta registrar_pedido_manual() en la base (ver migración 0018).
+async function registrarPedidoManual(pedido, items, pago) {
+  const { data, error } = await supabaseClient.rpc('registrar_pedido_manual', { p_pedido: pedido, p_items: items, p_pago: pago || null });
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+// Anula el pedido y devuelve su stock (frascos cerrados y ml de decant). Los pagos quedan
+// como están -- si hubo devolución de dinero, se anula el pago aparte.
+async function cancelarPedidoAdmin(id, motivo) {
+  const { error } = await supabaseClient.rpc('cancelar_pedido', { p_id_pedido: id, p_motivo: motivo || null });
+  if (error) throw new Error(error.message);
+}
+
+// Clientes para autocompletar el pedido manual: cuentas registradas + gente que ya compró sin
+// cuenta. De cada uno se guarda el último destino usado, así un cliente que repite solo se
+// elige de la lista y se llenan sus datos de envío.
+async function obtenerClientesParaPedido() {
+  const [{ data: perfiles, error: e1 }, { data: pedidos, error: e2 }] = await Promise.all([
+    supabaseClient.from('perfiles').select('id, nombres, apellidos, dni_ce_ruc, telefono, correo'),
+    supabaseClient
+      .from('pedidos')
+      .select('id_cliente, cliente_nombre, cliente_dni, cliente_telefono, envio_tipo, envio_agencia, envio_departamento, envio_provincia, envio_distrito, envio_direccion, envio_receptor_nombre, envio_receptor_dni, envio_receptor_telefono, fecha_creacion')
+      .order('fecha_creacion', { ascending: false })
+      .limit(1000),
+  ]);
+  if (e1) throw new Error(e1.message);
+  if (e2) throw new Error(e2.message);
+
+  const clientes = new Map();
+  const claveDe = (c) => c.id_cliente || (c.dni ? `dni:${c.dni}` : c.telefono ? `tel:${String(c.telefono).replace(/\D/g, '')}` : `nom:${(c.nombre || '').toLowerCase()}`);
+  (pedidos || []).forEach((p) => {
+    if (!p.cliente_nombre) return;
+    const c = { id_cliente: p.id_cliente, nombre: p.cliente_nombre, dni: p.cliente_dni || '', telefono: p.cliente_telefono || '', envio: p.envio_tipo ? p : null };
+    const clave = claveDe(c);
+    if (!clientes.has(clave)) clientes.set(clave, c);
+  });
+  (perfiles || []).forEach((pf) => {
+    if (clientes.has(pf.id)) return;
+    const nombre = `${pf.nombres || ''} ${pf.apellidos || ''}`.trim();
+    if (!nombre) return;
+    clientes.set(pf.id, { id_cliente: pf.id, nombre, dni: pf.dni_ce_ruc || '', telefono: pf.telefono || '', correo: pf.correo || '', envio: null });
+  });
+  return [...clientes.values()];
 }
 
 async function actualizarEnvioPedido(idPedido, cambios) {
@@ -368,6 +534,147 @@ async function registrarPago(idPedido, pago) {
 // contar para el total pagado — mismo trigger de arriba).
 async function anularPagoAdmin(id) {
   const { error } = await supabaseClient.from('pagos').update({ estado_pago: 'Anulado' }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+/* ================= UTILIDADES ================= */
+
+// Las columnas "timestamp" (sin zona) de la base guardan la hora UTC del servidor, pero llegan
+// sin la "Z" final -- new Date() las leía como hora de Perú y corría todo 5 horas (un pedido de
+// las 8pm caía en el día siguiente, y a fin de mes, en el mes siguiente de la contabilidad).
+function fechaDB(valor) {
+  if (!valor) return null;
+  const texto = String(valor);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [a, m, d] = texto.split('-').map(Number);
+    return new Date(a, m - 1, d);
+  }
+  return new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(texto) ? texto : `${texto}Z`);
+}
+
+// PostgREST corta cada respuesta en 1000 filas -- para la contabilidad de un año entero (o el
+// inventario completo) se pide por tramos hasta traer todo.
+async function seleccionarTodo(crearQuery, tamanoTramo = 1000) {
+  const filas = [];
+  for (let desde = 0; ; desde += tamanoTramo) {
+    const { data, error } = await crearQuery().range(desde, desde + tamanoTramo - 1);
+    if (error) throw new Error(error.message);
+    filas.push(...(data || []));
+    if (!data || data.length < tamanoTramo) break;
+  }
+  return filas;
+}
+
+/* ================= INVENTARIO ================= */
+
+// Una fila por perfume (sin las filas "hijas" de decants viejos, ver migración 0016) con su
+// inventario: stock_fisico = frascos cerrados de tienda, frascos_abiertos = en uso para
+// decants, mililitros_restantes = ml que quedan en los frascos abiertos.
+async function obtenerInventarioAdmin() {
+  const filas = await seleccionarTodo(() => supabaseClient
+    .from('perfumes')
+    .select('id, slug, nombre, marca, mililitros, es_decant, id_perfume_tienda, activo, estado, tipo_casa, genero, imagen_url, precio_tienda_regular, precio_consolidado_fijo, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, costo_importacion_pen, precio_3ml, precio_5ml, precio_10ml, mililitros_restantes, inventario(stock_fisico, frascos_abiertos, stock_minimo_alerta)')
+    .is('id_decant_grupo', null)
+    .order('marca', { ascending: true })
+    .order('nombre', { ascending: true })
+    .order('id', { ascending: true }));
+  return filas.map((p) => {
+    const inv = (Array.isArray(p.inventario) ? p.inventario[0] : p.inventario) || {};
+    return {
+      ...p,
+      cerrados: Number(inv.stock_fisico || 0),
+      abiertos: Number(inv.frascos_abiertos || 0),
+      minimo: inv.stock_minimo_alerta ?? 2,
+      ml_restantes: p.mililitros_restantes == null ? null : Number(p.mililitros_restantes),
+    };
+  });
+}
+
+// esDelta=true suma/resta (Ingreso, Merma, Frasco_Terminado); false fija el valor exacto
+// (Conteo). null en cerrados/abiertos/ml = no tocar ese dato.
+async function ajustarInventario({ idProducto, cerrados = null, abiertos = null, ml = null, esDelta = true, motivo = 'Ajuste', nota = null }) {
+  const { error } = await supabaseClient.rpc('ajustar_inventario', {
+    p_id_producto: idProducto,
+    p_cerrados: cerrados,
+    p_abiertos: abiertos,
+    p_ml: ml,
+    p_es_delta: esDelta,
+    p_motivo: motivo,
+    p_nota: nota,
+  });
+  if (error) throw new Error(error.message);
+}
+
+async function abrirFrascoDecant(idDecant, descontarTienda = true, nota = null) {
+  const { error } = await supabaseClient.rpc('abrir_frasco_decant', { p_id_decant: idDecant, p_descontar_tienda: descontarTienda, p_nota: nota });
+  if (error) throw new Error(error.message);
+}
+
+// idTienda null = desvincular.
+async function vincularDecantConTienda(idDecant, idTienda) {
+  const { error } = await supabaseClient.from('perfumes').update({ id_perfume_tienda: idTienda }).eq('id', idDecant);
+  if (error) throw new Error(error.message);
+}
+
+async function obtenerMovimientosInventario({ idsProducto, tipo, desde, limite = 400 } = {}) {
+  let query = supabaseClient
+    .from('movimientos_inventario')
+    .select('*, perfumes(nombre, marca, es_decant), perfiles(nombres, apellidos, rol)')
+    .order('fecha', { ascending: false })
+    .limit(limite);
+  if (idsProducto?.length) query = query.in('id_producto', idsProducto);
+  if (tipo) query = query.eq('tipo', tipo);
+  if (desde) query = query.gte('fecha', desde);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+/* ================= CONTABILIDAD (ventas, cobros y gastos) ================= */
+
+// Todo lo del año elegido en 3 consultas -- el resumen mensual, por canal, por método de pago
+// y el ranking de productos se arman en admin.js a partir de esto.
+async function obtenerDatosContabilidad(anio) {
+  // pedidos/pagos guardan hora UTC: el 1 de enero a medianoche de Perú en UTC (toISOString) es
+  // el corte exacto del año local. gastos.fecha es una fecha simple, sin hora.
+  const desdeUtc = new Date(anio, 0, 1).toISOString();
+  const hastaUtc = new Date(anio + 1, 0, 1).toISOString();
+  const desde = `${anio}-01-01`;
+  const hasta = `${anio + 1}-01-01`;
+  const [pedidos, pagos, gastos] = await Promise.all([
+    seleccionarTodo(() => supabaseClient
+      .from('pedidos')
+      .select('id, fecha_creacion, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, canal, tipo_pedido, cancelado, cliente_nombre, cliente_dni, cliente_telefono, perfiles(nombres, apellidos), detalle_pedido(cantidad, subtotal, talla_ml, descripcion_libre, perfumes(id, nombre, marca, es_decant, costo_importacion_pen))')
+      .gte('fecha_creacion', desdeUtc)
+      .lt('fecha_creacion', hastaUtc)
+      .order('id')),
+    seleccionarTodo(() => supabaseClient
+      .from('pagos')
+      .select('id, monto, metodo_pago, fecha_pago, id_pedido')
+      .eq('estado_pago', 'Aprobado')
+      .gte('fecha_pago', desdeUtc)
+      .lt('fecha_pago', hastaUtc)
+      .order('id')),
+    seleccionarTodo(() => supabaseClient
+      .from('gastos')
+      .select('*')
+      .gte('fecha', desde)
+      .lt('fecha', hasta)
+      .order('fecha')
+      .order('id')),
+  ]);
+  return { pedidos: pedidos.map((p) => ({ ...p, cliente: nombreClientePedido(p) })), pagos, gastos };
+}
+
+const CATEGORIAS_GASTO = ['Mercadería', 'Envíos', 'Empaques', 'Publicidad', 'Alquiler', 'Servicios', 'Sueldos', 'Impuestos', 'Otros'];
+
+async function crearGasto(gasto) {
+  const { error } = await supabaseClient.from('gastos').insert(gasto);
+  if (error) throw new Error(error.message);
+}
+
+async function eliminarGasto(id) {
+  const { error } = await supabaseClient.from('gastos').delete().eq('id', id);
   if (error) throw new Error(error.message);
 }
 
@@ -475,36 +782,49 @@ async function actualizarCantidadReserva(idDetalle, cantidad) {
 // una reserva de 10+ unidades de un mismo perfume no debe inflar el pedido al proveedor hasta
 // que el admin la confirme) — sirve desde antes de cerrarla, para planificar.
 async function obtenerContabilidadConsolidado(idConsolidado) {
+  // Qué hay que pedir al proveedor = reservas web que todavía no pasaron a pedido (Reservado /
+  // Confirmado) + TODAS las líneas de los pedidos no anulados de la campaña (los generados desde
+  // reservas y los encargos registrados a mano desde WhatsApp, incluidas sus líneas libres).
+  // Así una reserva ya convertida no se cuenta dos veces.
   const [{ data: detalle, error: e1 }, { data: pedidos, error: e2 }] = await Promise.all([
     supabaseClient
       .from('detalle_consolidado')
       .select('cantidad, precio_consolidado_aplicado, estado_item, perfumes(id, nombre, marca, costo_importacion_pen, mililitros)')
       .eq('id_consolidado', idConsolidado)
-      .not('estado_item', 'in', '(Cancelado,Pendiente_Aprobacion)'),
+      .in('estado_item', ['Reservado', 'Confirmado']),
     supabaseClient
       .from('pedidos')
-      .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago')
+      .select('id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, detalle_pedido(cantidad, precio_unitario_aplicado, subtotal, descripcion_libre, perfumes(id, nombre, marca, costo_importacion_pen, mililitros))')
       .eq('id_consolidado_asociado', idConsolidado)
-      .eq('tipo_pedido', 'Consolidado'),
+      .eq('tipo_pedido', 'Consolidado')
+      .eq('cancelado', false),
   ]);
   if (e1) throw new Error(e1.message);
   if (e2) throw new Error(e2.message);
 
   const porProducto = new Map();
-  (detalle || []).forEach((d) => {
-    const key = d.perfumes.id;
-    if (!porProducto.has(key)) porProducto.set(key, { ...d.perfumes, unidades: 0, montoEsperado: 0, costoTotal: 0 });
-    const entry = porProducto.get(key);
-    entry.unidades += d.cantidad;
-    entry.montoEsperado += d.cantidad * Number(d.precio_consolidado_aplicado);
-    entry.costoTotal += d.cantidad * Number(d.perfumes.costo_importacion_pen || 0);
-  });
+  const sumar = (prod, descripcionLibre, cantidad, precio) => {
+    const clave = prod ? `p${prod.id}` : `l${(descripcionLibre || '').trim().toLowerCase()}`;
+    if (!porProducto.has(clave)) {
+      porProducto.set(clave, prod
+        ? { ...prod, unidades: 0, montoEsperado: 0, costoTotal: 0 }
+        : { nombre: descripcionLibre, marca: '', mililitros: null, costo_importacion_pen: null, es_libre: true, unidades: 0, montoEsperado: 0, costoTotal: 0 });
+    }
+    const entry = porProducto.get(clave);
+    entry.unidades += cantidad;
+    entry.montoEsperado += cantidad * Number(precio);
+    entry.costoTotal += cantidad * Number(prod?.costo_importacion_pen || 0);
+  };
+  (detalle || []).forEach((d) => sumar(d.perfumes, null, d.cantidad, d.precio_consolidado_aplicado));
+  (pedidos || []).forEach((p) => (p.detalle_pedido || []).forEach((i) => sumar(i.perfumes, i.descripcion_libre, i.cantidad, i.precio_unitario_aplicado)));
 
+  const productos = [...porProducto.values()].sort((a, b) => b.unidades - a.unidades);
   return {
-    productos: [...porProducto.values()].sort((a, b) => b.unidades - a.unidades),
-    unidadesTotales: (detalle || []).reduce((acc, d) => acc + d.cantidad, 0),
-    montoTotalReservado: (detalle || []).reduce((acc, d) => acc + d.cantidad * Number(d.precio_consolidado_aplicado), 0),
-    costoTotalImportacion: (detalle || []).reduce((acc, d) => acc + d.cantidad * Number(d.perfumes.costo_importacion_pen || 0), 0),
+    productos,
+    unidadesTotales: productos.reduce((acc, p) => acc + p.unidades, 0),
+    montoTotalReservado: productos.reduce((acc, p) => acc + p.montoEsperado, 0),
+    costoTotalImportacion: productos.reduce((acc, p) => acc + p.costoTotal, 0),
+    lineasSinCosto: productos.filter((p) => !p.costo_importacion_pen).length,
     reservasSinConvertir: (detalle || []).filter((d) => d.estado_item === 'Reservado').length,
     pedidosGenerados: pedidos?.length || 0,
     montoTotalPedidos: (pedidos || []).reduce((acc, p) => acc + Number(p.monto_total), 0),
@@ -525,26 +845,30 @@ async function obtenerFilasExportacionConsolidado(idConsolidado) {
   const { data, error } = await supabaseClient
     .from('pedidos')
     .select(`
-      id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, fecha_creacion,
+      id, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, fecha_creacion, canal,
+      cliente_nombre, cliente_dni, cliente_telefono, envio_tipo, envio_agencia, envio_distrito, envio_provincia, envio_departamento,
       perfiles(nombres, apellidos, telefono, correo),
-      detalle_pedido(cantidad, precio_unitario_aplicado, subtotal, perfumes(nombre, marca))
+      detalle_pedido(cantidad, precio_unitario_aplicado, subtotal, descripcion_libre, perfumes(nombre, marca))
     `)
     .eq('id_consolidado_asociado', idConsolidado)
     .eq('tipo_pedido', 'Consolidado')
+    .eq('cancelado', false)
     .order('id');
   if (error) throw new Error(error.message);
 
   const filas = [];
   (data || []).forEach((pedido) => {
-    const cliente = pedido.perfiles ? `${pedido.perfiles.nombres} ${pedido.perfiles.apellidos}` : '—';
+    const cliente = nombreClientePedido(pedido);
     (pedido.detalle_pedido || []).forEach((item) => {
       filas.push({
         'N° Pedido': pedido.id,
         Cliente: cliente,
-        Teléfono: pedido.perfiles?.telefono || '',
+        DNI: pedido.cliente_dni || '',
+        Teléfono: pedido.cliente_telefono || pedido.perfiles?.telefono || '',
         Correo: pedido.perfiles?.correo || '',
+        Destino: [etiquetaEntregaApi(pedido.envio_tipo), pedido.envio_agencia, pedido.envio_distrito, pedido.envio_departamento].filter(Boolean).join(' · '),
         Marca: item.perfumes?.marca || '',
-        Perfume: item.perfumes?.nombre || '',
+        Perfume: item.perfumes?.nombre || item.descripcion_libre || '',
         Cantidad: item.cantidad,
         'Precio Unitario': Number(item.precio_unitario_aplicado),
         Subtotal: Number(item.subtotal),
@@ -565,9 +889,15 @@ async function obtenerFilasExportacionConsolidado(idConsolidado) {
 // dirección confirmados; mientras siga en fase de reservas, se arma directo desde
 // detalle_consolidado agrupando por cliente — así el admin puede imprimir la lista para
 // planificar incluso antes de cerrar la campaña.
+function etiquetaEntregaApi(tipo) {
+  if (!tipo) return '';
+  if (tipo === 'Recojo_En_Tienda') return etiquetaRecojoEnTienda();
+  return { Agencia_Shalom: 'Agencia Shalom', Agencia_Olva: 'Agencia Olva', Domicilio: 'Delivery' }[tipo] || tipo;
+}
+
 function formatearEntrega(dir) {
   if (!dir) return 'Sin dirección registrada';
-  if (dir.tipo_despacho === 'Recojo_En_Tienda') return 'Recojo en almacén (Lima)';
+  if (dir.tipo_despacho === 'Recojo_En_Tienda') return etiquetaRecojoEnTienda();
   const tipo = (dir.tipo_despacho || '').replace(/_/g, ' ');
   const partes = [tipo, dir.agencia_nombre, dir.direccion_detalle].filter(Boolean);
   return partes.join(' — ');
@@ -585,21 +915,24 @@ async function obtenerFilasImpresionConsolidado(idConsolidado) {
     const { data, error } = await supabaseClient
       .from('pedidos')
       .select(`
-        id, monto_total,
+        id, monto_total, cliente_nombre, cliente_dni, cliente_telefono, envio_tipo, envio_agencia, envio_direccion, envio_distrito, envio_departamento,
         perfiles(nombres, apellidos, dni_ce_ruc, telefono),
         direcciones_cliente(tipo_despacho, agencia_nombre, direccion_detalle),
-        detalle_pedido(cantidad, perfumes(nombre, marca))
+        detalle_pedido(cantidad, descripcion_libre, perfumes(nombre, marca))
       `)
       .eq('id_consolidado_asociado', idConsolidado)
       .eq('tipo_pedido', 'Consolidado')
+      .eq('cancelado', false)
       .order('id');
     if (error) throw new Error(error.message);
     return (data || []).map((p) => ({
-      cliente: p.perfiles ? `${p.perfiles.nombres} ${p.perfiles.apellidos}` : '—',
-      dni: p.perfiles?.dni_ce_ruc || '—',
-      celular: p.perfiles?.telefono || '—',
-      entrega: formatearEntrega(p.direcciones_cliente),
-      items: (p.detalle_pedido || []).map((i) => `${i.perfumes?.marca || ''} — ${i.perfumes?.nombre || ''} x${i.cantidad}`),
+      cliente: nombreClientePedido(p),
+      dni: p.cliente_dni || p.perfiles?.dni_ce_ruc || '—',
+      celular: p.cliente_telefono || p.perfiles?.telefono || '—',
+      entrega: p.envio_tipo
+        ? formatearEntrega({ tipo_despacho: p.envio_tipo, agencia_nombre: p.envio_agencia, direccion_detalle: [p.envio_direccion, p.envio_distrito, p.envio_departamento].filter(Boolean).join(', ') })
+        : formatearEntrega(p.direcciones_cliente),
+      items: (p.detalle_pedido || []).map((i) => `${i.perfumes ? `${i.perfumes.marca} — ${i.perfumes.nombre}` : i.descripcion_libre} x${i.cantidad}`),
       total: Number(p.monto_total),
     }));
   }
@@ -634,6 +967,23 @@ async function obtenerFilasImpresionConsolidado(idConsolidado) {
     entry.total += r.cantidad * Number(r.precio_consolidado_aplicado);
   });
   return [...porCliente.values()];
+}
+
+/* ================= LIBRO DE RECLAMACIONES ================= */
+
+async function obtenerReclamosAdmin({ estado } = {}) {
+  let query = supabaseClient.from('libro_reclamaciones').select('*').order('fecha_registro', { ascending: false });
+  if (estado) query = query.eq('estado', estado);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function responderReclamoAdmin(id, { respuesta, estado }) {
+  const cambios = { respuesta, estado };
+  if (estado === 'Respondido') cambios.fecha_respuesta = new Date().toISOString();
+  const { error } = await supabaseClient.from('libro_reclamaciones').update(cambios).eq('id', id);
+  if (error) throw new Error(error.message);
 }
 
 /* ================= RESEÑAS ================= */

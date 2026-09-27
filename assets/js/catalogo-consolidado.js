@@ -7,6 +7,8 @@ let generoActivo = '';
 let cargaProductosSeq = 0;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Consolidados apagados (ver CONSOLIDADOS_ACTIVOS en api.js): esta página manda al catálogo.
+  if (!CONSOLIDADOS_ACTIVOS) { window.location.replace(`${SITE_ROOT}catalogo/`); return; }
   await iniciarLayout('catalogo-consolidado/');
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('grid-catalogo').innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>';

@@ -20,6 +20,9 @@ const ICONS = {
   eye: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>`,
   eyeOff: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A10.6 10.6 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
   whatsapp: `<svg viewBox="0 0 32 32" fill="currentColor"><path d="M16.03 3C9.4 3 4 8.4 4 15.03c0 2.23.62 4.32 1.68 6.12L4 29l8.03-1.65a12 12 0 0 0 4 .68c6.63 0 12.03-5.4 12.03-12.03C28.06 8.4 22.66 3 16.03 3Zm0 21.94c-1.9 0-3.68-.5-5.24-1.4l-.38-.22-4.77.98.99-4.65-.25-.4a9.9 9.9 0 0 1-1.5-5.22c0-5.48 4.46-9.94 9.95-9.94 5.48 0 9.94 4.46 9.94 9.94 0 5.49-4.46 9.91-9.74 9.91Zm5.44-7.43c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15s-.77.97-.94 1.17-.35.22-.65.07a8.14 8.14 0 0 1-2.4-1.48 9 9 0 0 1-1.66-2.06c-.17-.3 0-.46.13-.6.14-.14.3-.35.45-.53.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.6-.91-2.2-.24-.57-.49-.5-.67-.5h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.22 3.08c.15.2 2.1 3.2 5.08 4.5.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35Z"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+  book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3V4Z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/></svg>`,
+  drop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s6 6.6 6 11.3a6 6 0 0 1-12 0c0-4.7 6-11.3 6-11.3Z"/></svg>`,
   plane: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>`,
 };
 
@@ -32,16 +35,22 @@ const LOGO_IMG = `<img src="${SITE_ROOT}assets/img/brand/logo.png" alt="" width=
 // para el header sin importar si la página que lo carga está en la raíz (index.html) o una
 // carpeta adentro (catalogo/, contacto/, etc.). "activo" (parámetro de iniciarLayout) se
 // compara contra estos mismos strings para marcar el link actual.
+// El link a Consolidado solo aparece con CONSOLIDADOS_ACTIVOS (ver api.js).
 const NAV_LINKS = [
   { href: '', label: 'Inicio' },
   { href: 'catalogo/', label: 'Tienda' },
-  { href: 'catalogo-consolidado/', label: 'Consolidado' },
+  { href: 'catalogo-consolidado/', label: 'Consolidado', soloConsolidados: true },
   { href: 'decants/', label: 'Decants' },
   { href: 'liquidaciones/', label: 'Liquidaciones' },
   { href: 'contacto/', label: 'Contacto' },
-];
+].filter((l) => !l.soloConsolidados || CONSOLIDADOS_ACTIVOS);
+
+const TAGLINE_MARCA = CONSOLIDADOS_ACTIVOS ? 'SELECCIÓN &amp; CONSOLIDADOS' : 'PERFUMES &amp; DECANTS';
 
 async function iniciarLayout(activo) {
+  aplicarVisibilidadConsolidados();
+  // Botones "Cotizar por WhatsApp" del HTML estático: el link se arma con el mensaje listo.
+  document.querySelectorAll('[data-whatsapp-consolidado]').forEach((a) => { a.href = enlaceWhatsappConsolidado(a.dataset.whatsappConsolidado || ''); });
   renderHeaderEstatico(activo);
   renderFooter();
   renderWhatsappFloat();
@@ -80,13 +89,26 @@ function aplicarConfiguracionSitio(cfg) {
   const pagoTexto = document.getElementById('footer-pago-texto');
   if (pagoTexto) pagoTexto.textContent = `Pagos: ${cfg.metodos_pago_texto}`;
   aplicarRedesSociales(cfg);
+  aplicarDatosLegalesFooter(cfg);
 
   // Convención genérica para el resto del sitio (info-grid del home, FAQ, términos, etc.):
   // el HTML nace con el valor de siempre como fallback visible, y esto lo pisa si Supabase
   // responde. [data-cfg] llena texto, [data-cfg-href] llena un href (ej. links a Google Maps).
+  // Valores derivados para las páginas legales: el correo de reclamos cae al de contacto si no
+  // se cargó uno propio, y la fecha de las políticas se muestra en texto ("27 de septiembre de 2026").
+  const valores = {
+    ...cfg,
+    correo_reclamos: correoLegal(cfg),
+    politicas_fecha_texto: cfg.politicas_actualizadas_el
+      ? new Date(`${cfg.politicas_actualizadas_el}T12:00:00`).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })
+      : null,
+  };
   document.querySelectorAll('[data-cfg]').forEach((el) => {
-    const valor = cfg[el.dataset.cfg];
-    if (valor !== null && valor !== undefined && valor !== '') el.textContent = valor;
+    const valor = valores[el.dataset.cfg];
+    if (valor !== null && valor !== undefined && valor !== '') {
+      el.textContent = valor;
+      el.classList.remove('dato-pendiente');
+    }
   });
   document.querySelectorAll('[data-cfg-href]').forEach((el) => {
     const valor = cfg[el.dataset.cfgHref];
@@ -169,7 +191,7 @@ function tarjetaConsolidado(c) {
 // consulta o no hay ninguna abierta, se queda con el mensaje genérico (no es crítico).
 async function actualizarAnnounceBar() {
   const bar = document.getElementById('announce-bar');
-  if (!bar || !SUPABASE_CONFIGURADO) return;
+  if (!bar || !SUPABASE_CONFIGURADO || !CONSOLIDADOS_ACTIVOS) return;
   try {
     const consolidados = await obtenerConsolidados();
     const activos = consolidados
@@ -358,14 +380,16 @@ function renderHeaderEstatico(activo) {
   const mount = document.getElementById('site-header');
   if (!mount) return;
   mount.innerHTML = `
-    <div class="announce-bar" id="announce-bar">ENVÍOS A TODO EL PERÚ &mdash; RESERVA TU PERFUME EN NUESTROS CONSOLIDADOS</div>
+    <div class="announce-bar" id="announce-bar">${CONSOLIDADOS_ACTIVOS
+      ? 'ENVÍOS A TODO EL PERÚ &mdash; RESERVA TU PERFUME EN NUESTROS CONSOLIDADOS'
+      : `<a href="${enlaceWhatsappConsolidado()}" target="_blank" rel="noopener">¿NO ESTÁ EN STOCK? TE LO TRAEMOS POR CONSOLIDADO &mdash; COTIZA AL WHATSAPP ${formatoWhatsapp()} &rarr;</a>`}</div>
     <header class="site-header">
       <div class="header-inner container">
         <a href="${SITE_ROOT}" class="brand">
           <span class="brand-icon">${LOGO_IMG}</span>
           <span class="brand-text">
             <span class="brand-name">Maison <span>Zadaca</span></span>
-            <span class="brand-tagline">SELECCIÓN &amp; CONSOLIDADOS</span>
+            <span class="brand-tagline">${TAGLINE_MARCA}</span>
           </span>
         </a>
         <div class="nav-backdrop" id="nav-backdrop" hidden></div>
@@ -373,6 +397,7 @@ function renderHeaderEstatico(activo) {
           ${NAV_LINKS.map((l) => `<a href="${SITE_ROOT}${l.href}" class="${activo === l.href ? 'active' : ''}">${l.label}</a>`).join('')}
         </nav>
         <div class="header-actions">
+          <button type="button" class="icon-btn search-toggle" id="search-toggle" aria-label="Buscar perfumes" aria-expanded="false">${ICONS.search}</button>
           <div class="notif-wrap" id="notif-wrap" hidden>
             <button class="icon-btn" id="notif-toggle" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false">${ICONS.bell}<span class="cart-badge" id="notif-badge" hidden>0</span></button>
             <div class="notif-dropdown" id="notif-dropdown" hidden>
@@ -399,7 +424,21 @@ function renderHeaderEstatico(activo) {
         </div>
       </div>
     </header>
+    <div class="global-search" id="global-search" hidden>
+      <div class="global-search-backdrop" id="global-search-backdrop"></div>
+      <div class="global-search-panel" role="dialog" aria-label="Buscar en la tienda">
+        <form class="global-search-form" id="global-search-form" role="search">
+          <span class="global-search-icon">${ICONS.search}</span>
+          <input type="search" id="global-search-input" placeholder="Perfume, marca o el que te gusta (ej. Sauvage)" autocomplete="off" aria-label="Buscar" />
+          <button type="button" class="global-search-close" id="global-search-close" aria-label="Cerrar">${ICONS.close}</button>
+        </form>
+        <div class="global-search-results" id="global-search-results">
+          <p class="global-search-hint">Busca por nombre, por marca o por el perfume de diseñador que te gusta: te mostramos también sus equivalentes.</p>
+        </div>
+      </div>
+    </div>
   `;
+  iniciarBuscadorGlobal();
 
   const toggle = document.getElementById('menu-toggle');
   const nav = document.getElementById('main-nav');
@@ -558,6 +597,81 @@ async function actualizarBadgeNotificaciones() {
   }
 }
 
+// Buscador del encabezado (en todas las páginas): perfumes enteros con stock y decants
+// disponibles en una sola lista, buscando también por "Inspirado en". Enter lleva al catálogo
+// con la búsqueda aplicada.
+function iniciarBuscadorGlobal() {
+  const contenedor = document.getElementById('global-search');
+  const input = document.getElementById('global-search-input');
+  const resultados = document.getElementById('global-search-results');
+  const toggle = document.getElementById('search-toggle');
+  if (!contenedor || !input) return;
+  let temporizador;
+  let secuencia = 0;
+
+  const abrir = () => {
+    contenedor.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('busqueda-abierta');
+    setTimeout(() => input.focus(), 30);
+  };
+  const cerrar = () => {
+    contenedor.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('busqueda-abierta');
+  };
+  toggle.addEventListener('click', () => (contenedor.hidden ? abrir() : cerrar()));
+  document.getElementById('global-search-close').addEventListener('click', cerrar);
+  document.getElementById('global-search-backdrop').addEventListener('click', cerrar);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !contenedor.hidden) cerrar();
+    // "/" abre el buscador desde cualquier parte (salvo que ya se esté escribiendo en un campo).
+    if (e.key === '/' && contenedor.hidden && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) { e.preventDefault(); abrir(); }
+  });
+  document.getElementById('global-search-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (q) window.location.href = `${SITE_ROOT}catalogo/?busqueda=${encodeURIComponent(q)}`;
+  });
+
+  input.addEventListener('input', () => {
+    clearTimeout(temporizador);
+    const q = input.value.trim();
+    if (q.length < 2) {
+      resultados.innerHTML = '<p class="global-search-hint">Busca por nombre, por marca o por el perfume de diseñador que te gusta: te mostramos también sus equivalentes.</p>';
+      return;
+    }
+    temporizador = setTimeout(async () => {
+      const id = ++secuencia;
+      resultados.innerHTML = '<p class="global-search-hint">Buscando…</p>';
+      const lista = SUPABASE_CONFIGURADO ? await buscarEnTodaLaTienda(q, 8).catch(() => []) : [];
+      if (id !== secuencia) return;
+      resultados.innerHTML = `
+        ${lista.length ? `<div class="global-search-lista">${lista.map((p) => {
+          const tallas = p.es_decant ? tallasDecant(p) : [];
+          const precio = p.es_decant
+            ? (tallas.length ? `Desde ${formatoMoneda(precioTallaDecant(p, tallas[0]))}` : '')
+            : formatoMoneda(p.es_liquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje));
+          return `
+            <a class="global-search-item" href="${SITE_ROOT}producto/?slug=${p.slug}">
+              <span class="gs-img">${p.imagen_url ? `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="" loading="lazy" onerror="this.remove()" />` : ICONS.box}</span>
+              <span class="gs-info">
+                <span class="gs-marca">${escapeHtml(p.marca)}${p.es_decant ? ' · <strong>Decant</strong>' : ''}</span>
+                <span class="gs-nombre">${escapeHtml(p.nombre)}</span>
+                ${p.inspirado_en ? `<span class="gs-inspirado">Inspirado en ${escapeHtml(p.inspirado_en)}</span>` : ''}
+              </span>
+              <span class="gs-precio">${precio}</span>
+            </a>`;
+        }).join('')}</div>` : `<p class="global-search-hint">No tenemos "${escapeHtml(q)}" en stock ahora mismo.</p>`}
+        <div class="global-search-acciones">
+          <a href="${SITE_ROOT}catalogo/?busqueda=${encodeURIComponent(q)}&disponibilidad=todos">Ver todo en el catálogo &rarr;</a>
+          <a href="${SITE_ROOT}decants/?q=${encodeURIComponent(q)}">Buscar en decants &rarr;</a>
+          <a href="${enlaceWhatsappConsolidado(q)}" target="_blank" rel="noopener" class="gs-encargo">¿No lo encuentras? Te lo traemos por consolidado</a>
+        </div>`;
+    }, 250);
+  });
+}
+
 async function actualizarEstadoSesionHeader() {
   const label = document.getElementById('nav-account-label');
   const badge = document.getElementById('cart-badge');
@@ -659,10 +773,10 @@ function renderFooter() {
               <span class="brand-icon">${LOGO_IMG}</span>
               <span class="brand-text">
                 <span class="brand-name">Maison <span>Zadaca</span></span>
-                <span class="brand-tagline">SELECCIÓN &amp; CONSOLIDADOS</span>
+                <span class="brand-tagline">${TAGLINE_MARCA}</span>
               </span>
             </a>
-            <p>Perfumería importada seleccionada, disponible en tienda o mediante compras consolidadas a precio preferencial.</p>
+            <p>${CONSOLIDADOS_ACTIVOS ? 'Perfumería importada seleccionada, disponible en tienda o mediante compras consolidadas a precio preferencial.' : 'Perfumería importada seleccionada: perfumes originales árabes y de diseñador, y decants para probarlos antes.'}</p>
             <div class="social-row">
               <a href="#" aria-label="Instagram" id="social-instagram" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg></a>
               <a href="#" aria-label="TikTok" id="social-tiktok" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 3v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M15 3c.5 2.5 2 4 5 4.3"/></svg></a>
@@ -677,13 +791,14 @@ function renderFooter() {
             <a href="${SITE_ROOT}catalogo/?genero=Mujer">Para Mujer</a>
             <a href="${SITE_ROOT}decants/">Decants</a>
             <a href="${SITE_ROOT}liquidaciones/">Liquidaciones</a>
+            ${CONSOLIDADOS_ACTIVOS ? '' : `<a href="${enlaceWhatsappConsolidado()}" target="_blank" rel="noopener">Pedidos por consolidado</a>`}
           </div>
-          <div class="footer-col">
+          ${CONSOLIDADOS_ACTIVOS ? `<div class="footer-col">
             <h4>Consolidado</h4>
             <a href="${SITE_ROOT}catalogo-consolidado/">Catálogo consolidado</a>
             <a href="${SITE_ROOT}consolidados/">Campañas activas</a>
             <a href="${SITE_ROOT}contacto/">Cómo funciona</a>
-          </div>
+          </div>` : ''}
           <div class="footer-col">
             <h4>Empresa</h4>
             <a href="${SITE_ROOT}contacto/">Solicitar cotización</a>
@@ -693,15 +808,16 @@ function renderFooter() {
           <div class="footer-col">
             <h4>Ayuda</h4>
             <a href="${SITE_ROOT}contacto/#tiendas" id="footer-dir-chiclayo">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
-            <a href="${SITE_ROOT}contacto/#tiendas" id="footer-dir-lima">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>
+            ${CONSOLIDADOS_ACTIVOS ? `<a href="${SITE_ROOT}contacto/#tiendas" id="footer-dir-lima">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>` : ''}
             <a href="https://wa.me/${WHATSAPP_NUMERO}" target="_blank" rel="noopener">WhatsApp: ${formatoWhatsapp()}</a>
             <p id="footer-envio-texto">Envíos vía Shalom / Olva a todo el Perú</p>
             <p id="footer-pago-texto">Pagos: Yape, Plin, transferencia y tarjeta</p>
           </div>
         </div>
         <div class="footer-bottom">
-          <span>&copy; <span id="footer-year"></span> Maison Zadaca. Todos los derechos reservados.</span>
+          <span>&copy; <span id="footer-year"></span> Maison Zadaca. Todos los derechos reservados.<span class="footer-legal-empresa" id="footer-legal-empresa" hidden></span></span>
           <div class="footer-legal-links">
+            <a href="${SITE_ROOT}libro-de-reclamaciones/" class="link-libro-reclamaciones">${ICONS.book} Libro de Reclamaciones</a>
             <a href="${SITE_ROOT}politica-privacidad/">Privacidad</a>
             <a href="${SITE_ROOT}terminos-condiciones/">Términos</a>
             <a href="${SITE_ROOT}cambios-y-devoluciones/">Cambios y devoluciones</a>
@@ -712,6 +828,16 @@ function renderFooter() {
     </footer>
   `;
   document.getElementById('footer-year').textContent = new Date().getFullYear();
+}
+
+// Razón social y RUC en el pie de página: solo aparecen cuando el admin los cargó en
+// Configuración del Sitio (la ley pide identificar al proveedor; mientras no estén, no se
+// muestra una línea a medias).
+function aplicarDatosLegalesFooter(cfg) {
+  const mount = document.getElementById('footer-legal-empresa');
+  if (!mount || !cfg?.ruc) return;
+  mount.textContent = [cfg.razon_social, `RUC ${cfg.ruc}`, cfg.domicilio_fiscal].filter(Boolean).join(' · ');
+  mount.hidden = false;
 }
 
 function wireNewsletterForm(selector = '#newsletter-form') {
@@ -782,17 +908,20 @@ function tarjetaProducto(p) {
           ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
           ${tieneDescuento ? `<span class="badge badge-sale">-${Number(p.descuento_tienda_porcentaje)}%</span>` : ''}
           ${agotado ? '<span class="badge badge-out">Agotado</span>' : ''}
+          ${!agotado && !p.es_decant && p.stock_disponible > 0 && p.stock_disponible <= 2 ? `<span class="badge badge-ultimas">¡${p.stock_disponible === 1 ? 'Última unidad' : 'Últimas 2'}!</span>` : ''}
         </div>
       </div>
       <div class="product-info">
         <span class="product-brand">${escapeHtml(p.marca)}</span>
         <h3 class="product-name">${escapeHtml(p.nombre)}</h3>
         <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.es_decant ? (tallas.length ? ` · ${tallas.join('/')} ml` : '') : (p.mililitros ? ` · ${p.mililitros} ml` : '')}</span>
+        ${p.inspirado_en ? `<span class="product-inspirado" title="Inspirado en ${escapeHtml(p.inspirado_en)}">Inspirado en ${escapeHtml(p.inspirado_en)}</span>` : ''}
         <div class="product-price-row">
           <span class="price-current">${p.es_decant ? 'Desde ' : ''}${formatoMoneda(final)}</span>
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
         </div>
         ${esLiquidacion ? `<div class="liq-unidad-note">${p.liquidacion_unidad_minima > 1 ? `Solo por mayor · mínimo ${p.liquidacion_unidad_minima} unidades` : 'Por unidad o por mayor'}</div>` : ''}
+        ${agotado && !p.es_decant && !CONSOLIDADOS_ACTIVOS ? '<div class="liq-unidad-note">Disponible por encargo (consolidado)</div>' : ''}
       </div>
     </a>
   `;

@@ -1,6 +1,8 @@
 let CONSOLIDADO_ID = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Consolidados apagados (ver CONSOLIDADOS_ACTIVOS en api.js): esta página manda al catálogo.
+  if (!CONSOLIDADOS_ACTIVOS) { window.location.replace(`${SITE_ROOT}catalogo/`); return; }
   await iniciarLayout('catalogo-consolidado/');
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('detalle-mount').innerHTML = '<div class="container"><div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div></div>';

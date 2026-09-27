@@ -1034,3 +1034,85 @@ h1, h2, h3, h4 {
 .avion-title svg { width: 20px; height: 20px; color: var(--color-gold); flex-shrink: 0; }
 .avion-minimo-note { font-size: 0.8rem; color: var(--color-text-muted); margin: 4px 0 18px; }
 .avion-minimo-note strong { color: var(--color-chrome-dim); }
+
+/* Bloques que dependen de CONSOLIDADOS_ACTIVOS (ver aplicarVisibilidadConsolidados en api.js): el
+   atributo hidden tiene que ganarle a cualquier display de su clase (grid, flex...). */
+[data-consolidado][hidden], [data-sin-consolidado][hidden] { display: none !important; }
+
+/* ==========================================================
+   Buscador del encabezado, tarjetas y pie legal (sep 2026)
+   ========================================================== */
+.search-toggle { background: none; border: none; padding: 0; cursor: pointer; }
+.search-toggle svg { width: 20px; height: 20px; }
+
+.global-search { position: fixed; inset: 0; z-index: 400; }
+.global-search-backdrop { position: absolute; inset: 0; background: rgba(10, 8, 6, 0.55); backdrop-filter: blur(2px); }
+.global-search-panel {
+  position: relative; max-width: 680px; margin: 86px auto 0; background: var(--color-bg-card);
+  border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  max-height: calc(100vh - 120px); display: flex; flex-direction: column; overflow: hidden;
+}
+@media (max-width: 720px) { .global-search-panel { margin: 12px; max-height: calc(100vh - 24px); } }
+.global-search-form { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--color-border); }
+.global-search-icon svg { width: 20px; height: 20px; color: var(--color-text-faint); }
+.global-search-form input { flex: 1; border: none; outline: none; background: none; font-size: 1rem; color: var(--color-text); min-width: 0; }
+.global-search-close { background: none; border: none; color: var(--color-text-faint); padding: 4px; cursor: pointer; }
+.global-search-close svg { width: 20px; height: 20px; }
+.global-search-results { overflow-y: auto; padding: 8px 0; }
+.global-search-hint { font-size: 0.84rem; color: var(--color-text-faint); padding: 10px 18px; margin: 0; }
+.global-search-item { display: flex; align-items: center; gap: 12px; padding: 9px 18px; text-decoration: none; color: var(--color-text); }
+.global-search-item:hover, .global-search-item:focus { background: rgba(122, 32, 48, 0.07); outline: none; }
+.gs-img { width: 42px; height: 42px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--color-media-bg); border: 1px solid var(--color-border); border-radius: 4px; overflow: hidden; color: var(--color-text-faint); }
+.gs-img img { width: 100%; height: 100%; object-fit: contain; }
+.gs-img svg { width: 20px; height: 20px; }
+.gs-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.gs-marca { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-gold); }
+.gs-nombre { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gs-inspirado { font-size: 0.72rem; color: var(--color-text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gs-precio { font-size: 0.84rem; font-weight: 700; color: var(--color-gold); white-space: nowrap; }
+.global-search-acciones { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 18px 14px; border-top: 1px solid var(--color-border); margin-top: 6px; font-size: 0.8rem; }
+.global-search-acciones a { color: var(--color-gold); text-decoration: none; }
+.global-search-acciones a:hover { text-decoration: underline; }
+.global-search-acciones .gs-encargo { color: var(--color-text-muted); }
+body.busqueda-abierta { overflow: hidden; }
+
+.badge-ultimas { background: #d29a3a; color: #1a1206; }
+.product-inspirado { display: block; font-size: 0.72rem; color: var(--color-text-faint); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.link-libro-reclamaciones { display: inline-flex; align-items: center; gap: 6px; }
+.link-libro-reclamaciones svg { width: 16px; height: 16px; }
+.footer-legal-empresa { display: block; font-size: 0.72rem; margin-top: 4px; opacity: 0.8; }
+
+/* Franja "Consolidados por WhatsApp" (home y contacto) */
+.encargo-band { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 34px 32px; display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: center; }
+@media (max-width: 860px) { .encargo-band { grid-template-columns: 1fr; padding: 26px 20px; } }
+.encargo-band h2 { margin: 6px 0 10px; }
+.encargo-band p { color: var(--color-text-muted); font-size: 0.94rem; margin: 0 0 18px; }
+.encargo-pasos { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: paso; }
+.encargo-pasos li { counter-increment: paso; display: flex; gap: 12px; align-items: flex-start; font-size: 0.88rem; color: var(--color-text-muted); }
+.encargo-pasos li::before { content: counter(paso); flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--color-gold); color: #fff; font-weight: 700; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
+.encargo-pasos strong { color: var(--color-text); }
+.encargo-numero { display: block; font-size: 0.8rem; color: var(--color-text-faint); margin-top: 10px; }
+
+/* Barra de filtros compartida (catálogo y decants): etiqueta de resultados vacíos */
+.empty-encargo { text-align: center; padding: 40px 20px; }
+.empty-encargo p { color: var(--color-text-muted); margin: 0 0 16px; }
+
+/* Barra de filtros de la página de Decants */
+.decants-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 22px; }
+.decants-toolbar input[type="search"] { flex: 1 1 240px; max-width: 340px; background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text); padding: 10px 16px; border-radius: 20px; font-size: 0.84rem; outline: none; }
+.decants-toolbar input[type="search"]:focus { border-color: var(--color-gold); }
+.decants-toolbar select { background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text); padding: 10px 12px; border-radius: 20px; font-size: 0.8rem; }
+.decants-conteo { margin-left: auto; font-size: 0.82rem; color: var(--color-text-faint); }
+@media (max-width: 720px) {
+  .decants-toolbar input[type="search"] { flex-basis: 100%; max-width: none; }
+  .decants-toolbar select { flex: 1 1 45%; }
+  .decants-conteo { width: 100%; margin-left: 0; }
+}
+
+/* Páginas legales: datos de la empresa y marcadores "[... pendiente]" hasta que se carguen en
+   Configuración del Sitio */
+.legal-empresa { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 18px; margin: 0 0 24px; font-size: 0.88rem; }
+.legal-empresa p { margin: 0 0 4px; }
+.legal-empresa p:last-child { margin: 0; }
+.dato-pendiente { background: #fff3cd; color: #7a5200; padding: 0 5px; border-radius: 3px; font-weight: 600; }

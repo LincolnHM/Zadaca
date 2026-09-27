@@ -81,10 +81,21 @@
           <div class="mt-40">
             <div class="info-item"><span id="icon-mail"></span><div><h4>Correo</h4><p data-cfg="correo_contacto">contacto@maisonzadaca.com</p></div></div>
             <div class="info-item"><span id="icon-whatsapp"></span><div><h4>WhatsApp</h4><p id="texto-whatsapp"></p></div></div>
-            <div class="info-item"><span id="icon-envios"></span><div><h4>Envíos</h4><p>A todo el Perú vía <span data-cfg="envio_transportistas">Shalom / Olva</span>, o recojo en nuestro almacén de Lima o en nuestra tienda de Chiclayo <a href="#tiendas" class="link-arrow">(ver ubicaciones)</a>.</p></div></div>
+            <div class="info-item"><span id="icon-envios"></span><div><h4>Envíos</h4><p>A todo el Perú vía <span data-cfg="envio_transportistas">Shalom / Olva</span>, o recojo en nuestra tienda de Chiclayo<span data-consolidado hidden> o en nuestro almacén de Lima</span> <a href="#tiendas" class="link-arrow">(ver ubicaciones)</a>.</p></div></div>
           </div>
-          <h3 style="margin-top:40px; font-size:1.1rem;">¿Cómo funciona un consolidado?</h3>
-          <ol class="steps">
+          <div data-sin-consolidado>
+            <h3 style="margin-top:40px; font-size:1.1rem;">¿Cómo pedir un perfume por consolidado?</h3>
+            <p style="font-size:0.9rem; color:var(--color-text-muted); margin:6px 0 16px;">Si el perfume no está en stock, lo importamos por encargo junto con otros pedidos. Todo se coordina por WhatsApp:</p>
+            <ol class="encargo-pasos">
+            <li><span><strong>Escríbenos</strong> el perfume que quieres (nombre y marca, o una foto).</span></li>
+            <li><span><strong>Te cotizamos</strong> precio y tiempo de llegada (<span data-cfg="envio_dias_texto">7 a 14</span> días aprox.).</span></li>
+            <li><span><strong>Separas tu pedido</strong> con un adelanto por Yape, Plin o transferencia.</span></li>
+            <li><span><strong>Lo recibes</strong> en tu ciudad por Shalom u Olva, o lo recoges en nuestra tienda de Chiclayo.</span></li>
+          </ol>
+            <a class="btn btn-whatsapp btn-sm" style="margin-top:16px;" data-whatsapp-consolidado href="https://wa.me/51990278017" target="_blank" rel="noopener">Cotizar por WhatsApp +51 990 278 017</a>
+          </div>
+          <h3 style="margin-top:40px; font-size:1.1rem;" data-consolidado hidden>¿Cómo funciona un consolidado?</h3>
+          <ol class="steps" data-consolidado hidden>
             <li>Eliges tu perfume y lo reservas al precio consolidado en una campaña activa.</li>
             <li>Cuando la campaña alcanza el mínimo de unidades, cerramos la compra e importamos.</li>
             <li>Sigues el estado de tu pedido: en tránsito, en aduanas, en almacén.</li>
@@ -104,7 +115,7 @@
     <section class="section reveal" style="padding-top:0;" id="tiendas">
       <div class="container">
         <div class="section-header">
-          <div><span class="eyebrow">Visítanos</span><h2>Tienda &amp; Almacén</h2></div>
+          <div><span class="eyebrow">Visítanos</span><h2><span data-consolidado hidden>Tienda &amp; Almacén</span><span data-sin-consolidado>Nuestra Tienda</span></h2></div>
         </div>
         <div class="store-grid">
           <div class="store-card">
@@ -114,7 +125,7 @@
             <p class="store-address" style="margin-bottom:16px;" data-cfg="direccion_chiclayo">Av. Los Incas 1090, La Victoria, Chiclayo</p>
             <a class="link-arrow" data-cfg-href="direccion_chiclayo_maps_url" href="https://www.google.com/maps/search/?api=1&amp;query=Av.+Los+Incas+1090,+La+Victoria,+Chiclayo,+Peru" target="_blank" rel="noopener">Cómo llegar &rarr;</a>
           </div>
-          <div class="store-card">
+          <div class="store-card" data-consolidado hidden>
             <span class="store-icon" id="icon-tienda-lima"></span>
             <span class="store-badge">Almacén — Punto de recojo</span>
             <h3>Lima — San Martín de Porres</h3>

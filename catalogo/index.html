@@ -4,18 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Catálogo de Perfumes — Maison Zadaca</title>
-  <meta name="description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
+  <meta name="description" content="Explora el catálogo de perfumes importados originales en stock: para hombre, mujer y unisex, árabes y de diseñador." />
   <link rel="canonical" href="https://madisonzadaca.com/catalogo/" />
   <link rel="icon" type="image/png" href="https://madisonzadaca.com/assets/img/brand/favicon.png" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Maison Zadaca" />
   <meta property="og:title" content="Catálogo de Perfumes — Maison Zadaca" />
-  <meta property="og:description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
+  <meta property="og:description" content="Explora el catálogo de perfumes importados originales en stock: para hombre, mujer y unisex, árabes y de diseñador." />
   <meta property="og:url" content="https://madisonzadaca.com/catalogo/" />
   <meta property="og:image" content="https://madisonzadaca.com/assets/img/brand/logo-og.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Catálogo de Perfumes — Maison Zadaca" />
-  <meta name="twitter:description" content="Explora el catálogo completo de perfumes importados originales: para hombre, mujer y unisex, en tienda o a precio consolidado." />
+  <meta name="twitter:description" content="Explora el catálogo de perfumes importados originales en stock: para hombre, mujer y unisex, árabes y de diseñador." />
   <meta name="twitter:image" content="https://madisonzadaca.com/assets/img/brand/logo-og.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -131,8 +131,9 @@
     <section class="section-tight">
       <div class="container">
         <p style="max-width:680px; color:var(--color-text-muted); font-size:0.95rem; margin-bottom:0;">
-          Solo perfumes con <strong style="color:var(--color-gold)">stock físico real</strong> en nuestra tienda: los compras y los recibes de inmediato, sin esperar a ningún consolidado.
-          <a href="https://madisonzadaca.com/catalogo-consolidado/" class="link-arrow">Ver catálogo consolidado &rarr;</a>
+          Solo perfumes con <strong style="color:var(--color-gold)">stock físico real</strong> en nuestra tienda: los compras y los recibes de inmediato.
+          <a href="https://madisonzadaca.com/catalogo-consolidado/" class="link-arrow" data-consolidado hidden>Ver catálogo consolidado &rarr;</a>
+          <a href="https://madisonzadaca.com/decants/" class="link-arrow" data-sin-consolidado>¿Quieres probarlo antes? Mira los decants &rarr;</a>
         </p>
       </div>
     </section>
@@ -154,7 +155,7 @@
           <div class="catalog-toolbar">
             <div class="toolbar-filters">
               <div class="search-compact">
-                <input type="text" name="busqueda" placeholder="Buscar perfume o marca..." autocomplete="off" />
+                <input type="text" name="busqueda" placeholder="Perfume, marca o el que te gusta (ej. Sauvage)" autocomplete="off" />
                 <div class="search-suggest" id="search-suggest"></div>
               </div>
               <div class="filter-dd" id="dd-marca">
@@ -168,6 +169,18 @@
                 <button type="button" class="filter-dd-btn">Casa <span class="caret">⌄</span></button>
                 <div class="filter-dd-panel">
                   <div class="filter-dd-list" id="filtro-casas"></div>
+                </div>
+              </div>
+              <div class="filter-dd" id="dd-aroma">
+                <button type="button" class="filter-dd-btn">Aroma <span class="caret">⌄</span></button>
+                <div class="filter-dd-panel">
+                  <div class="filter-dd-list" id="filtro-aromas"></div>
+                </div>
+              </div>
+              <div class="filter-dd" id="dd-precio">
+                <button type="button" class="filter-dd-btn">Precio <span class="caret">⌄</span></button>
+                <div class="filter-dd-panel">
+                  <div class="filter-dd-list" id="filtro-precios"></div>
                 </div>
               </div>
               <div class="filter-dd" id="dd-familia">

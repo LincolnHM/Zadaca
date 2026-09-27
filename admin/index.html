@@ -42,18 +42,20 @@
         <span class="admin-nav-label">Principal</span>
         <button class="admin-nav-btn active" data-section="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</button>
         <button class="admin-nav-btn" data-section="productos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 2h6M10 2v3.5a2 2 0 0 1-.6 1.4L8 8.3A3 3 0 0 0 7 10.5V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.5a3 3 0 0 0-1-2.2l-1.4-1.4A2 2 0 0 1 14 5.5V2"/></svg>Productos</button>
+        <button class="admin-nav-btn" data-section="inventario"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7Z"/><path d="M3 7l9 4 9-4M12 11v10"/><path d="M7.5 5l9 4"/></svg>Inventario <span class="admin-nav-badge" id="badge-inventario" hidden>0</span></button>
         <button class="admin-nav-btn" data-section="margenes"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.3"/><circle cx="17.5" cy="17.5" r="2.3"/></svg>Calculadora de Márgenes <span class="admin-nav-badge" id="badge-margenes" hidden>0</span></button>
 
         <span class="admin-nav-label">Pedidos</span>
-        <button class="admin-nav-btn" data-section="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Pedidos</button>
-        <button class="admin-nav-btn" data-section="consolidados"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>Consolidados</button>
-        <button class="admin-nav-btn" data-section="reservas"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>Todas las Reservas</button>
+        <button class="admin-nav-btn" data-section="pedidos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>Pedidos <span class="admin-nav-badge" id="badge-despachar" hidden title="Por despachar">0</span></button>
+        <button class="admin-nav-btn" data-section="consolidados" data-consolidado hidden><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>Consolidados</button>
+        <button class="admin-nav-btn" data-section="reservas" data-consolidado hidden><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>Todas las Reservas</button>
         <button class="admin-nav-btn" data-section="contabilidad"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><circle cx="8" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="16" r="1" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1" fill="currentColor" stroke="none"/></svg>Contabilidad</button>
 
         <span class="admin-nav-label">Clientes</span>
         <button class="admin-nav-btn" data-section="clientes"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><circle cx="17.5" cy="9" r="2.3"/><path d="M15.7 14.3c2.4.4 4.3 2 4.3 5.7"/></svg>Clientes</button>
         <button class="admin-nav-btn" data-section="resenas"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="m12 3 2.6 5.6 6 .7-4.4 4.1 1.2 6-5.4-3-5.4 3 1.2-6L3.4 9.3l6-.7L12 3Z"/></svg>Reseñas <span class="admin-nav-badge" id="badge-resenas" hidden>0</span></button>
         <button class="admin-nav-btn" data-section="cotizaciones"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 5h16v11H8l-4 4V5Z"/></svg>Cotizaciones <span class="admin-nav-badge" id="badge-cotizaciones" hidden>0</span></button>
+        <button class="admin-nav-btn" data-section="reclamos"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3V4Z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/></svg>Libro de Reclamaciones <span class="admin-nav-badge" id="badge-reclamos" hidden>0</span></button>
 
         <span class="admin-nav-label">Contenido del Sitio</span>
         <button class="admin-nav-btn" data-section="publicidad"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 11v2a2 2 0 0 0 2 2h1l2 5h2l-1.5-5H11l7 4V5l-7 4H3z"/></svg>Publicidad</button>
@@ -161,6 +163,72 @@
         <div class="pagination" id="productos-paginacion"></div>
       </section>
 
+      <!-- Inventario -->
+      <section class="admin-section" id="section-inventario">
+        <div class="admin-page-header">
+          <div><h1>Inventario</h1><div class="sub">Frascos cerrados (se venden en tienda) y abiertos (se usan para decantar) de cada perfume</div></div>
+          <div class="row-actions">
+            <button class="btn btn-ghost btn-sm" id="btn-imprimir-conteo">Imprimir hoja de conteo</button>
+            <button class="btn btn-outline btn-sm" id="btn-exportar-inventario">Exportar a Excel</button>
+          </div>
+        </div>
+        <div class="admin-tabs" id="inventario-tabs">
+          <button class="admin-tab active" data-vista="stock">Stock actual</button>
+          <button class="admin-tab" data-vista="movimientos">Movimientos (kardex)</button>
+        </div>
+
+        <div id="inventario-vista-stock">
+          <div class="stat-grid" id="inventario-kpis"><div class="admin-empty">Cargando…</div></div>
+          <div class="admin-toolbar">
+            <input type="text" id="inventario-busqueda" placeholder="Buscar perfume o marca..." />
+            <select id="inventario-filtro">
+              <option value="con-stock">Con stock</option>
+              <option value="bajo">Stock bajo / por terminarse</option>
+              <option value="abiertos">Con frasco abierto (decants)</option>
+              <option value="cerrados">Con frascos cerrados (tienda)</option>
+              <option value="sin-stock">Sin stock</option>
+              <option value="sin-vincular">Decants sin vincular a tienda</option>
+              <option value="todos">Todos</option>
+            </select>
+            <span class="admin-toolbar-count" id="inventario-conteo"></span>
+          </div>
+          <p class="form-hint" style="margin:-8px 0 16px;">Cada venta (web o registrada acá) descuenta sola: 1 frasco cerrado por perfume entero y los ml del decant vendido. <strong>Abrir frasco</strong> pasa 1 cerrado de tienda a abierto para decants. Todo queda en Movimientos.</p>
+          <div class="admin-table-wrap"><table class="data-table inventario-table">
+            <thead><tr><th>Perfume</th><th class="num">Cerrados<br><span class="th-sub">tienda</span></th><th class="num">Abiertos<br><span class="th-sub">decants</span></th><th class="num">ml en frasco</th><th class="num">Precio</th><th></th></tr></thead>
+            <tbody id="inventario-tbody"><tr><td colspan="6" class="admin-empty">Cargando…</td></tr></tbody>
+          </table></div>
+        </div>
+
+        <div id="inventario-vista-movimientos" hidden>
+          <div class="admin-toolbar">
+            <input type="text" id="movimientos-busqueda" placeholder="Buscar perfume..." />
+            <select id="movimientos-tipo">
+              <option value="">Todos los movimientos</option>
+              <option value="Venta">Ventas</option>
+              <option value="Anulacion_Venta">Anulaciones de venta</option>
+              <option value="Ingreso">Ingresos de mercadería</option>
+              <option value="Apertura_Decant">Frascos abiertos</option>
+              <option value="Frasco_Terminado">Frascos terminados</option>
+              <option value="Merma">Mermas</option>
+              <option value="Conteo">Conteos</option>
+              <option value="Ajuste">Ajustes</option>
+            </select>
+            <select id="movimientos-periodo">
+              <option value="7">Últimos 7 días</option>
+              <option value="30" selected>Últimos 30 días</option>
+              <option value="90">Últimos 90 días</option>
+              <option value="">Todo</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="btn-movimientos-quitar-filtro" hidden>Ver todos los perfumes</button>
+          </div>
+          <div id="movimientos-filtro-producto" class="form-hint" style="margin:-8px 0 12px;" hidden></div>
+          <div class="admin-table-wrap"><table class="data-table">
+            <thead><tr><th>Fecha</th><th>Perfume</th><th>Movimiento</th><th class="num">Cerrados</th><th class="num">Abiertos</th><th class="num">ml</th><th>Detalle</th></tr></thead>
+            <tbody id="movimientos-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
+          </table></div>
+        </div>
+      </section>
+
       <!-- Calculadora de Márgenes -->
       <section class="admin-section" id="section-margenes">
         <div class="admin-page-header"><div><h1>Calculadora de Márgenes</h1><div class="sub">Precio de venta = costo de importación + margen. Aplícalo a todo el catálogo de una vez o ajusta fila por fila.</div></div></div>
@@ -192,24 +260,46 @@
 
       <!-- Pedidos -->
       <section class="admin-section" id="section-pedidos">
-        <div class="admin-page-header"><div><h1>Pedidos</h1><div class="sub">Registra pagos, envío y notifica al cliente por WhatsApp</div></div></div>
+        <div class="admin-page-header">
+          <div><h1>Pedidos</h1><div class="sub">Registra ventas de WhatsApp o tienda, cobra, despacha e imprime la etiqueta de envío</div></div>
+          <div class="row-actions">
+            <button class="btn btn-outline btn-sm" id="btn-imprimir-etiquetas" disabled>Imprimir etiquetas (0)</button>
+            <button class="btn btn-primary btn-sm" id="btn-registrar-pedido">+ Registrar Pedido</button>
+          </div>
+        </div>
+        <div class="stat-grid" id="pedidos-resumen" style="margin-bottom:20px;"></div>
         <div class="admin-tabs" id="pedidos-tipo-tabs">
-          <button class="admin-tab active" data-tipo="Directo_Tienda" data-decants="">Tienda</button>
-          <button class="admin-tab" data-tipo="Directo_Tienda" data-decants="1">Decants</button>
-          <button class="admin-tab" data-tipo="Consolidado" data-decants="">Consolidado</button>
+          <button class="admin-tab active" data-tipo="Directo_Tienda" data-decants="todos">Todos</button>
+          <button class="admin-tab" data-tipo="Directo_Tienda" data-decants="">Perfumes</button>
+          <button class="admin-tab" data-tipo="Directo_Tienda" data-decants="1">Con decants</button>
+          <button class="admin-tab" data-tipo="Consolidado" data-decants="" data-consolidado hidden>Consolidado</button>
         </div>
         <div class="admin-toolbar">
-          <input type="text" id="pedidos-busqueda" placeholder="Buscar por cliente o N° pedido..." />
-          <select id="pedidos-filtro-estado">
-            <option value="">Todos los estados</option>
-            <option value="Pendiente">Pendiente</option>
-            <option value="Parcial">Parcial</option>
-            <option value="Completado">Completado</option>
+          <input type="text" id="pedidos-busqueda" placeholder="Cliente, DNI, celular o N° pedido..." />
+          <select id="pedidos-filtro-envio">
+            <option value="">Todos los envíos</option>
+            <option value="Preparando">Por despachar</option>
+            <option value="En_Agencia">En agencia</option>
+            <option value="En_Ruta">En ruta</option>
+            <option value="Entregado">Entregado</option>
+            <option value="Devuelto">Devuelto</option>
           </select>
+          <select id="pedidos-filtro-estado">
+            <option value="">Todos los pagos</option>
+            <option value="Pendiente">Pago pendiente</option>
+            <option value="Parcial">Pago parcial</option>
+            <option value="Completado">Pagado</option>
+          </select>
+          <select id="pedidos-filtro-anulados">
+            <option value="activos">Pedidos activos</option>
+            <option value="anulados">Anulados</option>
+            <option value="todos">Activos y anulados</option>
+          </select>
+          <span class="admin-toolbar-count" id="pedidos-conteo"></span>
         </div>
         <div class="admin-table-wrap"><table class="data-table">
-          <thead><tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Pago</th><th>Envío</th><th></th></tr></thead>
-          <tbody id="pedidos-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
+          <thead><tr><th style="width:34px;"><input type="checkbox" id="pedidos-check-todos" aria-label="Seleccionar todos" /></th><th>Pedido</th><th>Cliente</th><th>Destino</th><th>Total</th><th>Pago</th><th>Envío</th><th></th></tr></thead>
+          <tbody id="pedidos-tbody"><tr><td colspan="8" class="admin-empty">Cargando…</td></tr></tbody>
         </table></div>
       </section>
 
@@ -224,11 +314,54 @@
 
       <!-- Contabilidad -->
       <section class="admin-section" id="section-contabilidad">
-        <div class="admin-page-header"><div><h1>Contabilidad</h1><div class="sub">Cuánto pedir y cuánto cobrar por campaña de consolidado</div></div></div>
-        <div class="admin-toolbar">
-          <select id="contabilidad-select-consolidado" style="min-width:280px;"><option value="">Selecciona una campaña…</option></select>
+        <div class="admin-page-header">
+          <div><h1>Contabilidad</h1><div class="sub">Ventas, cobros, gastos y utilidad del negocio</div></div>
+          <div class="row-actions">
+            <select id="contabilidad-anio" class="status-select"></select>
+            <select id="contabilidad-mes" class="status-select">
+              <option value="">Todo el año</option>
+              <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+              <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+              <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+              <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+            </select>
+          </div>
         </div>
-        <div id="contabilidad-contenido"><div class="admin-empty">Elige una campaña para ver su contabilidad.</div></div>
+        <div class="admin-tabs" id="contabilidad-tabs">
+          <button class="admin-tab active" data-vista="resumen">Resumen</button>
+          <button class="admin-tab" data-vista="ventas">Ventas</button>
+          <button class="admin-tab" data-vista="gastos">Gastos</button>
+          <button class="admin-tab" data-vista="consolidados" data-consolidado hidden>Consolidados</button>
+        </div>
+
+        <div id="contabilidad-vista-resumen"><div class="admin-empty">Cargando…</div></div>
+        <div id="contabilidad-vista-ventas" hidden><div class="admin-empty">Cargando…</div></div>
+
+        <div id="contabilidad-vista-gastos" hidden>
+          <form id="form-gasto" class="form-card gasto-form">
+            <h3 style="font-size:0.95rem; margin-bottom:14px;">Registrar gasto</h3>
+            <div class="form-row-3">
+              <div class="form-group"><label>Fecha</label><input type="date" name="fecha" required /></div>
+              <div class="form-group"><label>Categoría</label><select name="categoria" id="gasto-categoria"></select></div>
+              <div class="form-group"><label>Monto (S/)</label><input type="number" name="monto" min="0.01" step="0.01" required /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Descripción</label><input type="text" name="descripcion" maxlength="200" placeholder="Ej: 20 cajas de regalo, pago Shalom, publicidad Instagram..." required /></div>
+              <div class="form-group"><label>Pagado con</label>
+                <select name="metodo_pago"><option value="">—</option><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option><option value="Plin">Plin</option><option value="Transferencia_Bancaria">Transferencia</option><option value="Tarjeta">Tarjeta</option></select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Guardar gasto</button>
+          </form>
+          <div id="gastos-contenido"><div class="admin-empty">Cargando…</div></div>
+        </div>
+
+        <div id="contabilidad-vista-consolidados" hidden>
+          <div class="admin-toolbar">
+            <select id="contabilidad-select-consolidado" style="min-width:280px;"><option value="">Selecciona una campaña…</option></select>
+          </div>
+          <div id="contabilidad-contenido"><div class="admin-empty">Elige una campaña para ver su contabilidad.</div></div>
+        </div>
       </section>
 
       <!-- Todas las reservas -->
@@ -274,6 +407,19 @@
           <button class="admin-tab" data-filtro="">Todas</button>
         </div>
         <div id="cotizaciones-lista"><div class="admin-empty">Cargando…</div></div>
+      </section>
+
+      <!-- Libro de Reclamaciones -->
+      <section class="admin-section" id="section-reclamos">
+        <div class="admin-page-header"><div><h1>Libro de Reclamaciones</h1><div class="sub">Hojas registradas en la web. Plazo legal de respuesta: 15 días hábiles (DS 101-2022-PCM)</div></div></div>
+        <div class="admin-tabs" id="reclamos-tabs">
+          <button class="admin-tab active" data-estado="pendientes">Por responder</button>
+          <button class="admin-tab" data-estado="">Todas</button>
+        </div>
+        <div class="admin-table-wrap"><table class="data-table">
+          <thead><tr><th>N° / Fecha</th><th>Tipo</th><th>Consumidor</th><th>Producto o servicio</th><th>Estado</th><th>Plazo</th><th></th></tr></thead>
+          <tbody id="reclamos-tbody"><tr><td colspan="7" class="admin-empty">Cargando…</td></tr></tbody>
+        </table></div>
       </section>
 
       <!-- Publicidad (popup del inicio) -->
@@ -329,6 +475,26 @@
             <div class="form-group"><label>Transportistas</label><input type="text" name="envio_transportistas" placeholder="Shalom / Olva" required /></div>
             <div class="form-group"><label>Métodos de pago (texto)</label><input type="text" name="metodos_pago_texto" placeholder="Yape, Plin, transferencia y tarjeta" required /></div>
           </div>
+          <h3 style="font-size:0.95rem; margin:24px 0 12px;">Datos legales de la empresa</h3>
+          <p style="font-size:0.8rem; color:var(--color-text-faint); margin:-6px 0 14px;">Aparecen en Términos, Privacidad, Libro de Reclamaciones y el pie de página. Mientras estén vacíos, las políticas muestran un aviso "[pendiente]".</p>
+          <div class="form-row">
+            <div class="form-group"><label>Nombre comercial</label><input type="text" name="nombre_comercial" placeholder="Maison Zadaca" /></div>
+            <div class="form-group"><label>Razón social</label><input type="text" name="razon_social" placeholder="Nombre o empresa que figura en SUNAT" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>RUC</label><input type="text" name="ruc" maxlength="11" inputmode="numeric" pattern="(10|15|17|20)[0-9]{9}" title="11 dígitos, empieza con 10, 15, 17 o 20" /></div>
+            <div class="form-group"><label>Teléfono / WhatsApp</label><input type="text" name="telefono_contacto" placeholder="+51 990 278 017" /></div>
+          </div>
+          <div class="form-group"><label>Domicilio fiscal</label><input type="text" name="domicilio_fiscal" placeholder="Dirección que figura en la ficha RUC" /></div>
+          <div class="form-row">
+            <div class="form-group"><label>Correo para reclamos y datos personales</label><input type="email" name="correo_legal" placeholder="Si lo dejas vacío se usa el correo de contacto" /></div>
+            <div class="form-group"><label>Responsable de datos personales</label><input type="text" name="responsable_datos" placeholder="Nombre de la persona a cargo (opcional)" /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Ubicación de los servidores</label><input type="text" name="region_servidores" /></div>
+            <div class="form-group"><label>Políticas actualizadas el</label><input type="date" name="politicas_actualizadas_el" /></div>
+          </div>
+
           <h3 style="font-size:0.95rem; margin:24px 0 12px;">Redes sociales</h3>
           <p style="font-size:0.8rem; color:var(--color-text-faint); margin:-6px 0 14px;">Deja en blanco el ícono que aún no tengas — no se muestra en el footer hasta que cargues la URL real.</p>
           <div class="form-group"><label>Instagram</label><input type="url" name="instagram_url" placeholder="https://instagram.com/..." /></div>
@@ -377,7 +543,7 @@
         </div>
         <div class="form-row campo-normal">
           <div class="form-group"><label>Precio Tienda (S/) *</label><input type="number" name="precio_tienda_regular" required min="0.01" step="0.01" /></div>
-          <div class="form-group"><label>Precio Consolidado (S/) *</label><input type="number" name="precio_consolidado_fijo" required min="0.01" step="0.01" /></div>
+          <div class="form-group" data-consolidado hidden><label>Precio Consolidado (S/) *</label><input type="number" name="precio_consolidado_fijo" required min="0.01" step="0.01" /></div>
         </div>
         <div class="form-row campo-normal">
           <div class="form-group"><label>Descuento tienda (%)</label><input type="number" name="descuento_tienda_porcentaje" min="0" max="100" step="1" value="0" /></div>
@@ -456,10 +622,183 @@
 
   <!-- ── Modal: Detalle Pedido ─────────────────────────────── -->
   <div class="modal-overlay" id="modal-pedido">
-    <div class="modal-box" style="max-width:640px;">
-      <h3>Detalle del Pedido</h3>
+    <div class="modal-box modal-box-wide">
+      <h3 id="modal-pedido-titulo">Detalle del Pedido</h3>
       <div id="modal-pedido-contenido"></div>
       <div class="modal-actions"><button type="button" class="btn btn-ghost" id="btn-cerrar-pedido">Cerrar</button></div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Registrar Pedido (WhatsApp / tienda) ───────── -->
+  <div class="modal-overlay" id="modal-registrar-pedido">
+    <div class="modal-box modal-box-wide">
+      <h3>Registrar Pedido</h3>
+      <form id="form-registrar-pedido" autocomplete="off">
+        <input type="hidden" name="id_cliente" />
+        <div class="tipo-pedido-toggle" role="radiogroup" aria-label="Tipo de pedido">
+          <label class="tipo-pedido-opcion">
+            <input type="radio" name="tipo_pedido" value="Directo_Tienda" checked />
+            <span><strong>Venta de tienda</strong><small>Sale de tu stock: descuenta frascos cerrados y ml de decants.</small></span>
+          </label>
+          <label class="tipo-pedido-opcion">
+            <input type="radio" name="tipo_pedido" value="Consolidado" />
+            <span><strong>Encargo por consolidado</strong><small>Se importa bajo pedido: no toca tu stock. Usa el precio consolidado.</small></span>
+          </label>
+        </div>
+        <div class="form-group" id="reg-grupo-campana" hidden>
+          <label>Campaña de consolidado *</label>
+          <div class="campana-fila">
+            <select name="id_consolidado" id="reg-campana"></select>
+            <button type="button" class="btn btn-ghost btn-sm" id="btn-reg-nueva-campana">+ Nueva campaña</button>
+          </div>
+          <p class="form-hint">Agrupa los encargos que se le piden juntos al proveedor. En Contabilidad → Consolidados ves cuánto pedir de cada perfume y cuánto falta cobrar.</p>
+        </div>
+        <h4 class="modal-subtitle">Cliente</h4>
+        <div class="form-row-3">
+          <div class="form-group autocomplete-wrap">
+            <label>Nombre y apellido *</label>
+            <input type="text" name="cliente_nombre" id="reg-cliente-nombre" required placeholder="Escribe para buscar clientes anteriores" />
+            <div class="autocomplete-list" id="reg-cliente-sugerencias" hidden></div>
+          </div>
+          <div class="form-group"><label>DNI / CE / RUC</label><input type="text" name="cliente_dni" maxlength="15" inputmode="numeric" /></div>
+          <div class="form-group"><label>Celular</label><input type="text" name="cliente_telefono" maxlength="20" inputmode="tel" placeholder="9XXXXXXXX" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>¿Por dónde compró?</label>
+            <select name="canal">
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Tienda">Tienda física</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+              <option value="TikTok">TikTok</option>
+              <option value="Web">Web</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Entrega</label>
+            <select name="envio_tipo" id="reg-envio-tipo">
+              <option value="Agencia_Shalom">Envío por agencia Shalom</option>
+              <option value="Agencia_Olva">Envío por agencia Olva</option>
+              <option value="Domicilio">Delivery a domicilio</option>
+              <option value="Recojo_En_Tienda">Recojo en tienda</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="reg-bloque-envio">
+          <div class="form-row-3">
+            <div class="form-group"><label>Departamento</label><select id="reg-depto" name="envio_departamento"><option value="">Cargando…</option></select></div>
+            <div class="form-group"><label>Provincia</label><select id="reg-prov" name="envio_provincia" disabled><option value="">Elige el departamento</option></select></div>
+            <div class="form-group"><label>Distrito</label><select id="reg-dist" name="envio_distrito" disabled><option value="">Elige la provincia</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" id="reg-grupo-agencia"><label>Agencia / sede de destino</label><input type="text" name="envio_agencia" placeholder="Ej: Shalom Trujillo - Av. América Norte" /></div>
+            <div class="form-group"><label>Dirección / referencia</label><input type="text" name="envio_direccion" placeholder="Solo si es delivery o para referencia" /></div>
+          </div>
+          <label class="filter-option" style="margin:0 0 12px;"><input type="checkbox" id="reg-otro-receptor" /> Recoge / recibe otra persona</label>
+          <div class="form-row-3" id="reg-bloque-receptor" hidden>
+            <div class="form-group"><label>Nombre de quien recibe</label><input type="text" name="envio_receptor_nombre" /></div>
+            <div class="form-group"><label>DNI de quien recibe</label><input type="text" name="envio_receptor_dni" maxlength="15" inputmode="numeric" /></div>
+            <div class="form-group"><label>Celular de quien recibe</label><input type="text" name="envio_receptor_telefono" maxlength="20" inputmode="tel" /></div>
+          </div>
+        </div>
+        <label class="filter-option" style="margin:0 0 6px;"><input type="checkbox" name="entregado_ya" id="reg-entregado-ya" /> Ya se entregó en el momento (venta en tienda)</label>
+
+        <h4 class="modal-subtitle">Productos</h4>
+        <div id="reg-items"></div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-reg-agregar-item">+ Producto del catálogo</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-reg-agregar-libre" title="Para un perfume que no está en la web: escribe el nombre y el precio">+ Producto libre (nombre y precio)</button>
+        </div>
+        <div class="reg-total"><span>Total</span><strong id="reg-total">S/ 0.00</strong></div>
+
+        <h4 class="modal-subtitle">Pago recibido</h4>
+        <div class="form-row-3">
+          <div class="form-group"><label>Monto (S/)</label><input type="number" name="pago_monto" min="0" step="0.01" placeholder="0 = aún no paga" /></div>
+          <div class="form-group"><label>Método</label>
+            <select name="pago_metodo">
+              <option value="Yape">Yape</option><option value="Plin">Plin</option><option value="Efectivo">Efectivo</option>
+              <option value="Transferencia_Bancaria">Transferencia</option><option value="Tarjeta">Tarjeta</option><option value="PagoEfectivo">PagoEfectivo</option>
+            </select>
+          </div>
+          <div class="form-group" style="align-self:end;"><button type="button" class="btn btn-ghost btn-sm" id="btn-reg-pago-total">Pagó todo</button></div>
+        </div>
+        <div class="form-group"><label>Nota interna (solo la ven los admin)</label><textarea name="notas_admin" rows="2" placeholder="Ej: envolver para regalo, cobra el saldo al entregar..."></textarea></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-registrar-pedido">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-guardar-registrar-pedido">Registrar Pedido</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Hoja de reclamación ─────────────────────────── -->
+  <div class="modal-overlay" id="modal-reclamo">
+    <div class="modal-box modal-box-wide">
+      <h3 id="modal-reclamo-titulo">Hoja de reclamación</h3>
+      <div id="modal-reclamo-contenido"></div>
+      <form id="form-reclamo-respuesta">
+        <input type="hidden" name="id" />
+        <div class="form-group"><label>Respuesta al consumidor (observaciones y acciones adoptadas)</label><textarea name="respuesta" rows="5" required></textarea></div>
+        <div class="form-row">
+          <div class="form-group"><label>Estado</label>
+            <select name="estado"><option value="En_Proceso">En proceso</option><option value="Respondido">Respondido (se envió la respuesta)</option></select>
+          </div>
+          <div class="form-group" style="align-self:end;"><a class="btn btn-outline btn-sm" id="btn-reclamo-correo" href="#" target="_blank" rel="noopener">Enviar respuesta por correo</a></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-imprimir-reclamo">Imprimir hoja</button>
+          <button type="button" class="btn btn-ghost" id="btn-cerrar-reclamo">Cerrar</button>
+          <button type="submit" class="btn btn-primary">Guardar respuesta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Ajustar inventario ──────────────────────────── -->
+  <div class="modal-overlay" id="modal-ajuste-inventario">
+    <div class="modal-box">
+      <h3>Ajustar stock</h3>
+      <form id="form-ajuste-inventario">
+        <div id="ajuste-info" class="form-hint" style="margin:-8px 0 18px;"></div>
+        <div class="form-group"><label>¿Qué pasó?</label>
+          <select name="motivo" id="ajuste-motivo">
+            <option value="Ingreso">Llegó mercadería (suma)</option>
+            <option value="Merma">Merma, daño o regalo (resta)</option>
+            <option value="Conteo">Conteo físico (dejar el número exacto)</option>
+          </select>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group" id="ajuste-grupo-cerrados"><label id="ajuste-label-cerrados">Frascos cerrados</label><input type="number" name="cerrados" min="0" step="1" /></div>
+          <div class="form-group" id="ajuste-grupo-abiertos"><label id="ajuste-label-abiertos">Frascos abiertos</label><input type="number" name="abiertos" min="0" step="1" /></div>
+          <div class="form-group" id="ajuste-grupo-ml"><label id="ajuste-label-ml">ml en frasco</label><input type="number" name="ml" min="0" step="0.5" /></div>
+        </div>
+        <div class="form-group"><label>Nota (opcional)</label><input type="text" name="nota" maxlength="200" placeholder="Ej: pedido proveedor 12/09, frasco roto..." /></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-ajuste">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Vincular decant ↔ perfume de tienda ──────────── -->
+  <div class="modal-overlay" id="modal-vincular">
+    <div class="modal-box">
+      <h3>Vincular con perfume de tienda</h3>
+      <form id="form-vincular">
+        <p class="form-hint" id="vincular-info" style="margin:-8px 0 16px;"></p>
+        <div class="form-group"><label id="vincular-label">Perfume</label>
+          <input type="text" id="vincular-busqueda" list="vincular-opciones" placeholder="Escribe para buscar..." />
+          <datalist id="vincular-opciones"></datalist>
+        </div>
+        <p class="form-hint">Déjalo vacío y guarda para desvincular.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-vincular">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
     </div>
   </div>
 

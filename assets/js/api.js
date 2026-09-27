@@ -8,6 +8,117 @@ const WHATSAPP_NUMERO = '51990278017';
 // de notificaciones (columna url_destino, ver supabase/migrations/0009_urls_limpias.sql).
 const SITE_ROOT = 'https://madisonzadaca.com/';
 
+// Consolidados (compras grupales) APAGADOS por ahora: no se muestran en el menú, el home, las
+// fichas, "Mi Cuenta" ni el panel admin, y sus páginas redirigen al catálogo. No se borró
+// nada (tablas, reservas, campañas y código siguen intactos): para volver a mostrarlos basta
+// con poner esto en true y subir el cambio. En el HTML estático, lo que depende de
+// consolidados lleva el atributo data-consolidado (nace oculto y se destapa si esto es true,
+// ver aplicarVisibilidadConsolidados).
+const CONSOLIDADOS_ACTIVOS = false;
+
+function aplicarVisibilidadConsolidados(raiz = document) {
+  raiz.querySelectorAll('[data-consolidado]').forEach((el) => { el.hidden = !CONSOLIDADOS_ACTIVOS; });
+  raiz.querySelectorAll('[data-sin-consolidado]').forEach((el) => { el.hidden = CONSOLIDADOS_ACTIVOS; });
+}
+
+// Consolidados por WhatsApp: la web no toma reservas de campañas, pero el cliente cotiza su
+// encargo (perfume que no está en stock) escribiendo al WhatsApp del negocio.
+function enlaceWhatsappConsolidado(perfume) {
+  const texto = perfume
+    ? `Hola Maison Zadaca! Quiero cotizar por consolidado: ${perfume}. ¿Me dan precio y tiempo de llegada?`
+    : 'Hola Maison Zadaca! Quiero información sobre los consolidados y cotizar un perfume.';
+  return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(texto)}`;
+}
+
+/* ---------------- Libro de Reclamaciones (compartido: página pública y panel admin) ---------------- */
+
+function correoLegal(cfg) {
+  return cfg?.correo_legal || cfg?.correo_contacto || '';
+}
+
+// Hoja de reclamación imprimible con el formato del Anexo I del Reglamento del Libro de
+// Reclamaciones: la misma hoja sirve de constancia para el cliente y de archivo para el negocio.
+function htmlHojaReclamacion(r, cfg) {
+  const fecha = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(String(r.fecha_registro)) ? r.fecha_registro : `${r.fecha_registro}Z`);
+  const pendiente = (texto) => `<span style="color:#b0473a">[${texto} pendiente]</span>`;
+  const fila = (etiqueta, valor) => `<tr><th>${etiqueta}</th><td>${valor || '—'}</td></tr>`;
+  return `
+    <div class="hoja-reclamo">
+      <h1>LIBRO DE RECLAMACIONES — HOJA DE RECLAMACIÓN</h1>
+      <table>
+        ${fila('N° de hoja', `<strong>${escapeHtml(r.numero)}</strong>`)}
+        ${fila('Fecha', fecha.toLocaleString('es-PE', { dateStyle: 'long', timeStyle: 'short' }))}
+        ${fila('Proveedor', `${escapeHtml(cfg?.razon_social || '') || pendiente('Razón social')} (${escapeHtml(cfg?.nombre_comercial || 'Maison Zadaca')})`)}
+        ${fila('RUC', escapeHtml(cfg?.ruc || '') || pendiente('RUC'))}
+        ${fila('Domicilio', escapeHtml(cfg?.domicilio_fiscal || cfg?.direccion_chiclayo || ''))}
+      </table>
+      <h2>1. Identificación del consumidor reclamante</h2>
+      <table>
+        ${fila('Nombre', escapeHtml(r.consumidor_nombre))}
+        ${fila(escapeHtml(r.consumidor_documento_tipo), escapeHtml(r.consumidor_documento))}
+        ${fila('Domicilio', escapeHtml(r.consumidor_domicilio))}
+        ${fila('Teléfono', escapeHtml(r.consumidor_telefono || ''))}
+        ${fila('Correo', escapeHtml(r.consumidor_correo))}
+        ${r.es_menor ? fila('Padre, madre o apoderado', escapeHtml(r.apoderado_nombre || '')) : ''}
+      </table>
+      <h2>2. Identificación del bien contratado</h2>
+      <table>
+        ${fila('Tipo', escapeHtml(r.bien_tipo))}
+        ${fila('Descripción', escapeHtml(r.bien_descripcion))}
+        ${fila('Monto reclamado', r.monto_reclamado != null ? formatoMoneda(r.monto_reclamado) : '—')}
+        ${fila('N° de pedido', escapeHtml(r.numero_pedido || ''))}
+      </table>
+      <h2>3. Detalle de la reclamación y pedido del consumidor</h2>
+      <table>
+        ${fila('Tipo', `<strong>${escapeHtml(r.tipo)}</strong>`)}
+        ${fila('Detalle', escapeHtml(r.detalle).replace(/\n/g, '<br>'))}
+        ${fila('Pedido', escapeHtml(r.pedido_consumidor).replace(/\n/g, '<br>'))}
+        ${fila('Respuesta por', r.respuesta_por === 'Domicilio' ? 'Carta al domicilio' : 'Correo electrónico')}
+      </table>
+      <h2>4. Observaciones y acciones adoptadas por el proveedor</h2>
+      <table>
+        ${fila('Respuesta', r.respuesta ? escapeHtml(r.respuesta).replace(/\n/g, '<br>') : 'Pendiente')}
+        ${fila('Fecha de respuesta', r.fecha_respuesta ? new Date(`${String(r.fecha_respuesta).replace(/Z$/, '')}Z`).toLocaleDateString('es-PE', { dateStyle: 'long' }) : '—')}
+      </table>
+      <p class="hoja-nota"><strong>Reclamo:</strong> disconformidad relacionada a los productos o servicios. <strong>Queja:</strong> disconformidad no relacionada a los productos o servicios, o malestar o descontento respecto a la atención al público.</p>
+      <p class="hoja-nota">La formulación del reclamo no impide acudir a otras vías de solución de controversias ni es requisito previo para interponer una denuncia ante el INDECOPI. El proveedor debe dar respuesta al reclamo en un plazo no mayor a quince (15) días hábiles improrrogables.</p>
+    </div>
+  `;
+}
+
+function estilosHojaReclamacion() {
+  return `
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; padding: 28px; max-width: 760px; margin: 0 auto; }
+    .hoja-reclamo h1 { font-size: 1.05rem; text-align: center; border: 2px solid #111; padding: 10px; margin: 0 0 14px; }
+    .hoja-reclamo h2 { font-size: 0.82rem; text-transform: uppercase; background: #eee; padding: 6px 8px; margin: 18px 0 0; border: 1px solid #999; border-bottom: none; }
+    .hoja-reclamo table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    .hoja-reclamo th, .hoja-reclamo td { border: 1px solid #999; padding: 6px 8px; text-align: left; vertical-align: top; }
+    .hoja-reclamo th { width: 30%; background: #fafafa; font-weight: 600; }
+    .hoja-nota { font-size: 0.74rem; color: #333; margin: 12px 0 0; line-height: 1.45; }
+    @media print { body { padding: 0; } }
+  `;
+}
+
+// Devuelve { numero, fecha_registro }: el número correlativo lo asigna la base (registrar_reclamo).
+async function registrarReclamo(datos) {
+  const { data, error } = await supabaseClient.rpc('registrar_reclamo', { p: datos });
+  if (error) throw new Error(error.message);
+  return Array.isArray(data) ? data[0] : data;
+}
+
+function imprimirHojaReclamacion(r, cfg) {
+  const ventana = window.open('', '_blank');
+  if (!ventana) { mostrarToast('El navegador bloqueó la ventana — permite ventanas emergentes para imprimir la hoja', 'error'); return; }
+  ventana.document.write(`<!doctype html><html lang="es"><head><meta charset="UTF-8" /><title>Hoja de reclamación ${escapeHtml(r.numero)}</title><style>${estilosHojaReclamacion()}</style></head><body>${htmlHojaReclamacion(r, cfg)}<script>window.onload = function () { window.print(); };<\/script></body></html>`);
+  ventana.document.close();
+}
+
+// Con consolidados apagados, el recojo es en la tienda de Chiclayo (donde está el stock); el
+// almacén de Lima solo servía para recoger pedidos de consolidado.
+function etiquetaRecojoEnTienda() {
+  return CONSOLIDADOS_ACTIVOS ? 'Recojo en almacén (Lima)' : 'Recojo en tienda (Chiclayo)';
+}
+
 /* ---------------- Sesión ---------------- */
 
 async function obtenerSesion() {
@@ -108,7 +219,7 @@ function escaparFiltroSupabase(texto) {
 // precio_3ml/5ml/10ml: solo decants (ver migración 0016), null = esa talla no se vende. A
 // propósito NO incluye mililitros_restantes -- es un gauge interno del admin (cuánto queda del
 // frasco fuente), nunca se muestra al cliente, mismo criterio que costo_importacion_pen/usd.
-const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, inspirado_en, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa, es_decant, id_decant_grupo, precio_3ml, precio_5ml, precio_10ml';
+const CAMPOS_PRODUCTO_PUBLICO = 'id, slug, nombre, marca, genero, familia_olfativa, concentracion, mililitros, descripcion, notas_olfativas, inspirado_en, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo, estado, es_nuevo, es_bestseller, imagen_url, es_liquidacion, precio_liquidacion, liquidacion_unidad_minima, tipo_casa, es_decant, id_decant_grupo, id_perfume_tienda, precio_3ml, precio_5ml, precio_10ml';
 
 // soloConStock=true es el catálogo de TIENDA FÍSICA: solo perfumes con stock_fisico > 0 (lo
 // que el admin cargó en "Stock físico" por producto). Usa !inner para forzar el join con
@@ -128,7 +239,15 @@ function aplicarFiltroGenero(query, genero) {
   return query;
 }
 
-async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12, soloConStock = false } = {}) {
+// Búsqueda: nombre, marca y también "Inspirado en" -- así quien busca "Sauvage" encuentra
+// además los árabes que se le parecen. aroma: una nota de notas_olfativas (ej. "Vainilla").
+// precioMin/precioMax: sobre el precio de tienda.
+function filtroBusquedaProductos(busqueda) {
+  const q = escaparFiltroSupabase(busqueda);
+  return `nombre.ilike.%${q}%,marca.ilike.%${q}%,inspirado_en.ilike.%${q}%`;
+}
+
+async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, destacado, orden, pagina = 1, porPagina = 12, soloConStock = false, aroma, precioMin, precioMax } = {}) {
   // Un decant no tiene stock por unidad que mirar en "inventario" (sus 3 tallas comparten un
   // mismo frasco, ver migración 0016) -- "disponible" para ellos es el toggle Disponible/
   // Agotado del admin (columna estado), no inventario.stock_disponible.
@@ -144,7 +263,10 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
   if (marca) query = query.eq('marca', marca);
   if (familia) query = query.eq('familia_olfativa', familia);
   if (tipo_casa) query = query.eq('tipo_casa', tipo_casa);
-  if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
+  if (busqueda) query = query.or(filtroBusquedaProductos(busqueda));
+  if (aroma) query = query.ilike('notas_olfativas', `%${escaparFiltroSupabase(aroma)}%`);
+  if (precioMin != null && precioMin !== '') query = query.gte('precio_tienda_regular', Number(precioMin));
+  if (precioMax != null && precioMax !== '') query = query.lte('precio_tienda_regular', Number(precioMax));
   if (destacado === 'nuevo') query = query.eq('es_nuevo', true);
   if (destacado === 'bestseller') query = query.eq('es_bestseller', true);
   if (destacado === 'liquidacion') query = query.eq('es_liquidacion', true);
@@ -221,13 +343,14 @@ async function obtenerFiltrosCatalogo() {
   // sin necesitar una consulta aparte para cada uno.
   const { data: filasData } = await supabaseClient
     .from('perfumes')
-    .select('marca, familia_olfativa, inventario(stock_disponible)')
+    .select('marca, familia_olfativa, notas_olfativas, inventario(stock_disponible)')
     .eq('activo', true)
     .eq('es_decant', false);
 
   const filas = (filasData || []).map((r) => ({
     marca: r.marca,
     familia_olfativa: r.familia_olfativa,
+    notas_olfativas: r.notas_olfativas,
     stock_disponible: Math.max(Array.isArray(r.inventario) ? (r.inventario[0]?.stock_disponible ?? 0) : (r.inventario?.stock_disponible ?? 0), 0),
   }));
 
@@ -241,7 +364,30 @@ async function obtenerFiltrosCatalogo() {
   const familias = [...new Set(filas.map((r) => r.familia_olfativa).filter(Boolean))].sort();
 
   const enStock = filas.filter((r) => r.stock_disponible > 0).length;
-  return { marcas, familias, conteoMarcas, disponibilidad: { enStock, agotado: filas.length - enStock } };
+  return { marcas, familias, conteoMarcas, aromas: aromasFrecuentes(filas), disponibilidad: { enStock, agotado: filas.length - enStock } };
+}
+
+// Las notas vienen como lista separada por comas ("Ámbar, Cálido, Dulce"): se cuentan y se
+// devuelven las más frecuentes como opciones del filtro "Aroma" (las fichas viejas con el
+// formato "Salida: ... | Fondo: ..." no se parten).
+function aromasFrecuentes(filas, limite = 16) {
+  const conteo = new Map();
+  filas.forEach((r) => {
+    if (!r.notas_olfativas || r.notas_olfativas.includes('|')) return;
+    r.notas_olfativas.split(',').map((n) => n.trim()).filter((n) => n && n.length <= 24).forEach((n) => {
+      const nombre = n.charAt(0).toUpperCase() + n.slice(1).toLowerCase();
+      conteo.set(nombre, (conteo.get(nombre) || 0) + 1);
+    });
+  });
+  // "Afrutados" y "Afrutado" son la misma opción: el plural se suma al singular (el filtro
+  // busca por coincidencia parcial, así que "Afrutado" encuentra ambos).
+  [...conteo.keys()].forEach((n) => {
+    if (n.endsWith('s') && conteo.has(n.slice(0, -1))) {
+      conteo.set(n.slice(0, -1), conteo.get(n.slice(0, -1)) + conteo.get(n));
+      conteo.delete(n);
+    }
+  });
+  return [...conteo.entries()].filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]).slice(0, limite).map(([n, c]) => ({ nombre: n, cantidad: c }));
 }
 
 // A diferencia de marca/familia (que salen de los datos reales), tipo_casa es un vocabulario
@@ -255,19 +401,35 @@ const TIPOS_CASA = ['Árabe', 'Diseñador', 'Nicho'];
 async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = false) {
   const q = (texto || '').trim();
   if (!q) return [];
-  const campos = 'slug, nombre, marca, imagen_url, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo';
+  const campos = 'slug, nombre, marca, imagen_url, inspirado_en, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo';
   let query = supabaseClient
     .from('perfumes')
     .select(soloConStock ? `${campos}, inventario!inner(stock_disponible)` : campos)
     .eq('activo', true)
     .eq('es_decant', false)
-    .or(`nombre.ilike.%${escaparFiltroSupabase(q)}%,marca.ilike.%${escaparFiltroSupabase(q)}%`)
+    .or(filtroBusquedaProductos(q))
     .order('nombre', { ascending: true })
     .limit(limite);
   if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
   const { data, error } = await query;
   if (error) return [];
   return data || [];
+}
+
+// Buscador del encabezado: perfumes enteros con stock + decants disponibles, en una sola lista.
+async function buscarEnTodaLaTienda(texto, limite = 8) {
+  const q = (texto || '').trim();
+  if (!q) return [];
+  const campos = 'slug, nombre, marca, imagen_url, inspirado_en, es_decant, precio_tienda_regular, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, precio_3ml, precio_5ml, precio_10ml, estado';
+  const [enteros, decants] = await Promise.all([
+    supabaseClient.from('perfumes').select(`${campos}, inventario!inner(stock_disponible)`)
+      .eq('activo', true).eq('es_decant', false).gt('inventario.stock_disponible', 0)
+      .or(filtroBusquedaProductos(q)).order('nombre').limit(limite),
+    supabaseClient.from('perfumes').select(campos)
+      .eq('activo', true).eq('es_decant', true).neq('estado', 'Agotado')
+      .or(filtroBusquedaProductos(q)).order('nombre').limit(limite),
+  ]);
+  return [...(enteros.data || []), ...(decants.data || [])].slice(0, limite);
 }
 
 async function obtenerProductoPorSlug(slug) {
@@ -288,22 +450,46 @@ async function obtenerProductoPorSlug(slug) {
   // ver con "prueba antes de comprar", la lógica de decants). Reutiliza obtenerProductos() con
   // el mismo filtro que ya usa decants/index.html (destacado:'decant' + soloConStock) en vez
   // de duplicar esa consulta acá.
-  const relacionadosCrudos = producto.es_decant
-    ? await obtenerProductos({ destacado: 'decant', soloConStock: true, orden: 'recientes', porPagina: 8 }).then(({ productos }) => productos)
-    : await supabaseClient
-        .from('perfumes')
-        .select('id, slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado')
-        .eq('marca', producto.marca)
-        .eq('activo', true)
-        .neq('id', producto.id)
-        .limit(8)
-        .then(({ data }) => data);
-
+  //
+  // Un perfume entero sugiere otros enteros CON stock: primero de la misma marca y, si no
+  // alcanzan, del mismo género (antes podían salir decants con su precio de 3ml como si fuera
+  // un frasco, o productos agotados).
+  let relacionadosCrudos;
+  if (producto.es_decant) {
+    relacionadosCrudos = await obtenerProductos({ destacado: 'decant', soloConStock: true, orden: 'recientes', porPagina: 8 }).then(({ productos }) => productos);
+  } else {
+    const mismaMarca = await obtenerProductos({ marca: producto.marca, soloConStock: true, porPagina: 8 }).then(({ productos }) => productos).catch(() => []);
+    relacionadosCrudos = mismaMarca.filter((r) => r.id !== producto.id);
+    if (relacionadosCrudos.length < 4) {
+      const mismoGenero = await obtenerProductos({ genero: producto.genero, soloConStock: true, orden: 'recientes', porPagina: 12 }).then(({ productos }) => productos).catch(() => []);
+      const ya = new Set([producto.id, ...relacionadosCrudos.map((r) => r.id)]);
+      relacionadosCrudos.push(...mismoGenero.filter((r) => !ya.has(r.id)));
+    }
+  }
   const relacionados = (relacionadosCrudos || []).filter((r) => r.id !== producto.id).slice(0, 4);
+
+  // El mismo perfume en la otra presentación: el decant que se sirve de este frasco (para
+  // "pruébalo antes") o el frasco entero del que sale este decant (para "llévalo completo").
+  let otraPresentacion = null;
+  try {
+    if (producto.es_decant && producto.id_perfume_tienda) {
+      const { data } = await supabaseClient.from('perfumes')
+        .select(`${CAMPOS_PRODUCTO_PUBLICO}, inventario(stock_disponible)`)
+        .eq('id', producto.id_perfume_tienda).eq('activo', true).maybeSingle();
+      if (data && normalizarProducto(data).stock_disponible > 0) otraPresentacion = normalizarProducto(data);
+    } else if (!producto.es_decant) {
+      const { data } = await supabaseClient.from('perfumes')
+        .select(CAMPOS_PRODUCTO_PUBLICO)
+        .eq('id_perfume_tienda', producto.id).eq('es_decant', true).eq('activo', true).neq('estado', 'Agotado')
+        .limit(1);
+      if (data?.length) otraPresentacion = data[0];
+    }
+  } catch { /* no es crítico: la ficha se muestra igual sin el vínculo */ }
 
   return {
     producto: normalizarProducto(producto),
     relacionados,
+    otraPresentacion,
   };
 }
 
@@ -622,7 +808,7 @@ async function obtenerPedidos() {
   if (!session) return [];
   const { data, error } = await supabaseClient
     .from('pedidos')
-    .select('id, tipo_pedido, monto_total, estado_pago, fecha_creacion, envios(estado_envio, numero_guia_seguimiento)')
+    .select('id, tipo_pedido, monto_total, estado_pago, fecha_creacion, cancelado, envios(estado_envio, numero_guia_seguimiento)')
     .eq('id_cliente', session.user.id)
     .order('fecha_creacion', { ascending: false });
   if (error) throw new Error(error.message);
@@ -639,7 +825,7 @@ async function obtenerPedidoPorId(id) {
 
   const { data: items } = await supabaseClient
     .from('detalle_pedido')
-    .select('cantidad, precio_unitario_aplicado, subtotal, perfumes(nombre, marca, imagen_url, slug)')
+    .select('cantidad, precio_unitario_aplicado, subtotal, talla_ml, descripcion_libre, perfumes(nombre, marca, imagen_url, slug, es_decant)')
     .eq('id_pedido', id);
 
   const { data: pagos } = await supabaseClient
@@ -653,7 +839,8 @@ async function obtenerPedidoPorId(id) {
     estado_envio: pedido.envios?.[0]?.estado_envio,
     numero_guia_seguimiento: pedido.envios?.[0]?.numero_guia_seguimiento,
     direccion_detalle: pedido.direcciones_cliente?.direccion_detalle,
-    items: (items || []).map((i) => ({ ...i, ...i.perfumes })),
+    // Una línea libre (perfume fuera del catálogo que el admin escribió a mano) no trae perfumes.
+    items: (items || []).map((i) => ({ ...i, ...(i.perfumes || {}), nombre: i.perfumes?.nombre ?? i.descripcion_libre ?? '—', marca: i.perfumes?.marca ?? '' })),
     pagos: pagos || [],
   };
 }
@@ -867,8 +1054,10 @@ async function marcarTodasNotificacionesLeidas() {
 // Formato legible del número de WhatsApp de la tienda (ej. "+51 990278017"), compartido entre
 // contacto.js (texto del bloque de contacto) y main.js (footer de todas las páginas) para que
 // no queden dos formatos distintos del mismo número.
+// 51990278017 → "+51 990 278 017"
 function formatoWhatsapp() {
-  return `+${WHATSAPP_NUMERO.slice(0, 2)} ${WHATSAPP_NUMERO.slice(2)}`;
+  const n = WHATSAPP_NUMERO;
+  return n.length === 11 ? `+${n.slice(0, 2)} ${n.slice(2, 5)} ${n.slice(5, 8)} ${n.slice(8)}` : `+${n}`;
 }
 
 /* ---------------- Pagos por WhatsApp ---------------- */

@@ -37,6 +37,18 @@
     .pd-price { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
     .pd-price .price-current { font-size: 1.6rem; }
     .pd-consolidado-note { font-size: 0.82rem; color: var(--color-text-muted); margin-bottom: 16px; }
+    /* Mismo perfume en su otra presentación (frasco completo <-> decant) */
+    .pd-otra-presentacion {
+      display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 0 0 18px;
+      padding: 12px 16px; border: 1px solid var(--color-border); border-left: 3px solid var(--color-gold);
+      border-radius: var(--radius); text-decoration: none; color: var(--color-text); background: var(--color-bg-alt);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .pd-otra-presentacion:hover { border-color: var(--color-gold); transform: translateY(-1px); }
+    .pd-otra-presentacion strong { display: block; font-size: 0.88rem; }
+    .pd-otra-presentacion small { display: block; font-size: 0.76rem; color: var(--color-text-faint); margin-top: 2px; }
+    .pd-otra-precio { font-weight: 700; color: var(--color-gold); white-space: nowrap; font-size: 0.9rem; }
+    .pd-encargo-note { font-size: 0.82rem; color: var(--color-text-muted); background: var(--color-bg-alt); border-radius: var(--radius); padding: 10px 14px; margin: -6px 0 18px; }
     .pd-consolidado-note strong { color: var(--color-chrome-dim); }
     /* "Inspirado en": mismo criterio de venta que trae el catálogo impreso (comparar contra un
        perfume de diseñador conocido) -- se resalta como su propia línea, no metida en la

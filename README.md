@@ -4,6 +4,59 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## Septiembre 2026: inventario, pedidos manuales, contabilidad y consolidados apagados
+
+**Puesta en marcha (en este orden, todo en Supabase → SQL Editor, y recién al final subir el
+código — la web y el panel nuevos ya leen estas columnas):**
+
+1. `supabase/migrations/0018_inventario_contabilidad_pedidos.sql` — frascos abiertos, kardex,
+   gastos, pedidos sin cuenta, anulación.
+2. `supabase/cargar_stock_real_sep2026.sql` — deja el stock exactamente como el conteo físico de
+   septiembre (el stock que había antes era de ejemplo).
+3. `supabase/migrations/0019_consolidados_admin_legal_reclamaciones.sql` — productos libres en
+   pedidos, encargos por consolidado desde el admin, datos legales y Libro de Reclamaciones.
+4. `supabase/normalizar_catalogo_sep2026.sql` — nombres y marcas oficiales, fotos faltantes,
+   duplicados ocultos y los perfumes del conteo que no existían (Glacier, 1 Million Elixir, MYSLF…).
+   Al final del archivo está lo que sigue pendiente de confirmar.
+5. `supabase/faq_sin_consolidados.sql` — quita los consolidados de las Preguntas Frecuentes (guarda
+   los textos originales adentro, por si se reactivan).
+6. Subir el código (push a `main`), incluidas las fotos nuevas de `assets/img/perfumes/`.
+7. Panel → Configuración del Sitio → **Datos legales**: razón social, RUC, domicilio fiscal y correo
+   para reclamos. Mientras estén vacíos, las políticas muestran "[… pendiente]" resaltado.
+
+**Consolidados por WhatsApp.** La tienda no muestra campañas, pero invita a cotizar por WhatsApp
+(+51 990 278 017): franja superior, sección en el inicio, fichas agotadas, buscador sin resultados y
+Contacto. El admin sí maneja consolidados: al cotizar un encargo, Pedidos → **+ Registrar Pedido →
+Encargo por consolidado**, elige (o crea) la campaña y agrega productos del catálogo o **libres**
+(nombre y precio a mano). No toca el stock y suma solo en Contabilidad → Consolidados, que lista
+cuánto pedir de cada perfume al proveedor y cuánto falta cobrar.
+
+**Políticas (Perú).** Privacidad (Ley 29733 y D.S. 016-2024-JUS), Términos (Ley 29571), Cambios y
+Devoluciones y **Libro de Reclamaciones virtual** (`libro-de-reclamaciones/`, con número correlativo,
+constancia imprimible y respuesta desde Panel → Libro de Reclamaciones; plazo legal 15 días hábiles).
+Son una base sólida, pero conviene que un abogado las revise antes de darlas por finales.
+
+**Consolidados apagados, no borrados.** `CONSOLIDADOS_ACTIVOS = false` en `assets/js/api.js` oculta
+consolidados del menú, home, fichas, carrito, "Mi Cuenta" y panel admin; sus páginas redirigen al
+catálogo. Tablas, campañas, reservas y código siguen intactos: para volver a mostrarlos, poner `true`
+(y restaurar las FAQ con el bloque final de `faq_sin_consolidados.sql`). En el HTML, lo que depende
+de consolidados lleva `data-consolidado` (y su reemplazo, `data-sin-consolidado`).
+
+**Panel admin — lo nuevo:**
+
+- **Inventario**: por perfume, frascos **cerrados** (stock de tienda, `inventario.stock_fisico` del
+  perfume entero) y **abiertos** (para decantar, `inventario.frascos_abiertos` del decant) + ml del
+  frasco. El decant se vincula con su perfume de tienda (`perfumes.id_perfume_tienda`): "Abrir frasco"
+  pasa 1 cerrado a abierto. Cada venta descuenta sola (frasco cerrado o ml del decant) y toda variación
+  queda en **Movimientos (kardex)**, escrita por triggers. Exporta a Excel e imprime hoja de conteo.
+- **Pedidos**: "Registrar Pedido" para ventas por WhatsApp / tienda física (con o sin cuenta del
+  cliente, autocompleta clientes anteriores con su último destino). Cada pedido guarda la foto de
+  sus datos de envío (nombre, DNI, celular, agencia, destino, quién recibe), editable. **Etiqueta de
+  envío** en 10×15 cm o A4 (una o varias a la vez), comprobante, "Copiar datos de envío", aviso de
+  envío por WhatsApp y **Anular pedido** (devuelve el stock).
+- **Contabilidad**: ventas, cobrado, por cobrar, gastos y utilidad por mes/año, por canal y método de
+  pago, más vendidos, lista de ventas exportable y registro de **gastos**.
+
 ## Estructura
 
 ```

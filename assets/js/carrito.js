@@ -151,6 +151,7 @@ async function cargarDirecciones() {
         </select>
       </div>
       <button class="btn btn-primary btn-block" id="btn-checkout">Confirmar Pedido</button>
+      <p class="form-hint aviso-legal-compra">Al confirmar aceptas los <a href="${SITE_ROOT}terminos-condiciones/" target="_blank">Términos y Condiciones</a> y la <a href="${SITE_ROOT}politica-privacidad/" target="_blank">Política de Privacidad</a>.</p>
     `;
     document.getElementById('btn-checkout').addEventListener('click', confirmarPedido);
   } catch (err) {
@@ -205,7 +206,7 @@ async function renderCheckoutInvitado(mount) {
               <option value="Domicilio">Entrega a domicilio</option>
               <option value="Agencia_Shalom">Agencia Shalom</option>
               <option value="Agencia_Olva">Agencia Olva</option>
-              <option value="Recojo_En_Tienda">Recojo en almacén (Lima)</option>
+              <option value="Recojo_En_Tienda">${etiquetaRecojoEnTienda()}</option>
             </select>
           </div>
         </div>
@@ -225,8 +226,9 @@ async function renderCheckoutInvitado(mount) {
           </div>
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
-        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.</p>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">${CONSOLIDADOS_ACTIVOS ? `El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.` : `Recoges tu pedido en nuestra tienda de Chiclayo: ${escapeHtml(cfg?.direccion_chiclayo || 'Av. Los Incas 1090, La Victoria')}. Te avisamos por WhatsApp cuando esté listo.`}</p>
         <button type="submit" class="btn btn-primary btn-block" id="checkout-invitado-submit">Confirmar Pedido</button>
+        <p class="form-hint aviso-legal-compra">Al confirmar aceptas los <a href="${SITE_ROOT}terminos-condiciones/" target="_blank">Términos y Condiciones</a> y la <a href="${SITE_ROOT}politica-privacidad/" target="_blank">Política de Privacidad</a>.</p>
       </form>
       <p class="form-hint" style="margin-top:14px;">¿Ya tienes cuenta? <a href="${SITE_ROOT}cuenta/?retorno=${encodeURIComponent(SITE_ROOT + 'carrito/')}" class="link-arrow">Inicia sesión</a> para usar una dirección guardada.</p>
     </div>

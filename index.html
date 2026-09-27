@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Maison Zadaca — Perfumería Importada &amp; Consolidados</title>
-  <meta name="description" content="Perfumes originales importados, en tienda o mediante compras consolidadas a precio preferencial. Envíos a todo el Perú." />
+  <title>Maison Zadaca — Perfumes Originales y Decants</title>
+  <meta name="description" content="Perfumes originales importados, árabes y de diseñador, y decants desde 3 ml. Tienda física en Chiclayo y envíos a todo el Perú." />
   <link rel="canonical" href="https://madisonzadaca.com/" />
   <link rel="icon" type="image/png" href="https://madisonzadaca.com/assets/img/brand/favicon.png" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Maison Zadaca" />
-  <meta property="og:title" content="Maison Zadaca — Perfumería Importada & Consolidados" />
-  <meta property="og:description" content="Perfumes originales importados, en tienda o mediante compras consolidadas a precio preferencial. Envíos a todo el Perú." />
+  <meta property="og:title" content="Maison Zadaca — Perfumes Originales y Decants" />
+  <meta property="og:description" content="Perfumes originales importados, árabes y de diseñador, y decants desde 3 ml. Tienda física en Chiclayo y envíos a todo el Perú." />
   <meta property="og:url" content="https://madisonzadaca.com/" />
   <meta property="og:locale" content="es_PE" />
   <meta property="og:image" content="https://madisonzadaca.com/assets/img/brand/logo-og.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Maison Zadaca — Perfumería Importada & Consolidados" />
-  <meta name="twitter:description" content="Perfumes originales importados, en tienda o mediante compras consolidadas a precio preferencial. Envíos a todo el Perú." />
+  <meta name="twitter:title" content="Maison Zadaca — Perfumes Originales y Decants" />
+  <meta name="twitter:description" content="Perfumes originales importados, árabes y de diseñador, y decants desde 3 ml. Tienda física en Chiclayo y envíos a todo el Perú." />
   <meta name="twitter:image" content="https://madisonzadaca.com/assets/img/brand/logo-og.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -27,7 +27,7 @@
     "@context": "https://schema.org",
     "@type": "Store",
     "name": "Maison Zadaca",
-    "description": "Perfumería importada con venta directa y compras consolidadas a precio preferencial.",
+    "description": "Perfumería importada: perfumes originales árabes y de diseñador, y decants desde 3 ml.",
     "url": "https://madisonzadaca.com/",
     "image": "https://madisonzadaca.com/assets/img/brand/logo-og.jpg",
     "telephone": "+51990278017",
@@ -51,11 +51,12 @@
       <div class="container hero-inner">
         <div class="hero-text">
           <span class="eyebrow">Bienvenido a Maison Zadaca</span>
-          <h1>Perfumes originales.<br>Precios de <em>consolidado</em>.</h1>
-          <p>Fragancias árabes y de diseñador seleccionadas. Cómpralas directo en tienda o resérvalas en nuestras campañas de importación grupal al mejor precio.</p>
+          <h1>Perfumes originales.<br>Precios <em>justos</em>.</h1>
+          <p>Fragancias árabes y de diseñador seleccionadas, en frasco completo o en decants para probarlas antes. Cómpralas en nuestra tienda de Chiclayo o recíbelas en cualquier parte del Perú.</p>
           <div class="hero-actions">
             <a href="https://madisonzadaca.com/catalogo/" class="btn btn-primary">Ver Catálogo</a>
-            <a href="https://madisonzadaca.com/catalogo-consolidado/" class="btn btn-outline">Ver Consolidado</a>
+            <a href="https://madisonzadaca.com/catalogo-consolidado/" class="btn btn-outline" data-consolidado hidden>Ver Consolidado</a>
+            <a href="https://madisonzadaca.com/decants/" class="btn btn-outline" data-sin-consolidado>Ver Decants</a>
           </div>
           <div class="hero-stats">
             <div class="hero-stat"><span id="hero-icon-truck"></span><span>Envíos a todo el Perú</span></div>
@@ -80,10 +81,10 @@
           <div class="info-card">
             <div class="info-icon" id="info-icon-catalogo"></div>
             <h3>Catálogo</h3>
-            <p>Son los perfumes originales que tenemos disponibles en tienda: los compras y los recibes de inmediato, sin esperar a ningún consolidado.</p>
-            <p style="margin:0;">Contamos con <strong>tienda física en Chiclayo</strong>, donde puedes comprar en persona. En Lima tenemos <strong>almacén</strong> para recojo de pedidos de consolidado (no es punto de venta).</p>
+            <p>Son los perfumes originales que tenemos disponibles en tienda: los compras y los recibes de inmediato.</p>
+            <p style="margin:0;">Contamos con <strong>tienda física en Chiclayo</strong>, donde puedes comprar en persona o recoger tu pedido.<span data-consolidado hidden> En Lima tenemos <strong>almacén</strong> para recojo de pedidos de consolidado (no es punto de venta).</span></p>
           </div>
-          <div class="info-card">
+          <div class="info-card" data-consolidado hidden>
             <div class="info-icon" id="info-icon-consolidados"></div>
             <h3>Consolidados</h3>
             <p>Campañas de importación grupal: reservas tu perfume a precio preferencial y, al reunirse el mínimo, lo importamos todos juntos.</p>
@@ -92,6 +93,12 @@
               <li>Demora de llegada: <strong><span data-cfg="envio_dias_texto">7 a 14</span> días</strong> tras el cierre</li>
               <li>Cada consolidado <strong>cierra los <span data-cfg="consolidado_dia_cierre">domingos</span></strong></li>
             </ul>
+          </div>
+          <div class="info-card" data-sin-consolidado>
+            <div class="info-icon" id="info-icon-decants"></div>
+            <h3>Decants</h3>
+            <p>Fracciones de 3, 5 y 10 ml del mismo perfume original, servidas de un frasco abierto en tienda: la forma de probarlo antes de comprar el frasco completo.</p>
+            <p style="margin:0;"><a href="https://madisonzadaca.com/decants/" class="link-arrow">Ver decants disponibles &rarr;</a></p>
           </div>
           <div class="info-card">
             <div class="info-icon" id="info-icon-liquidaciones"></div>
@@ -117,7 +124,8 @@
       <div class="feature-item"><span id="icon-truck"></span><div><div class="f-title">Envío a todo el Perú</div><div class="f-sub">Vía Shalom / Olva</div></div></div>
       <div class="feature-item"><span id="icon-shield"></span><div><div class="f-title">100% Originales</div><div class="f-sub">Garantía de autenticidad</div></div></div>
       <div class="feature-item"><span id="icon-lock"></span><div><div class="f-title">Pago Seguro</div><div class="f-sub">Yape, Plin, tarjeta y más</div></div></div>
-      <div class="feature-item"><span id="icon-box"></span><div><div class="f-title">Consolidados</div><div class="f-sub">Importa y ahorra</div></div></div>
+      <div class="feature-item" data-consolidado hidden><span id="icon-box"></span><div><div class="f-title">Consolidados</div><div class="f-sub">Importa y ahorra</div></div></div>
+      <div class="feature-item" data-sin-consolidado><span id="icon-decants"></span><div><div class="f-title">Decants</div><div class="f-sub">Pruébalo desde 3 ml</div></div></div>
     </section>
 
     <section class="section about-section reveal">
@@ -125,8 +133,8 @@
         <div class="about-copy">
           <span class="eyebrow">Nuestra Historia</span>
           <h2>Sobre Maison Zadaca</h2>
-          <p>Nacimos para acercarte fragancias árabes y de diseñador <strong>100% originales</strong> a un precio justo. Las compras directo en nuestra tienda física de Chiclayo, o las reservas en una campaña de importación grupal — un <strong>consolidado</strong> — y accedes al precio preferencial que conseguimos al comprar juntos por volumen.</p>
-          <p>Contamos con almacén propio en Lima para el despacho de los pedidos de consolidado, y trabajamos con las principales agencias del país para que tu perfume llegue a cualquier rincón del Perú.</p>
+          <p>Nacimos para acercarte fragancias árabes y de diseñador <strong>100% originales</strong> a un precio justo. Las compras en frasco completo o en <strong>decants</strong> de 3, 5 y 10 ml para probarlas antes, directo en nuestra tienda física de Chiclayo o desde la web.</p>
+          <p>Trabajamos con las principales agencias del país (Shalom y Olva) para que tu perfume llegue a cualquier rincón del Perú.</p>
           <a href="https://madisonzadaca.com/contacto/#tiendas" class="link-arrow">Conoce nuestras sedes &rarr;</a>
         </div>
         <div class="about-stats reveal-grid" id="about-stats">
@@ -142,7 +150,11 @@
             <span class="stat-number" data-count-to="100" data-suffix="%">0%</span>
             <span class="stat-label">Perfumes originales</span>
           </div>
-          <div class="stat-card">
+          <div class="stat-card" data-sin-consolidado>
+            <span class="stat-number" data-count-to="3" data-suffix=" ml">0</span>
+            <span class="stat-label">Decants desde</span>
+          </div>
+          <div class="stat-card" data-consolidado hidden>
             <span class="stat-number" id="stat-minimo-unidades" data-count-to="4">0</span>
             <span class="stat-label">Unidades mínimas por consolidado</span>
           </div>
@@ -165,13 +177,33 @@
       <img src="" alt="" id="lightbox-img" />
     </div>
 
-    <section class="section reveal" style="padding-top:0;">
+    <section class="section reveal" style="padding-top:0;" data-consolidado hidden>
       <div class="container">
         <div class="section-header">
           <div><span class="eyebrow">Compra grupal</span><h2>Consolidados Activos</h2></div>
           <a href="https://madisonzadaca.com/consolidados/" class="link-arrow">Ver todos &rarr;</a>
         </div>
         <div class="consolidado-grid reveal-grid" id="grid-consolidados"><div class="loading-state">Cargando consolidados…</div></div>
+      </div>
+    </section>
+
+    <section class="section reveal" style="padding-top:0;" data-sin-consolidado>
+      <div class="container">
+        <div class="encargo-band">
+          <div>
+            <span class="eyebrow">Consolidados · Importación por encargo</span>
+            <h2>¿El perfume que buscas no está en stock?</h2>
+            <p>Te lo traemos por <strong>consolidado</strong>: lo importamos junto con los pedidos de otros clientes y pagas un mejor precio que en tienda. Escríbenos y te cotizamos al toque.</p>
+            <a class="btn btn-whatsapp" data-whatsapp-consolidado href="https://wa.me/51990278017" target="_blank" rel="noopener">Cotizar por WhatsApp</a>
+            <span class="encargo-numero">WhatsApp +51 990 278 017</span>
+          </div>
+          <ol class="encargo-pasos">
+            <li><span><strong>Escríbenos</strong> el perfume que quieres (nombre y marca, o una foto).</span></li>
+            <li><span><strong>Te cotizamos</strong> precio y tiempo de llegada (<span data-cfg="envio_dias_texto">7 a 14</span> días aprox.).</span></li>
+            <li><span><strong>Separas tu pedido</strong> con un adelanto por Yape, Plin o transferencia.</span></li>
+            <li><span><strong>Lo recibes</strong> en tu ciudad por Shalom u Olva, o lo recoges en nuestra tienda de Chiclayo.</span></li>
+          </ol>
+        </div>
       </div>
     </section>
 

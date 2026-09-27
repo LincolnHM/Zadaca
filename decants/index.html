@@ -43,6 +43,35 @@
 
     <section class="section" style="padding-top:24px;">
       <div class="container">
+        <div class="pill-row" id="decants-generos" style="margin-bottom:18px;">
+          <button type="button" class="pill active" data-genero="">Todos</button>
+          <button type="button" class="pill" data-genero="Hombre">Hombre</button>
+          <button type="button" class="pill" data-genero="Mujer">Mujer</button>
+          <button type="button" class="pill" data-genero="Unisex">Unisex</button>
+        </div>
+        <div class="decants-toolbar">
+          <input type="search" id="decants-busqueda" placeholder="Perfume, marca o el que te gusta (ej. Sauvage)" autocomplete="off" aria-label="Buscar decants" />
+          <select id="decants-casa" aria-label="Tipo de casa">
+            <option value="">Todas las casas</option>
+            <option value="Diseñador">Diseñador</option>
+            <option value="Nicho">Nicho</option>
+            <option value="Árabe">Árabe</option>
+          </select>
+          <select id="decants-aroma" aria-label="Aroma"><option value="">Todos los aromas</option></select>
+          <select id="decants-precio" aria-label="Precio">
+            <option value="">Cualquier precio</option>
+            <option value="0-15">Desde S/ 15 o menos</option>
+            <option value="15-25">Desde S/ 15 a S/ 25</option>
+            <option value="25-">Desde más de S/ 25</option>
+          </select>
+          <select id="decants-orden" aria-label="Ordenar">
+            <option value="">Destacados</option>
+            <option value="precio_asc">Precio: menor a mayor</option>
+            <option value="precio_desc">Precio: mayor a menor</option>
+            <option value="nombre">Nombre A-Z</option>
+          </select>
+          <span class="decants-conteo" id="decants-conteo"></span>
+        </div>
         <div class="product-grid reveal-grid" id="grid-decants"><div class="loading-state">Cargando decants…</div></div>
         <div class="pagination" id="paginacion"></div>
       </div>

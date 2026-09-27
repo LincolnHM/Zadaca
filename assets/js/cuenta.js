@@ -6,6 +6,8 @@ const RETORNO_CRUDO = PARAMS.get('retorno');
 const RETORNO = RETORNO_CRUDO && RETORNO_CRUDO.startsWith(SITE_ROOT) ? RETORNO_CRUDO : null;
 const PEDIDO_A_RESALTAR = PARAMS.get('pedido');
 let TAB_ACTIVA = PARAMS.get('tab') || 'pedidos';
+// Links viejos (notificaciones de consolidado) pueden traer ?tab=reservas aunque esa pestaña esté apagada.
+if (TAB_ACTIVA === 'reservas' && !CONSOLIDADOS_ACTIVOS) TAB_ACTIVA = 'pedidos';
 
 document.addEventListener('DOMContentLoaded', async () => {
   await iniciarLayout('cuenta/');
@@ -54,7 +56,7 @@ function renderAuthForms() {
           <div class="auth-visual-content">
             <span class="brand-icon-lg">${LOGO_IMG}</span>
             <h2>La casa de tus fragancias favoritas</h2>
-            <p>Crea tu cuenta para reservar en consolidados, guardar favoritos y seguir tus pedidos.</p>
+            <p>Crea tu cuenta para ${CONSOLIDADOS_ACTIVOS ? 'reservar en consolidados, ' : ''}guardar favoritos y seguir tus pedidos.</p>
             <div class="auth-perks">
               <div class="auth-perk"><span>${ICONS.shield}</span> Perfumes 100% originales importados</div>
               <div class="auth-perk"><span>${ICONS.truck}</span> Envíos a todo el Perú</div>
@@ -109,6 +111,7 @@ function renderAuthForms() {
             </div>
             ${formularioContrasenaHtml('registro')}
             <button type="submit" class="btn btn-primary btn-block" id="registro-submit" disabled>Crear Cuenta</button>
+            <p class="form-hint aviso-legal-compra">Al crear tu cuenta aceptas los <a href="${SITE_ROOT}terminos-condiciones/" target="_blank">Términos y Condiciones</a> y la <a href="${SITE_ROOT}politica-privacidad/" target="_blank">Política de Privacidad</a>.</p>
           </form>
         </div>
       </div>
@@ -265,7 +268,7 @@ async function renderDashboard() {
   const perfil = await obtenerPerfilActual();
   const tabs = [
     { id: 'pedidos', label: 'Mis Pedidos' },
-    { id: 'reservas', label: 'Mis Reservas' },
+    ...(CONSOLIDADOS_ACTIVOS ? [{ id: 'reservas', label: 'Mis Reservas' }] : []),
     { id: 'direcciones', label: 'Mis Direcciones' },
     { id: 'favoritos', label: 'Favoritos' },
     { id: 'cotizaciones', label: 'Cotizaciones' },
@@ -356,8 +359,8 @@ async function cargarPedidos() {
               <td>#${p.id}</td>
               <td>${new Date(p.fecha_creacion).toLocaleDateString('es-PE')}</td>
               <td>${formatoMoneda(p.monto_total)}</td>
-              <td><span class="status-tag">${p.estado_pago}</span></td>
-              <td><span class="status-tag">${p.estado_envio || 'Preparando'}</span></td>
+              <td><span class="status-tag" ${p.cancelado ? 'style="background:rgba(196,106,95,0.15); color:var(--color-danger);"' : ''}>${p.cancelado ? 'Anulado' : p.estado_pago}</span></td>
+              <td><span class="status-tag">${p.cancelado ? '—' : (p.estado_envio || 'Preparando').replace(/_/g, ' ')}</span></td>
               <td><button class="btn btn-ghost btn-sm" data-ver-pedido="${p.id}">Ver detalle</button></td>
             </tr>
             <tr id="detalle-pedido-${p.id}" class="order-detail-row" style="display:none;"><td colspan="6"></td></tr>
@@ -398,7 +401,7 @@ async function cargarDetallePedido(id) {
         <p style="font-size:0.8rem; color:var(--color-text-faint); margin-bottom:12px;">
           Entrega: ${escapeHtml(p.direccion_detalle || '—')} ${p.numero_guia_seguimiento ? `&middot; Guía: ${escapeHtml(p.numero_guia_seguimiento)}` : ''}
         </p>
-        ${p.items.map((i) => `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:6px 0;"><span>${i.cantidad} &times; ${escapeHtml(i.marca)} — ${escapeHtml(i.nombre)}</span><span>${formatoMoneda(i.subtotal)}</span></div>`).join('')}
+        ${p.items.map((i) => `<div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:6px 0;"><span>${i.cantidad} &times; ${i.marca ? `${escapeHtml(i.marca)} — ` : ''}${escapeHtml(i.nombre)}${i.es_decant && i.talla_ml ? ` (decant ${i.talla_ml}ml)` : ''}</span><span>${formatoMoneda(i.subtotal)}</span></div>`).join('')}
         <div style="display:flex; justify-content:space-between; font-size:0.85rem; padding:8px 0; border-top:1px solid var(--color-border); margin-top:4px;">
           <span>Pagado</span><span>${formatoMoneda(p.monto_adelanto_pagado)} de ${formatoMoneda(p.monto_total)}</span>
         </div>
@@ -518,7 +521,7 @@ async function cargarDirecciones() {
               <div>
                 <strong>${escapeHtml(d.etiqueta || 'Dirección')}</strong> ${d.predeterminada ? '<span class="status-tag">Predeterminada</span>' : ''}
                 <p style="margin:6px 0 0; font-size:0.85rem; color:var(--color-text-muted);">${escapeHtml(d.direccion_detalle)}, ${escapeHtml(d.distrito)}, ${escapeHtml(d.provincia)}</p>
-                <p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? 'Recojo en almacén (Lima)' : d.tipo_despacho.replace(/_/g, ' '))}${d.agencia_nombre ? ' — ' + escapeHtml(d.agencia_nombre) : ''}</p>
+                <p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? etiquetaRecojoEnTienda() : d.tipo_despacho.replace(/_/g, ' '))}${d.agencia_nombre ? ' — ' + escapeHtml(d.agencia_nombre) : ''}</p>
                 ${d.nombre_receptor ? `<p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">Recibe/recoge: ${escapeHtml(d.nombre_receptor)}</p>` : ''}
               </div>
               <button class="btn btn-danger btn-sm" data-eliminar-dir="${d.id}">Eliminar</button>
@@ -548,11 +551,11 @@ async function cargarDirecciones() {
             <option value="Domicilio">Entrega a domicilio</option>
             <option value="Agencia_Shalom">Agencia Shalom</option>
             <option value="Agencia_Olva">Agencia Olva</option>
-            <option value="Recojo_En_Tienda">Recojo en almacén (Lima)</option>
+            <option value="Recojo_En_Tienda">${etiquetaRecojoEnTienda()}</option>
           </select>
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
-        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.</p>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">${CONSOLIDADOS_ACTIVOS ? `El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.` : `Recoges tu pedido en nuestra tienda de Chiclayo: ${escapeHtml(cfg?.direccion_chiclayo || 'Av. Los Incas 1090, La Victoria')}. Te avisamos por WhatsApp cuando esté listo.`}</p>
         <div class="form-group"><label>¿Quién recibe/recoge el pedido?</label><input type="text" name="nombre_receptor" placeholder="Déjalo vacío si eres tú mismo" /></div>
         <label class="filter-option"><input type="checkbox" name="predeterminada" /> Usar como predeterminada</label>
         <button type="submit" class="btn btn-outline btn-block" style="margin-top:20px;">Guardar Dirección</button>

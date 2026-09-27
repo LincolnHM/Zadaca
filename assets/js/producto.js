@@ -41,7 +41,7 @@ function renderDetalle(data) {
   // fuente, ver migración 0016), así que el fallback de descripción no lo menciona para esos.
   const descripcionPagina = p.descripcion || (p.es_decant
     ? `${p.marca} ${p.nombre} en decant, fracción de perfume original importado.`
-    : `${p.marca} ${p.nombre}, ${p.mililitros}ml. Perfume original importado, disponible en tienda o consolidado.`);
+    : `${p.marca} ${p.nombre}, ${p.mililitros}ml. Perfume original importado${CONSOLIDADOS_ACTIVOS ? ', disponible en tienda o consolidado' : ''}.`);
   document.getElementById('page-title').textContent = tituloPagina;
   document.getElementById('page-description').setAttribute('content', descripcionPagina);
   document.getElementById('og-title').setAttribute('content', tituloPagina);
@@ -75,7 +75,7 @@ function renderDetalle(data) {
   // así que un producto marcado "Consolidado" en la grilla cambiaba de precio apenas se le
   // hacía click. Los decants y liquidaciones no se venden por consolidado (ver
   // obtenerProductosConsolidado en api.js), así que el modo solo aplica a un producto normal.
-  const modoConsolidado = new URLSearchParams(window.location.search).get('origen') === 'consolidado' && !p.es_decant && !esLiquidacion;
+  const modoConsolidado = CONSOLIDADOS_ACTIVOS && new URLSearchParams(window.location.search).get('origen') === 'consolidado' && !p.es_decant && !esLiquidacion;
   // Un decant ya no tiene un único precio de fila: sale de precio_3ml/5ml/10ml según la talla
   // elegida en las pastillas de abajo (ver migración 0016 y TALLA_SELECCIONADA).
   const final = p.es_decant
@@ -148,9 +148,10 @@ function renderDetalle(data) {
           ? `<div class="pd-consolidado-note">Reserva de consolidado — se importa bajo pedido junto con el resto de clientes de la campaña, no depende del stock actual. Precio de tienda (stock inmediato): <strong>${formatoMoneda(precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje))}</strong> — <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="link-arrow">ver ficha de tienda</a></div>`
           : esLiquidacion
             ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
-            : p.es_decant
+            : p.es_decant || !CONSOLIDADOS_ACTIVOS
               ? ''
               : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="${SITE_ROOT}producto/?slug=${p.slug}&origen=consolidado" class="link-arrow">ver precio de consolidado</a></div>`}
+        ${htmlOtraPresentacion(p, data.otraPresentacion)}
 
         <div class="pd-meta-row">
           <div><strong>Concentración</strong>${escapeHtml(p.concentracion || '—')}</div>
@@ -170,9 +171,12 @@ function renderDetalle(data) {
           </div>
           <button class="btn btn-primary" id="btn-agregar-carrito" ${agotado ? 'disabled' : ''}>${agotado ? 'Agotado' : 'Agregar al Carrito'}</button>
           `}
+          ${agotado && !modoConsolidado ? `<a class="btn btn-outline" href="${enlaceWhatsappConsolidado(`${p.marca} ${p.nombre}${p.es_decant ? ' (decant)' : ''}`)}" target="_blank" rel="noopener">${ICONS.plane} Pídelo por encargo</a>` : ''}
           <button class="heart-toggle" id="btn-favorito" aria-label="Agregar a favoritos" aria-pressed="false">${ICONS.heart}</button>
           <a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera consultar sobre ${p.marca} ${p.nombre}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Consultar</a>
         </div>
+
+        ${agotado && !modoConsolidado && !p.es_decant ? `<p class="pd-encargo-note">Sin stock por ahora: te lo traemos por <strong>consolidado</strong> (importación por encargo, a mejor precio). Escríbenos al WhatsApp <strong>${formatoWhatsapp()}</strong> y te cotizamos precio y tiempo de llegada.</p>` : ''}
 
         <div class="trust-row">
           <div class="trust-item"><span>${ICONS.shield}</span>100% Original — nunca réplicas ni clones</div>
@@ -215,6 +219,25 @@ function renderDetalle(data) {
     document.getElementById('relacionados-section').style.display = '';
     document.getElementById('grid-relacionados').innerHTML = data.relacionados.map(tarjetaProducto).join('');
   }
+}
+
+// "Pruébalo antes" (en la ficha del frasco entero) o "Llévalo completo" (en la ficha del
+// decant): el mismo perfume en su otra presentación, vinculado por id_perfume_tienda.
+function htmlOtraPresentacion(p, otra) {
+  if (!otra) return '';
+  if (p.es_decant) {
+    const precio = otra.es_liquidacion ? Number(otra.precio_liquidacion) : precioFinal(otra.precio_tienda_regular, otra.descuento_tienda_porcentaje);
+    return `<a class="pd-otra-presentacion" href="${SITE_ROOT}producto/?slug=${otra.slug}">
+      <span><strong>¿Te gustó? Llévalo en frasco completo</strong><small>${otra.mililitros} ml · en stock</small></span>
+      <span class="pd-otra-precio">${formatoMoneda(precio)} &rarr;</span>
+    </a>`;
+  }
+  const tallas = tallasDecant(otra);
+  if (!tallas.length) return '';
+  return `<a class="pd-otra-presentacion" href="${SITE_ROOT}producto/?slug=${otra.slug}">
+    <span><strong>¿Quieres probarlo antes?</strong><small>Decant de ${tallas.join(', ')} ml del mismo perfume</small></span>
+    <span class="pd-otra-precio">Desde ${formatoMoneda(precioTallaDecant(otra, tallas[0]))} &rarr;</span>
+  </a>`;
 }
 
 // El catálogo PDF trae los acordes como una lista plana ("Ámbar, Cálido, Dulce, Aromático"),

@@ -11,6 +11,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('info-icon-catalogo').innerHTML = ICONS.bag;
   document.getElementById('info-icon-consolidados').innerHTML = ICONS.box;
   document.getElementById('info-icon-liquidaciones').innerHTML = ICONS.check;
+  const iconDecants = document.getElementById('icon-decants');
+  if (iconDecants) iconDecants.innerHTML = ICONS.drop;
+  const infoIconDecants = document.getElementById('info-icon-decants');
+  if (infoIconDecants) infoIconDecants.innerHTML = ICONS.drop;
 
   if (!SUPABASE_CONFIGURADO) {
     mostrarAvisoConfiguracion();
@@ -19,7 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   cargarHeroVisual();
   cargarNuevos();
-  cargarConsolidados();
+  if (CONSOLIDADOS_ACTIVOS) cargarConsolidados();
   cargarExplorar();
   cargarSobreNosotros();
   cargarMarcasMarquee();

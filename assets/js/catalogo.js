@@ -24,11 +24,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   if (params.get('destacado')) document.getElementById('filter-form').dataset.destacado = params.get('destacado');
+  // Búsqueda que llega desde el buscador del encabezado (?busqueda=) o de un link compartido.
+  const busquedaInicial = params.get('busqueda') || params.get('q') || '';
+  if (busquedaInicial) document.querySelector('#filter-form input[name="busqueda"]').value = busquedaInicial;
+  const precioInicial = rangoPrecio(params.get('precio'));
 
   // La grilla no depende de que el sidebar de filtros (marcas/familias/casas) ya haya cargado
   // -- se dispara ya mismo, en paralelo con cargarFiltros(), en vez de esperarlo primero. Antes
   // eran 2 viajes de red en serie antes de ver un solo producto.
   cargarProductos({
+    busqueda: busquedaInicial || undefined,
+    aroma: params.get('aroma') || undefined,
+    precioMin: precioInicial.min,
+    precioMax: precioInicial.max,
     genero: generoActivo || undefined,
     marca: params.get('marca') || undefined,
     familia: params.get('familia') || undefined,
@@ -40,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     soloConStock: params.get('disponibilidad') !== 'todos',
   });
 
-  await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'), params.get('disponibilidad'));
+  await cargarFiltros(params.get('marca'), params.get('familia'), params.get('casa'), params.get('disponibilidad'), params.get('aroma'), params.get('precio'));
   iniciarDropdownsFiltro();
   iniciarBuscadorEnVivo();
 
@@ -57,9 +65,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
-async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada, disponibilidadSeleccionada) {
+// Rangos de precio del filtro (sobre el precio de tienda). "min-max"; max vacío = sin tope.
+const RANGOS_PRECIO = [
+  { valor: '0-150', etiqueta: 'Hasta S/ 150' },
+  { valor: '150-200', etiqueta: 'S/ 150 a S/ 200' },
+  { valor: '200-300', etiqueta: 'S/ 200 a S/ 300' },
+  { valor: '300-', etiqueta: 'Más de S/ 300' },
+];
+function rangoPrecio(valor) {
+  if (!valor) return { min: undefined, max: undefined };
+  const [min, max] = valor.split('-');
+  return { min: min === '' ? undefined : Number(min), max: max === '' || max === undefined ? undefined : Number(max) };
+}
+
+async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada, disponibilidadSeleccionada, aromaSeleccionado, precioSeleccionado) {
   try {
-    const { marcas, familias, conteoMarcas, disponibilidad } = await obtenerFiltrosCatalogo();
+    const { marcas, familias, conteoMarcas, disponibilidad, aromas } = await obtenerFiltrosCatalogo();
+    document.getElementById('filtro-aromas').innerHTML =
+      `<label class="filter-option"><input type="radio" name="aroma" value="" ${!aromaSeleccionado ? 'checked' : ''}/> Todos</label>` +
+      aromas.map((a) => `<label class="filter-option"><input type="radio" name="aroma" value="${escapeHtml(a.nombre)}" ${a.nombre === aromaSeleccionado ? 'checked' : ''}/> ${escapeHtml(a.nombre)} (${a.cantidad})</label>`).join('');
+    document.getElementById('dd-aroma').style.display = aromas.length ? '' : 'none';
+    document.getElementById('filtro-precios').innerHTML =
+      `<label class="filter-option"><input type="radio" name="precio" value="" ${!precioSeleccionado ? 'checked' : ''}/> Todos</label>` +
+      RANGOS_PRECIO.map((r) => `<label class="filter-option"><input type="radio" name="precio" value="${r.valor}" ${r.valor === precioSeleccionado ? 'checked' : ''}/> ${r.etiqueta}</label>`).join('');
     document.getElementById('filtro-marcas').innerHTML =
       `<label class="filter-option"><input type="radio" name="marca" value="" ${!marcaSeleccionada ? 'checked' : ''}/> Todas</label>` +
       marcas.map((m) => `<label class="filter-option"><input type="radio" name="marca" value="${escapeHtml(m)}" ${m === marcaSeleccionada ? 'checked' : ''}/> ${escapeHtml(m)} (${conteoMarcas.get(m) || 0})</label>`).join('');
@@ -81,7 +109,7 @@ async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSelecci
     // esté vacía, ocultamos el botón en vez de mostrar un filtro que solo dice "Todas".
     document.getElementById('dd-familia').style.display = familias.length ? '' : 'none';
 
-    document.querySelectorAll('#filtro-marcas input, #filtro-familias input, #filtro-casas input, #filtro-disponibilidad input').forEach((input) => {
+    document.querySelectorAll('#filtro-marcas input, #filtro-familias input, #filtro-casas input, #filtro-disponibilidad input, #filtro-aromas input, #filtro-precios input').forEach((input) => {
       input.addEventListener('change', () => {
         cerrarDropdowns();
         paginaActual = 1;
@@ -243,6 +271,16 @@ function actualizarUIFiltros() {
   const casa = form.querySelector('input[name="tipo_casa"]:checked')?.value || '';
   const disponibilidad = form.querySelector('input[name="disponibilidad"]:checked')?.value || 'stock';
   const busqueda = form.querySelector('input[name="busqueda"]').value.trim();
+  const aroma = form.querySelector('input[name="aroma"]:checked')?.value || '';
+  const precio = form.querySelector('input[name="precio"]:checked')?.value || '';
+  const etiquetaPrecio = RANGOS_PRECIO.find((r) => r.valor === precio)?.etiqueta || '';
+
+  const btnAroma = document.querySelector('#dd-aroma .filter-dd-btn');
+  document.getElementById('dd-aroma').classList.toggle('has-value', !!aroma);
+  btnAroma.childNodes[0].textContent = aroma ? `Aroma: ${aroma} ` : 'Aroma ';
+  const btnPrecio = document.querySelector('#dd-precio .filter-dd-btn');
+  document.getElementById('dd-precio').classList.toggle('has-value', !!precio);
+  btnPrecio.childNodes[0].textContent = precio ? `${etiquetaPrecio} ` : 'Precio ';
 
   const btnMarca = document.querySelector('#dd-marca .filter-dd-btn');
   document.getElementById('dd-marca').classList.toggle('has-value', !!marca);
@@ -265,6 +303,8 @@ function actualizarUIFiltros() {
   if (marca) chips.push({ label: `Marca: ${marca}`, quitar: () => seleccionarRadio('marca', '') });
   if (casa) chips.push({ label: `Casa: ${casa}`, quitar: () => seleccionarRadio('tipo_casa', '') });
   if (familia) chips.push({ label: `Familia: ${familia}`, quitar: () => seleccionarRadio('familia', '') });
+  if (aroma) chips.push({ label: `Aroma: ${aroma}`, quitar: () => seleccionarRadio('aroma', '') });
+  if (precio) chips.push({ label: etiquetaPrecio, quitar: () => seleccionarRadio('precio', '') });
   if (disponibilidad === 'todos') chips.push({ label: 'Incluye agotados', quitar: () => seleccionarRadio('disponibilidad', 'stock') });
   if (busqueda) chips.push({ label: `"${busqueda}"`, quitar: () => { form.querySelector('input[name="busqueda"]').value = ''; aplicarFiltrosYActualizar(); } });
 
@@ -279,6 +319,8 @@ function actualizarUIFiltros() {
     seleccionarRadio('marca', '', false);
     seleccionarRadio('tipo_casa', '', false);
     seleccionarRadio('familia', '', false);
+    seleccionarRadio('aroma', '', false);
+    seleccionarRadio('precio', '', false);
     seleccionarRadio('disponibilidad', 'stock', false);
     form.querySelector('input[name="busqueda"]').value = '';
     aplicarFiltrosYActualizar();
@@ -307,8 +349,12 @@ function aplicarFiltrosYActualizar() {
 function leerFiltros() {
   const form = document.getElementById('filter-form');
   const data = new FormData(form);
+  const { min, max } = rangoPrecio(data.get('precio'));
   return {
     busqueda: data.get('busqueda') || undefined,
+    aroma: data.get('aroma') || undefined,
+    precioMin: min,
+    precioMax: max,
     genero: generoActivo || undefined,
     marca: data.get('marca') || undefined,
     familia: data.get('familia') || undefined,
@@ -338,12 +384,27 @@ async function cargarProductos(filtrosIniciales) {
     const { productos, total, totalPaginas } = await obtenerProductos(filtrosIniciales || leerFiltros());
     if (idSolicitud !== cargaProductosSeq) return;
     document.getElementById('resultado-conteo').textContent = `${total} producto${total === 1 ? '' : 's'} encontrados`;
-    mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';
+    mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : htmlSinResultados(document.querySelector('#filter-form input[name="busqueda"]').value.trim());
     renderPaginacion(totalPaginas);
   } catch (err) {
     if (idSolicitud !== cargaProductosSeq) return;
     mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
   }
+}
+
+// Sin resultados: en vez de un callejón sin salida, ofrece ver agotados, los decants o
+// pedirlo por consolidado (encargo por WhatsApp).
+function htmlSinResultados(busqueda) {
+  const verTodos = document.querySelector('input[name="disponibilidad"]:checked')?.value !== 'todos';
+  return `
+    <div class="empty-state empty-encargo">
+      <p>${busqueda ? `No tenemos "${escapeHtml(busqueda)}" en stock con esos filtros.` : 'No se encontraron perfumes con esos filtros.'}</p>
+      <div class="hero-actions">
+        ${verTodos ? '<button type="button" class="btn btn-ghost btn-sm" onclick="seleccionarRadio(\'disponibilidad\', \'todos\')">Incluir agotados</button>' : ''}
+        <a class="btn btn-ghost btn-sm" href="${SITE_ROOT}decants/${busqueda ? `?q=${encodeURIComponent(busqueda)}` : ''}">Buscar en decants</a>
+        <a class="btn btn-whatsapp btn-sm" href="${enlaceWhatsappConsolidado(busqueda)}" target="_blank" rel="noopener">Pedirlo por consolidado</a>
+      </div>
+    </div>`;
 }
 
 // Con muchas páginas (el catálogo real tiene ~19), listarlas todas seguidas es ilegible.

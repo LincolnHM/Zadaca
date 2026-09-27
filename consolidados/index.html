@@ -56,6 +56,7 @@
   <script src="https://madisonzadaca.com/assets/js/main.js" defer></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
+      if (!CONSOLIDADOS_ACTIVOS) { window.location.replace(`${SITE_ROOT}catalogo/`); return; }
       await iniciarLayout('consolidados/');
       const mount = document.getElementById('grid-consolidados');
       if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>'; return; }

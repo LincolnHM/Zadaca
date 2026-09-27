@@ -243,3 +243,146 @@ body.admin-body { min-height: 100vh; }
 .dot-rechazado, .dot-cancelado { background: var(--color-danger); }
 
 .admin-empty { text-align: center; padding: 50px 20px; color: var(--color-text-faint); font-size: 0.88rem; }
+
+/* ==========================================================
+   Inventario, pedidos manuales, etiquetas y contabilidad (migración 0018)
+   ========================================================== */
+
+/* El atributo hidden tiene que ganarle a cualquier display (grid/flex) de las clases del panel:
+   los bloques que se muestran/ocultan con JS (filas de formulario, badges, pestañas) lo usan. */
+.admin-body [hidden] { display: none !important; }
+
+.data-table th.num, .data-table td.num { text-align: right; }
+.th-sub { font-size: 0.62rem; letter-spacing: 0.04em; text-transform: none; opacity: 0.8; }
+.celda-sub { font-size: 0.72rem; color: var(--color-text-faint); }
+.texto-alerta { color: var(--color-danger) !important; font-weight: 600; }
+.btn-link-inline { background: none; border: none; padding: 0; color: var(--color-gold); font-size: 0.72rem; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.btn-link-inline:hover { color: var(--color-red-light); }
+
+/* ---------- Etiquetas de estado ---------- */
+.canal-tag {
+  display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 10px; background: rgba(188, 186, 194, 0.35); color: var(--color-text-muted); vertical-align: 1px;
+}
+.status-tag.tag-anulado { background: rgba(176, 71, 58, 0.14); color: var(--color-danger); }
+.fila-anulada td { opacity: 0.55; }
+.fila-anulada td:last-child { opacity: 1; }
+.envio-tag { display: inline-block; font-size: 0.68rem; font-weight: 600; padding: 3px 9px; border-radius: 12px; background: rgba(188, 186, 194, 0.3); color: var(--color-text-muted); white-space: nowrap; }
+.envio-tag.envio-preparando { background: rgba(210, 154, 58, 0.16); color: #9a6b1c; }
+.envio-tag.envio-en_agencia, .envio-tag.envio-en_ruta { background: rgba(122, 32, 48, 0.12); color: var(--color-gold); }
+.envio-tag.envio-entregado { background: rgba(79, 140, 88, 0.16); color: var(--color-success); }
+.envio-tag.envio-devuelto { background: rgba(176, 71, 58, 0.14); color: var(--color-danger); }
+
+/* ---------- Modal ancho (detalle y registro de pedido) ---------- */
+.modal-box.modal-box-wide { max-width: 860px; }
+.modal-subtitle { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-gold); margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+.modal-subtitle:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+
+/* ---------- Autocompletar (clientes y productos del pedido manual) ---------- */
+.autocomplete-wrap { position: relative; }
+.autocomplete-list {
+  position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 30; max-height: 280px; overflow-y: auto;
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+}
+/* En el campo de cliente la lista cuelga de un .form-group (que tiene margen inferior). */
+.form-group.autocomplete-wrap .autocomplete-list { top: calc(100% - 16px); }
+.autocomplete-opcion {
+  display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left; background: none; border: none;
+  border-bottom: 1px solid var(--color-border); padding: 9px 12px; cursor: pointer; color: var(--color-text);
+}
+.autocomplete-opcion:last-child { border-bottom: none; }
+.autocomplete-opcion:hover { background: rgba(122, 32, 48, 0.06); }
+.autocomplete-opcion strong { font-size: 0.84rem; font-weight: 600; }
+.autocomplete-opcion span { font-size: 0.72rem; color: var(--color-text-faint); }
+.autocomplete-opcion.sin-stock strong { color: var(--color-text-faint); }
+
+/* ---------- Filas de producto del pedido manual ---------- */
+.reg-item {
+  display: grid; grid-template-columns: minmax(0, 1fr) 84px 70px 96px 90px 36px; gap: 8px; align-items: start;
+  padding: 10px 0; border-bottom: 1px solid var(--color-border);
+}
+.reg-item input, .reg-item select {
+  width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text);
+  padding: 9px 10px; border-radius: var(--radius); font-size: 0.84rem;
+}
+.reg-item-stock { margin-top: 4px; }
+.reg-item-subtotal { align-self: center; text-align: right; font-size: 0.85rem; color: var(--color-text); font-weight: 600; }
+.reg-item-quitar { padding: 6px 10px; }
+@media (max-width: 720px) {
+  .reg-item { grid-template-columns: 1fr 1fr 1fr; }
+  .reg-item-producto { grid-column: 1 / -1; }
+  .reg-item-subtotal { text-align: left; }
+}
+.reg-total { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 0 4px; font-size: 0.95rem; }
+.reg-total strong { font-family: var(--font-heading); font-size: 1.35rem; color: var(--color-gold); }
+
+/* ---------- Detalle del pedido ---------- */
+.detalle-meta { font-size: 0.8rem; color: var(--color-text-faint); margin: -12px 0 16px; }
+.detalle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media (max-width: 640px) { .detalle-grid { grid-template-columns: 1fr; } }
+.detalle-bloque { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.detalle-grid .detalle-bloque { margin-bottom: 0; }
+.detalle-bloque p { margin: 3px 0; font-size: 0.84rem; color: var(--color-text-muted); }
+.detalle-bloque-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-gold); }
+.detalle-acciones { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 22px; align-items: center; }
+.detalle-titulo { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-gold); }
+.detalle-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 0.85rem; padding: 7px 0; border-bottom: 1px solid var(--color-border); }
+.detalle-total { font-weight: 700; color: var(--color-text); border-bottom: none; }
+.detalle-textarea { width: 100%; margin: 8px 0; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 10px 12px; border-radius: var(--radius); font-size: 0.84rem; font-family: inherit; resize: vertical; }
+.detalle-peligro { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 26px; padding: 14px 16px; border: 1px solid rgba(176, 71, 58, 0.35); border-radius: var(--radius); background: rgba(176, 71, 58, 0.05); }
+@media (max-width: 560px) { .detalle-peligro { flex-direction: column; align-items: flex-start; } }
+
+/* ---------- Inventario ---------- */
+.inventario-table td { vertical-align: middle; }
+.inv-nombre { color: var(--color-text); font-size: 0.86rem; }
+.fila-alerta td:first-child { box-shadow: inset 3px 0 0 #d29a3a; }
+#inventario-kpis .stat-value, #pedidos-resumen .stat-value, #contabilidad-vista-resumen .stat-grid .stat-value { font-size: 1.35rem; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
+.stepper-btn { width: 30px; height: 30px; background: var(--color-bg-alt); border: none; color: var(--color-text); font-size: 1rem; cursor: pointer; }
+.stepper-btn:hover:not(:disabled) { background: rgba(122, 32, 48, 0.1); color: var(--color-gold); }
+.stepper-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.stepper-val { min-width: 34px; text-align: center; font-weight: 700; color: var(--color-text); font-size: 0.9rem; }
+.inv-abiertos { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.inv-abiertos strong { font-size: 0.95rem; color: var(--color-text); }
+.inv-ml { width: 76px; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text); padding: 6px 8px; border-radius: var(--radius); font-size: 0.82rem; text-align: right; }
+.mini-bar { height: 4px; border-radius: 3px; background: var(--color-border); overflow: hidden; margin-top: 5px; }
+.mini-bar > div { height: 100%; background: var(--color-gold); border-radius: inherit; }
+.inventario-table .mini-bar { width: 76px; margin-left: auto; }
+
+.mov-tag { display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 10px; background: rgba(188, 186, 194, 0.3); color: var(--color-text-muted); white-space: nowrap; }
+.mov-tag.mov-venta { background: rgba(122, 32, 48, 0.12); color: var(--color-gold); }
+.mov-tag.mov-ingreso, .mov-tag.mov-anulacion_venta { background: rgba(79, 140, 88, 0.16); color: var(--color-success); }
+.mov-tag.mov-merma, .mov-tag.mov-frasco_terminado { background: rgba(176, 71, 58, 0.14); color: var(--color-danger); }
+.mov-tag.mov-apertura_decant { background: rgba(210, 154, 58, 0.16); color: #9a6b1c; }
+.delta-mas { color: var(--color-success); font-weight: 700; }
+.delta-menos { color: var(--color-danger); font-weight: 700; }
+
+/* ---------- Contabilidad ---------- */
+.conta-tabla .fila-mes { cursor: pointer; }
+.conta-tabla .fila-activa td { background: rgba(122, 32, 48, 0.07); color: var(--color-text); font-weight: 600; }
+.conta-tabla tfoot td { font-weight: 700; color: var(--color-text); border-top: 2px solid var(--color-border); padding: 12px 16px; }
+.fila-click { cursor: pointer; }
+.desglose-fila { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--color-border); font-size: 0.84rem; color: var(--color-text-muted); }
+.desglose-fila strong { color: var(--color-text); }
+.desglose-fila .mini-bar { grid-column: 1 / -1; margin-top: 2px; }
+.gasto-form { max-width: none; margin-bottom: 20px; }
+
+/* ---------- Registrar pedido: venta de tienda vs encargo por consolidado ---------- */
+.tipo-pedido-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+@media (max-width: 600px) { .tipo-pedido-toggle { grid-template-columns: 1fr; } }
+.tipo-pedido-opcion { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius); cursor: pointer; }
+.tipo-pedido-opcion:has(input:checked) { border-color: var(--color-gold); background: rgba(122, 32, 48, 0.05); }
+.tipo-pedido-opcion input { margin-top: 3px; accent-color: var(--color-gold); }
+.tipo-pedido-opcion strong { display: block; font-size: 0.86rem; color: var(--color-text); }
+.tipo-pedido-opcion small { display: block; font-size: 0.74rem; color: var(--color-text-faint); margin-top: 2px; }
+.campana-fila { display: flex; gap: 8px; }
+.campana-fila select { flex: 1; }
+.reg-item-libre .reg-item-descripcion { border-style: dashed; }
+
+/* ---------- Hoja de reclamación dentro del panel ---------- */
+.hoja-reclamo-admin .hoja-reclamo h1 { font-size: 0.95rem; text-align: center; border: 1px solid var(--color-border); padding: 8px; margin: 0 0 10px; }
+.hoja-reclamo-admin .hoja-reclamo h2 { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-gold); margin: 16px 0 6px; }
+.hoja-reclamo-admin table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.hoja-reclamo-admin th, .hoja-reclamo-admin td { border: 1px solid var(--color-border); padding: 6px 8px; text-align: left; vertical-align: top; color: var(--color-text-muted); }
+.hoja-reclamo-admin th { width: 30%; background: var(--color-bg-alt); color: var(--color-text); font-weight: 600; }
+.hoja-reclamo-admin .hoja-nota { font-size: 0.72rem; color: var(--color-text-faint); margin: 10px 0; }
