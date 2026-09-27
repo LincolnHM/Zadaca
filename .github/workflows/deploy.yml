@@ -25,6 +25,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Configurar Pages
         uses: actions/configure-pages@v5
+      # El dominio sirve los archivos con caché de varias horas: sin esto, un visitante que ya
+      # entró puede combinar un JS viejo con uno nuevo tras cada despliegue y ver la página rota.
+      # Cada despliegue agrega ?v=<commit> a los JS/CSS propios, así el HTML nuevo siempre pide
+      # el juego completo de archivos nuevos (no hay que acordarse de hacerlo a mano).
+      - name: Versionar JS y CSS
+        run: |
+          VERSION="${GITHUB_SHA::8}"
+          find . -name '*.html' -not -path './.git/*' -print0 \
+            | xargs -0 sed -i -E "s#(https://madisonzadaca\.com/assets/(js|css)/[A-Za-z0-9._-]+\.(js|css))([\"'])#\1?v=${VERSION}\4#g"
+          grep -o "assets/js/api.js?v=[a-z0-9]*" index.html
       - name: Subir artefacto (sitio estático completo, sin build)
         uses: actions/upload-pages-artifact@v3
         with:

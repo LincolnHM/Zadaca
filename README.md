@@ -36,6 +36,10 @@ Devoluciones y **Libro de Reclamaciones virtual** (`libro-de-reclamaciones/`, co
 constancia imprimible y respuesta desde Panel → Libro de Reclamaciones; plazo legal 15 días hábiles).
 Son una base sólida, pero conviene que un abogado las revise antes de darlas por finales.
 
+**Caché.** El dominio guarda JS/CSS varias horas en el navegador; el despliegue
+(`.github/workflows/deploy.yml`) agrega `?v=<commit>` a esos archivos en cada publicación para que
+nadie mezcle versiones viejas y nuevas. No hay que hacer nada a mano.
+
 **Consolidados apagados, no borrados.** `CONSOLIDADOS_ACTIVOS = false` en `assets/js/api.js` oculta
 consolidados del menú, home, fichas, carrito, "Mi Cuenta" y panel admin; sus páginas redirigen al
 catálogo. Tablas, campañas, reservas y código siguen intactos: para volver a mostrarlos, poner `true`
