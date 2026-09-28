@@ -373,310 +373,358 @@ function imagenProductoAdmin(p) {
   return `<span style="color:var(--color-text-faint);">${ICONO_PRODUCTO_FALLBACK}</span>`;
 }
 
-const PRODUCTOS_POR_PAGINA = 20;
+const PRODUCTOS_POR_PAGINA = 25;
+// Lista de Productos: el catálogo completo (~500 filas) se trae una sola vez y las pestañas,
+// filtros, orden y páginas se resuelven en el navegador (cambiar de filtro es instantáneo).
+// Cada precio o interruptor se guarda solo al cambiarlo: ya no hay un botón "Guardar" por
+// tarjeta que se olvidaba apretar. Las CANTIDADES (stock) no se editan acá sino en
+// Inventario, así cada cambio queda con su motivo en el historial.
+let PRODUCTOS_CACHE = [];
 let productosPaginaActual = 1;
-// Con el filtro "Solo Decants" la casa se elige con pestañas (ver #productos-decant-tabs), no
-// con el <select> genérico de casa -- ese queda oculto en ese modo.
-let productosDecantCasaActual = '';
+let productosTipo = 'tienda';
+let productosChip = '';
 
-// Alterna entre el modo "catálogo normal" (dropdown de casa, botón Agregar Perfume) y "Solo
-// Decants" (pestañas Diseñador/Nicho/Árabe para distinguirlos de un vistazo, botón Agregar
-// Decant) -- antes ambos modos se veían igual y era difícil distinguir un grupo de decants del
-// resto del catálogo.
-function actualizarModoProductosDecant() {
-  const esDecants = document.getElementById('productos-filtro')?.value === 'decants';
-  document.getElementById('productos-decant-tabs').style.display = esDecants ? '' : 'none';
-  document.getElementById('productos-casa-filtro').style.display = esDecants ? 'none' : '';
-  document.getElementById('btn-nuevo-producto').style.display = esDecants ? 'none' : '';
-  document.getElementById('btn-nuevo-decant').style.display = esDecants ? '' : 'none';
+function tipoProducto(p) {
+  if (p.es_decant) return 'decant';
+  if (p.estado === 'Bajo_Pedido') return 'consolidado';
+  return 'tienda';
 }
 
-let productosBusquedaTimeout;
+function tieneStockProducto(p) {
+  return p.es_decant ? p.abiertos > 0 : p.cerrados > 0;
+}
+
+// Filtros rápidos (uno a la vez). Los marcados "alerta" son cosas para revisar y solo se
+// muestran si hay alguno.
+const CHIPS_PRODUCTOS = [
+  { id: '', label: 'Todos' },
+  { id: 'con-stock', label: 'Con stock', f: (p) => tieneStockProducto(p) },
+  { id: 'sin-stock', label: 'Sin stock', f: (p) => !tieneStockProducto(p) && tipoProducto(p) !== 'consolidado' },
+  { id: 'ocultos', label: 'Ocultos en la web', f: (p) => !p.activo },
+  { id: 'ocultos-con-stock', label: 'Con stock pero ocultos', f: (p) => !p.activo && tieneStockProducto(p), alerta: true },
+  { id: 'sin-foto', label: 'Sin foto', f: (p) => !p.imagen_url && p.activo, alerta: true },
+  { id: 'liquidacion', label: 'En liquidación', f: (p) => p.es_liquidacion, soloSiHay: true },
+  { id: 'nuevos', label: 'Marcados Nuevo', f: (p) => p.es_nuevo, soloSiHay: true },
+];
+
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('productos-busqueda')?.addEventListener('input', (e) => {
-    clearTimeout(productosBusquedaTimeout);
-    productosBusquedaTimeout = setTimeout(() => { productosPaginaActual = 1; cargarProductos(e.target.value); }, 350);
+  let t;
+  document.getElementById('productos-busqueda')?.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { productosPaginaActual = 1; renderProductos(); }, 200); });
+  ['productos-genero-filtro', 'productos-casa-filtro', 'productos-orden'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('change', () => { productosPaginaActual = 1; renderProductos(); });
   });
-  ['productos-filtro', 'productos-genero-filtro', 'productos-casa-filtro'].forEach((id) => {
-    document.getElementById(id)?.addEventListener('change', () => {
-      if (id === 'productos-filtro') actualizarModoProductosDecant();
+  document.querySelectorAll('#productos-tabs .admin-tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      productosTipo = tab.dataset.tipo;
+      productosChip = '';
       productosPaginaActual = 1;
-      cargarProductos(document.getElementById('productos-busqueda')?.value);
+      renderProductos();
     });
   });
-  document.querySelectorAll('#productos-decant-tabs .admin-tab').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#productos-decant-tabs .admin-tab').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      productosDecantCasaActual = btn.dataset.casa;
-      productosPaginaActual = 1;
-      cargarProductos(document.getElementById('productos-busqueda')?.value);
-    });
+  document.getElementById('productos-chips')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-chip]');
+    if (!chip) return;
+    productosChip = chip.dataset.chip === productosChip ? '' : chip.dataset.chip;
+    productosPaginaActual = 1;
+    renderProductos();
   });
+  const tbody = document.getElementById('productos-tbody');
+  tbody?.addEventListener('change', manejarCambioProducto);
+  tbody?.addEventListener('click', manejarClickProducto);
   document.getElementById('btn-nuevo-producto')?.addEventListener('click', () => abrirModalProducto());
   document.getElementById('btn-nuevo-decant')?.addEventListener('click', () => abrirModalDecant());
 });
 
-async function cargarProductos(busqueda) {
-  const mount = document.getElementById('productos-grid');
-  const filtro = document.getElementById('productos-filtro')?.value;
-  const genero = document.getElementById('productos-genero-filtro')?.value;
-  const tipoCasa = filtro === 'decants' ? productosDecantCasaActual : document.getElementById('productos-casa-filtro')?.value;
+// Se llama al entrar a la sección y después de crear/editar/borrar (el parámetro que algunas
+// llamadas viejas pasan se ignora: la búsqueda se lee del buscador).
+async function cargarProductos() {
+  const tbody = document.getElementById('productos-tbody');
   try {
-    let resultado = await obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina: productosPaginaActual, porPagina: PRODUCTOS_POR_PAGINA });
-    // Si al borrar/filtrar la página actual quedó vacía pero sí hay resultados más atrás
-    // (ej. eliminaste el único producto de la última página), vuelve a la página 1 en vez de
-    // mostrar una grilla vacía con paginación fantasma.
-    if (!resultado.productos.length && productosPaginaActual > 1 && resultado.total > 0) {
-      productosPaginaActual = 1;
-      resultado = await obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina: productosPaginaActual, porPagina: PRODUCTOS_POR_PAGINA });
-    }
-    const { productos, total, totalPaginas } = resultado;
-    const conteo = document.getElementById('productos-conteo');
-    if (conteo) conteo.textContent = total ? `${total} perfume${total === 1 ? '' : 's'}` : '';
-    mount.innerHTML = productos.length ? productos.map(tarjetaProductoAdmin).join('') : '<div class="admin-empty">Sin productos.</div>';
-    conectarEventosProductos();
-    renderPaginacionAdmin('productos-paginacion', productosPaginaActual, totalPaginas, (pagina) => {
-      productosPaginaActual = pagina;
-      cargarProductos(busqueda);
-      mount.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    const filas = await obtenerInventarioAdmin();
+    PRODUCTOS_CACHE = filas.map((p) => ({ ...p, _busqueda: normalizarBusqueda(`${p.marca} ${p.nombre} ${p.inspirado_en || ''} #${p.id}`) }));
+    renderProductos();
   } catch (err) {
-    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
-// Un decant "raíz" (es_decant=true, sin id_decant_grupo) es una familia completa desde la
-// migración 0016 -- tarjeta especial (tarjetaDecantAdmin) con precios por talla y el gauge del
-// frasco en vez de los campos genéricos. Las filas "hijas" que quedaron de antes de esa
-// migración (id_decant_grupo apunta a su raíz) siguen existiendo pero desactivadas (activo=
-// false, ver migración) -- si algún día se ven (filtro "Solo Ocultos"), caen a la tarjeta
-// genérica de siempre, sin ningún botón para seguir sumándoles tamaños.
-function tarjetaProductoAdmin(p) {
-  if (p.es_decant && !p.id_decant_grupo) return tarjetaDecantAdmin(p);
-
-  const inv = p.inventario || {};
-  return `
-    <div class="admin-card" data-id="${p.id}" style="${p.activo === false ? 'opacity:0.6;' : ''}">
-      <div class="admin-card-top">
-        <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
-        <div style="min-width:0;">
-          <span class="admin-card-sub">${escapeHtml(p.marca)} &middot; #${p.id} &middot; ${escapeHtml(p.genero)} &middot; ${escapeHtml(p.tipo_casa || 'Sin definir')}</span>
-          <h3 class="admin-card-title">${escapeHtml(p.nombre)}${p.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}${p.es_decant ? ' <span class="badge badge-decant">Decant</span>' : ''}${p.activo === false ? ' <span class="badge badge-out">Oculto</span>' : ''}</h3>
-          <span style="font-size:0.72rem; color:var(--color-text-faint);">${p.mililitros} ml &middot; ${escapeHtml(p.concentracion || '—')}${p.id_decant_grupo ? ` &middot; tamaño de #${p.id_decant_grupo}` : ''}</span>
-        </div>
-      </div>
-      <div class="admin-field-row"><span>Precio tienda</span><input type="number" class="input-precio-tienda" step="0.01" value="${p.precio_tienda_regular}" /></div>
-      <div class="admin-field-row" ${CONSOLIDADOS_EN_ADMIN ? '' : 'hidden'}><span>Precio consolidado</span><input type="number" class="input-precio-consolidado" step="0.01" value="${p.precio_consolidado_fijo}" /></div>
-      <div class="admin-field-row"><span>Frascos cerrados (stock tienda)</span><input type="number" class="input-stock" value="${inv.stock_fisico ?? 0}" min="0" /></div>
-      ${CONSOLIDADOS_EN_ADMIN ? `<div class="admin-field-row"><span>Reservado (consolidado)</span><span>${inv.stock_reservado_consolidados ?? 0}</span></div>` : ''}
-      <div class="admin-field-row"><span>Estado</span>
-        <select class="select-estado">
-          <option value="Disponible" ${p.estado === 'Disponible' ? 'selected' : ''}>Disponible</option>
-          <option value="Agotado" ${p.estado === 'Agotado' ? 'selected' : ''}>Agotado</option>
-          <option value="Bajo_Pedido" ${p.estado === 'Bajo_Pedido' ? 'selected' : ''}>Bajo Pedido</option>
-        </select>
-      </div>
-      <div class="admin-field-row"><span>Nuevo</span><label class="switch"><input type="checkbox" class="chk-nuevo" ${p.es_nuevo ? 'checked' : ''}/><span class="switch-track"></span></label></div>
-      <div class="admin-field-row"><span>Best Seller</span><label class="switch"><input type="checkbox" class="chk-bestseller" ${p.es_bestseller ? 'checked' : ''}/><span class="switch-track"></span></label></div>
-      <div class="admin-field-row"><span>Activo (visible en catálogo)</span><label class="switch"><input type="checkbox" class="chk-activo" ${p.activo !== false ? 'checked' : ''}/><span class="switch-track"></span></label></div>
-      <div class="admin-card-actions">
-        <button class="btn btn-outline btn-sm btn-guardar-producto">Guardar</button>
-        <button class="btn btn-ghost btn-sm btn-editar-producto">Editar</button>
-        <button class="btn btn-danger btn-sm btn-eliminar-producto">Eliminar</button>
-      </div>
-    </div>
-  `;
+function productosFiltrados({ ignorarChip = false } = {}) {
+  const palabras = normalizarBusqueda(document.getElementById('productos-busqueda')?.value).split(' ').filter(Boolean);
+  const genero = document.getElementById('productos-genero-filtro')?.value;
+  const casa = document.getElementById('productos-casa-filtro')?.value;
+  const chip = !ignorarChip && productosChip ? CHIPS_PRODUCTOS.find((c) => c.id === productosChip) : null;
+  return PRODUCTOS_CACHE.filter((p) => {
+    if (productosTipo !== 'todos' && tipoProducto(p) !== productosTipo) return false;
+    if (genero && p.genero !== genero) return false;
+    if (casa === '__sin_definir__' ? !!p.tipo_casa : (casa && p.tipo_casa !== casa)) return false;
+    if (palabras.length && !palabras.every((w) => p._busqueda.includes(w))) return false;
+    if (chip?.f && !chip.f(p)) return false;
+    return true;
+  });
 }
 
-// Tarjeta unificada de un decant: una sola fila representa las 3 tallas (ver migración 0016).
-// Stock/Popular son toggles simples (estado/es_bestseller) -- un decant no lleva stock exacto
-// por unidad, así que no tiene sentido pedirle un número al admin como en un producto normal.
-function tarjetaDecantAdmin(p) {
-  const restante = p.mililitros_restantes;
-  const total = p.mililitros || 100;
-  const porcentaje = restante != null ? Math.max(0, Math.min(100, Math.round((Number(restante) / total) * 100))) : 0;
-  return `
-    <div class="admin-card" data-id="${p.id}" style="${p.activo === false ? 'opacity:0.6;' : ''}">
-      <div class="admin-card-top">
-        <div class="admin-card-thumb">${imagenProductoAdmin(p)}</div>
-        <div style="min-width:0;">
-          <span class="admin-card-sub">${escapeHtml(p.tipo_casa || 'Sin definir')} &middot; ${escapeHtml(p.genero)}</span>
-          <h3 class="admin-card-title">${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)}${p.activo === false ? ' <span class="badge badge-out">Oculto</span>' : ''}</h3>
-          <span style="font-size:0.72rem; color:var(--color-text-faint);">${escapeHtml(p.familia_olfativa || '—')}</span>
-        </div>
-        <div class="admin-card-actions" style="margin-left:auto;">
-          <button class="btn btn-ghost btn-sm btn-editar-producto">Editar</button>
-          <button class="btn btn-danger btn-sm btn-eliminar-producto">Eliminar</button>
-        </div>
-      </div>
-
-      <div class="admin-field-row"><span>Stock</span><span class="decant-toggle"><label class="switch"><input type="checkbox" class="chk-decant-disponible" ${p.estado !== 'Agotado' ? 'checked' : ''}/><span class="switch-track"></span></label><span class="decant-toggle-label">${p.estado !== 'Agotado' ? 'Disponible' : 'Agotado'}</span></span></div>
-      <div class="admin-field-row"><span>Popular</span><span class="decant-toggle"><label class="switch"><input type="checkbox" class="chk-decant-bestseller" ${p.es_bestseller ? 'checked' : ''}/><span class="switch-track"></span></label><span class="decant-toggle-label">Popular</span></span></div>
-
-      <div class="decant-precios">
-        <div class="decant-precios-top">
-          <span class="decant-precios-label">Precios por talla (S/)</span>
-          <button class="btn btn-primary btn-sm btn-guardar-precios-decant">Guardar precios</button>
-        </div>
-        <div class="decant-precios-grid">
-          <label>3ml <input type="number" class="input-precio-3ml" min="0.01" step="0.01" value="${p.precio_3ml ?? ''}" placeholder="—" /></label>
-          <label>5ml <input type="number" class="input-precio-5ml" min="0.01" step="0.01" value="${p.precio_5ml ?? ''}" placeholder="—" /></label>
-          <label>10ml <input type="number" class="input-precio-10ml" min="0.01" step="0.01" value="${p.precio_10ml ?? ''}" placeholder="—" /></label>
-        </div>
-      </div>
-
-      <div class="decant-frasco">
-        <div class="decant-frasco-header"><span>Frascos abiertos: <strong>${p.inventario?.frascos_abiertos ?? 0}</strong></span><button type="button" class="link-arrow btn-link-inline" data-goto-inventario="${p.id}">Gestionar en Inventario &rarr;</button></div>
-        <div class="decant-frasco-header"><span>Perfume en frasco:</span><strong>${restante ?? '—'} ml / ${total} ml</strong></div>
-        <div class="decant-frasco-bar"><div class="decant-frasco-fill" style="width:${porcentaje}%;"></div></div>
-        <div class="decant-frasco-inputs">
-          <label>Restante (ml) <input type="number" class="input-ml-restante" min="0" step="0.1" value="${restante ?? ''}" /></label>
-          <label>Total frasco (ml) <input type="number" class="input-ml-total" min="1" step="1" value="${total}" /></label>
-          <button class="btn btn-outline btn-sm btn-guardar-ml-decant">Guardar ml</button>
-        </div>
-      </div>
-    </div>
-  `;
+function precioPrincipal(p) {
+  const tipo = tipoProducto(p);
+  if (tipo === 'decant') return Number(p.precio_3ml ?? p.precio_5ml ?? p.precio_10ml ?? 0);
+  if (tipo === 'consolidado') return Number(p.precio_consolidado_fijo);
+  return precioVentaTienda(p);
 }
 
-function conectarEventosProductos() {
-  document.querySelectorAll('#productos-grid .btn-guardar-producto').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const card = btn.closest('.admin-card');
-      const id = Number(card.dataset.id);
-      const precioTienda = Number(card.querySelector('.input-precio-tienda').value);
-      let precioConsolidado = Number(card.querySelector('.input-precio-consolidado').value);
-      // Con consolidados apagados el campo no se ve: si bajan el precio de tienda por debajo
-      // del consolidado viejo, se lo acompaña (la base exige consolidado <= tienda).
-      if (!CONSOLIDADOS_EN_ADMIN) precioConsolidado = Math.min(precioConsolidado || precioTienda, precioTienda);
-      if (precioConsolidado > precioTienda) {
-        mostrarToast('El precio consolidado no puede ser mayor al precio tienda', 'error');
-        return;
-      }
-      try {
-        await actualizarProducto(id, {
-          precio_tienda_regular: precioTienda,
-          precio_consolidado_fijo: precioConsolidado,
-          estado: card.querySelector('.select-estado').value,
-          es_nuevo: card.querySelector('.chk-nuevo').checked,
-          es_bestseller: card.querySelector('.chk-bestseller').checked,
-          activo: card.querySelector('.chk-activo').checked,
-          margen_aplicado: true,
-        });
-        await actualizarInventario(id, { stock_fisico: Number(card.querySelector('.input-stock').value) });
-        mostrarToast('Producto actualizado');
-      } catch (err) {
-        mostrarToast(err.message, 'error');
-      }
-    });
-  });
+function ordenarProductos(lista) {
+  const orden = document.getElementById('productos-orden')?.value || 'marca';
+  const porMarca = (a, b) => a.marca.localeCompare(b.marca) || a.nombre.localeCompare(b.nombre);
+  const stock = (p) => (p.es_decant ? p.abiertos : p.cerrados);
+  const copia = [...lista];
+  if (orden === 'recientes') return copia.sort((a, b) => String(b.fecha_creacion || '').localeCompare(String(a.fecha_creacion || '')) || b.id - a.id);
+  if (orden === 'stock') return copia.sort((a, b) => stock(b) - stock(a) || porMarca(a, b));
+  if (orden === 'precio_asc') return copia.sort((a, b) => precioPrincipal(a) - precioPrincipal(b) || porMarca(a, b));
+  if (orden === 'precio_desc') return copia.sort((a, b) => precioPrincipal(b) - precioPrincipal(a) || porMarca(a, b));
+  return copia.sort(porMarca);
+}
 
-  document.querySelectorAll('#productos-grid .btn-eliminar-producto').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const card = btn.closest('.admin-card');
-      if (!confirm('¿Eliminar este perfume del catálogo? Esta acción no se puede deshacer.')) return;
-      try {
-        await eliminarProducto(Number(card.dataset.id));
-        mostrarToast('Producto eliminado');
-        cargarProductos();
-      } catch (err) {
-        mostrarToast(err.message, 'error');
-      }
-    });
+function renderProductos() {
+  const tbody = document.getElementById('productos-tbody');
+  if (!tbody) return;
+  // Pestañas con su cantidad
+  const porTipo = { tienda: 0, decant: 0, consolidado: 0, todos: PRODUCTOS_CACHE.length };
+  PRODUCTOS_CACHE.forEach((p) => { porTipo[tipoProducto(p)] += 1; });
+  document.querySelectorAll('#productos-tabs .admin-tab').forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.tipo === productosTipo);
+    tab.querySelector('.count').textContent = `(${porTipo[tab.dataset.tipo] ?? 0})`;
   });
+  // Filtros rápidos con su cantidad dentro de la pestaña actual
+  const base = productosFiltrados({ ignorarChip: true });
+  document.getElementById('productos-chips').innerHTML = CHIPS_PRODUCTOS.map((c) => {
+    const n = c.f ? base.filter(c.f).length : base.length;
+    if ((c.alerta || c.soloSiHay) && !n && productosChip !== c.id) return '';
+    return `<button type="button" class="chip-filtro${c.alerta ? ' alerta' : ''}${productosChip === c.id ? ' activo' : ''}" data-chip="${c.id}">${c.alerta ? '⚠ ' : ''}${escapeHtml(c.label)} <span class="n">${n}</span></button>`;
+  }).join('');
 
-  document.querySelectorAll('#productos-grid .btn-editar-producto').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = Number(btn.closest('.admin-card').dataset.id);
-      try {
-        abrirModalProducto(await obtenerProductoAdminPorId(id));
-      } catch (err) {
-        mostrarToast(err.message, 'error');
-      }
-    });
+  const lista = ordenarProductos(productosFiltrados());
+  const totalPaginas = Math.max(1, Math.ceil(lista.length / PRODUCTOS_POR_PAGINA));
+  if (productosPaginaActual > totalPaginas) productosPaginaActual = totalPaginas;
+  const pagina = lista.slice((productosPaginaActual - 1) * PRODUCTOS_POR_PAGINA, productosPaginaActual * PRODUCTOS_POR_PAGINA);
+  document.getElementById('productos-conteo').textContent = `${lista.length} resultado${lista.length === 1 ? '' : 's'}`;
+  tbody.innerHTML = pagina.length ? pagina.map(filaProductoAdmin).join('') : '<tr><td colspan="5" class="admin-empty">No hay productos con estos filtros.</td></tr>';
+  renderPaginacionAdmin('productos-paginacion', productosPaginaActual, totalPaginas, (n) => {
+    productosPaginaActual = n;
+    renderProductos();
+    document.getElementById('section-productos').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+}
 
-  // ---- Tarjeta unificada de decant (ver tarjetaDecantAdmin): toggles que guardan solo, y los
-  // 2 botones "Guardar" propios (precios por talla / ml del frasco) -- no hay un botón
-  // genérico único como en la tarjeta normal porque son 2 grupos de datos independientes.
-  document.querySelectorAll('#productos-grid .chk-decant-disponible').forEach((chk) => {
-    chk.addEventListener('change', async () => {
-      const id = Number(chk.closest('.admin-card').dataset.id);
-      const label = chk.closest('.admin-field-row').querySelector('.decant-toggle-label');
-      try {
-        await actualizarProducto(id, { estado: chk.checked ? 'Disponible' : 'Agotado' });
-        if (label) label.textContent = chk.checked ? 'Disponible' : 'Agotado';
-      } catch (err) {
-        chk.checked = !chk.checked;
-        mostrarToast(err.message, 'error');
-      }
-    });
-  });
+function filaProductoAdmin(p) {
+  const tipo = tipoProducto(p);
+  const badges = [];
+  if (productosTipo === 'todos' && tipo === 'decant') badges.push('<span class="badge badge-decant">Decant</span>');
+  if (productosTipo === 'todos' && tipo === 'consolidado') badges.push('<span class="badge badge-tipo-consolidado">Solo consolidado</span>');
+  if (p.es_liquidacion) badges.push('<span class="badge badge-liquidacion">Liquidación</span>');
+  if (!p.activo && tieneStockProducto(p)) badges.push('<span class="badge badge-aviso">Tiene stock pero está oculto</span>');
+  if (!p.imagen_url && p.activo) badges.push('<span class="badge badge-aviso">Sin foto</span>');
+  const meta = [tipo === 'decant' ? `Decant (frasco de ${p.mililitros} ml)` : `${p.mililitros} ml`, p.concentracion, p.genero, p.tipo_casa || 'Casa sin definir'].filter(Boolean).join(' · ');
+  return `
+    <tr data-id="${p.id}" class="${p.activo ? '' : 'fila-oculta'}">
+      <td data-label="Perfume">
+        <div class="prod-celda">
+          <span class="mini-foto">${imagenProductoAdmin(p)}</span>
+          <div class="prod-texto">
+            <strong>${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)}</strong>
+            <div class="celda-sub">${escapeHtml(meta)}</div>
+            ${badges.length ? `<div class="prod-badges">${badges.join('')}</div>` : ''}
+          </div>
+        </div>
+      </td>
+      <td data-label="Precio (S/)">${htmlPreciosProducto(p, tipo)}</td>
+      <td class="num" data-label="Stock">${htmlStockProducto(p, tipo)}</td>
+      <td data-label="En la web">${htmlOpcionesProducto(p, tipo)}</td>
+      <td class="acciones">
+        <div class="row-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-accion="editar">Editar</button>
+          <button type="button" class="btn btn-ghost btn-sm btn-icono-peligro" data-accion="eliminar" title="Eliminar" aria-label="Eliminar ${escapeHtml(p.nombre)}">${ICONO_BORRAR}</button>
+        </div>
+      </td>
+    </tr>`;
+}
 
-  document.querySelectorAll('#productos-grid .chk-decant-bestseller').forEach((chk) => {
-    chk.addEventListener('change', async () => {
-      const id = Number(chk.closest('.admin-card').dataset.id);
-      try {
-        await actualizarProducto(id, { es_bestseller: chk.checked });
-      } catch (err) {
-        chk.checked = !chk.checked;
-        mostrarToast(err.message, 'error');
-      }
-    });
-  });
+const ICONO_BORRAR = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
 
-  document.querySelectorAll('#productos-grid .btn-guardar-precios-decant').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const card = btn.closest('.admin-card');
-      const id = Number(card.dataset.id);
-      const leer = (selector) => {
-        const v = card.querySelector(selector).value;
-        return v === '' ? null : Number(v);
-      };
-      const precio_3ml = leer('.input-precio-3ml');
-      const precio_5ml = leer('.input-precio-5ml');
-      const precio_10ml = leer('.input-precio-10ml');
-      if (precio_3ml == null && precio_5ml == null && precio_10ml == null) {
-        mostrarToast('Carga el precio de al menos una talla', 'error');
-        return;
-      }
-      try {
-        await actualizarProducto(id, { precio_3ml, precio_5ml, precio_10ml, margen_aplicado: true });
-        mostrarToast('Precios actualizados');
-      } catch (err) {
-        mostrarToast(err.message, 'error');
-      }
-    });
-  });
+function inputPrecio(campo, valor, etiqueta, { opcional = false } = {}) {
+  return `<label class="precio-campo"><span>${etiqueta}</span><input type="number" min="0.01" step="0.01" inputmode="decimal" data-campo="${campo}" value="${valor ?? ''}" ${opcional ? 'placeholder="—"' : ''} /></label>`;
+}
 
-  document.querySelectorAll('#productos-grid .btn-guardar-ml-decant').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const card = btn.closest('.admin-card');
-      const id = Number(card.dataset.id);
-      const restanteVal = card.querySelector('.input-ml-restante').value;
-      const totalVal = card.querySelector('.input-ml-total').value;
-      const total = Number(totalVal);
-      if (!total || total <= 0) {
-        mostrarToast('El total del frasco debe ser mayor a 0', 'error');
-        return;
-      }
-      try {
-        await actualizarProducto(id, { mililitros: total, mililitros_restantes: restanteVal === '' ? null : Number(restanteVal) });
-        mostrarToast('Frasco actualizado');
-        cargarProductos();
-      } catch (err) {
-        mostrarToast(err.message, 'error');
-      }
-    });
-  });
+function htmlPreciosProducto(p, tipo) {
+  if (tipo === 'decant') {
+    return `<div class="prod-precios prod-precios-tallas">${inputPrecio('precio_3ml', p.precio_3ml, '3 ml', { opcional: true })}${inputPrecio('precio_5ml', p.precio_5ml, '5 ml', { opcional: true })}${inputPrecio('precio_10ml', p.precio_10ml, '10 ml', { opcional: true })}</div>`;
+  }
+  if (tipo === 'consolidado') {
+    return `<div class="prod-precios">${inputPrecio('precio_consolidado_fijo', Number(p.precio_consolidado_fijo), 'Consolidado')}</div>`;
+  }
+  const descuento = Number(p.descuento_tienda_porcentaje) || 0;
+  return `<div class="prod-precios">
+      ${inputPrecio('precio_tienda_regular', Number(p.precio_tienda_regular), 'Tienda')}
+      ${CONSOLIDADOS_EN_ADMIN ? inputPrecio('precio_consolidado_fijo', Number(p.precio_consolidado_fijo), 'Consolidado') : ''}
+    </div>
+    ${descuento > 0 ? `<div class="celda-sub">−${descuento}% en tienda → ${formatoMoneda(precioFinal(p.precio_tienda_regular, descuento))}</div>` : ''}
+    ${p.es_liquidacion && p.precio_liquidacion ? `<div class="celda-sub">Liquidación: ${formatoMoneda(p.precio_liquidacion)}</div>` : ''}`;
+}
 
-  document.querySelectorAll('#productos-grid [data-goto-inventario]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const card = btn.closest('.admin-card');
-      abrirInventarioBuscando(card.querySelector('.admin-card-title')?.textContent.split('—').pop().trim() || '');
-    });
-  });
+function htmlStockProducto(p, tipo) {
+  if (tipo === 'consolidado') return '<span class="celda-sub">Se trae por pedido</span>';
+  if (tipo === 'decant') {
+    return `${p.abiertos > 0 ? `<strong>${p.abiertos}</strong> <span class="celda-sub">abierto${p.abiertos === 1 ? '' : 's'}</span>` : '<span class="celda-sub texto-alerta">Sin frasco abierto</span>'}
+      <div><button type="button" class="btn-link-inline" data-accion="inventario">Inventario</button></div>`;
+  }
+  const bajo = p.cerrados > 0 && p.cerrados <= (p.minimo ?? 2);
+  return `${p.cerrados > 0 ? `<strong class="${bajo ? 'texto-alerta' : ''}">${p.cerrados}</strong> <span class="celda-sub">cerrado${p.cerrados === 1 ? '' : 's'}</span>` : '<span class="celda-sub">Sin stock</span>'}
+    <div><button type="button" class="btn-link-inline" data-accion="inventario">${p.cerrados > 0 ? 'Ajustar' : 'Cargar stock'}</button></div>`;
+}
+
+function chipToggle(flag, activo, etiqueta, titulo) {
+  return `<button type="button" class="chip-toggle" data-flag="${flag}" aria-pressed="${activo ? 'true' : 'false'}" title="${escapeHtml(titulo)}">${escapeHtml(etiqueta)}</button>`;
+}
+
+function htmlOpcionesProducto(p, tipo) {
+  const visible = `<label class="switch-linea" title="Si está apagado, no aparece en la web"><span class="switch"><input type="checkbox" data-flag="activo" ${p.activo ? 'checked' : ''} /><span class="switch-track"></span></span><span>${p.activo ? 'Visible' : 'Oculto'}</span></label>`;
+  if (tipo === 'decant') {
+    return `${visible}<div class="prod-marcas">${chipToggle('decant_disponible', p.estado !== 'Agotado', 'Disponible', 'Apagado = sale como Agotado en la web')}${chipToggle('es_bestseller', p.es_bestseller, 'Popular', 'Aparece como popular')}</div>`;
+  }
+  if (tipo === 'consolidado') return visible;
+  return `${visible}<div class="prod-marcas">${chipToggle('es_nuevo', p.es_nuevo, 'Nuevo', 'Sale con la etiqueta Nuevo y en "Nuevos Ingresos"')}${chipToggle('es_bestseller', p.es_bestseller, 'Más vendido', 'Marcado como más vendido')}</div>`;
+}
+
+function productoDeFila(el) {
+  const id = Number(el.closest('tr')?.dataset.id);
+  return PRODUCTOS_CACHE.find((p) => p.id === id);
+}
+
+function marcarGuardado(el) {
+  el.classList.remove('guardado');
+  void el.offsetWidth;
+  el.classList.add('guardado');
+  setTimeout(() => el.classList.remove('guardado'), 1400);
+}
+
+// Precio cambiado en la lista: se valida y se guarda en el momento.
+async function manejarCambioProducto(e) {
+  const input = e.target;
+  const p = productoDeFila(input);
+  if (!p) return;
+  if (input.dataset.flag === 'activo') return guardarFlagProducto(p, 'activo', input.checked, input);
+  const campo = input.dataset.campo;
+  if (!campo) return;
+  const tipo = tipoProducto(p);
+  const original = p[campo] == null ? '' : Number(p[campo]);
+  const revertir = (mensaje) => { input.value = original; if (mensaje) mostrarToast(mensaje, 'error'); };
+  const valor = input.value === '' ? null : Number(input.value);
+  if (valor != null && !(valor > 0)) return revertir('El precio debe ser mayor a 0');
+  const cambios = { margen_aplicado: true };
+
+  if (tipo === 'decant') {
+    const tallas = { precio_3ml: p.precio_3ml, precio_5ml: p.precio_5ml, precio_10ml: p.precio_10ml, [campo]: valor };
+    if (tallas.precio_3ml == null && tallas.precio_5ml == null && tallas.precio_10ml == null) return revertir('Deja al menos una talla con precio');
+    cambios[campo] = valor;
+    // Precio de referencia obligatorio en la base (el de la talla más grande, ver Agregar Decant).
+    const referencia = tallas.precio_10ml ?? tallas.precio_5ml ?? tallas.precio_3ml;
+    cambios.precio_tienda_regular = referencia;
+    cambios.precio_consolidado_fijo = referencia;
+  } else if (valor == null) {
+    return revertir('Este precio es obligatorio');
+  } else if (tipo === 'consolidado') {
+    cambios.precio_consolidado_fijo = valor;
+    cambios.precio_tienda_regular = valor;
+  } else if (campo === 'precio_tienda_regular') {
+    cambios.precio_tienda_regular = valor;
+    if (Number(p.precio_consolidado_fijo) > valor) {
+      if (!confirm(`El precio por consolidado (${formatoMoneda(p.precio_consolidado_fijo)}) quedaría más caro que el de tienda.\n\n¿Bajarlo también a ${formatoMoneda(valor)}?`)) return revertir();
+      cambios.precio_consolidado_fijo = valor;
+    }
+  } else if (campo === 'precio_consolidado_fijo') {
+    if (valor > Number(p.precio_tienda_regular)) return revertir(`El precio por consolidado no puede ser mayor al de tienda (${formatoMoneda(p.precio_tienda_regular)})`);
+    cambios.precio_consolidado_fijo = valor;
+  }
+  try {
+    await actualizarProducto(p.id, cambios);
+    Object.assign(p, cambios);
+    const fila = input.closest('tr');
+    const otro = fila.querySelector('[data-campo="precio_consolidado_fijo"]');
+    if (otro && otro !== input && cambios.precio_consolidado_fijo != null) otro.value = cambios.precio_consolidado_fijo;
+    marcarGuardado(input);
+    mostrarToast(`${p.nombre}: precio guardado`);
+  } catch (err) {
+    revertir(err.message);
+  }
+}
+
+async function guardarFlagProducto(p, flag, valor, el) {
+  let cambios;
+  if (flag === 'decant_disponible') {
+    if (valor && !p.abiertos && !confirm(`${p.nombre} no tiene frascos abiertos en Inventario.\n\n¿Marcarlo disponible igual? (se podría vender sin tener de dónde servirlo)`)) return false;
+    cambios = { estado: valor ? 'Disponible' : 'Agotado' };
+  } else {
+    cambios = { [flag]: valor };
+  }
+  try {
+    await actualizarProducto(p.id, cambios);
+    Object.assign(p, cambios);
+    if (flag === 'activo') {
+      el.closest('tr').classList.toggle('fila-oculta', !valor);
+      el.closest('.switch-linea').lastElementChild.textContent = valor ? 'Visible' : 'Oculto';
+      mostrarToast(valor ? `${p.nombre} ya se ve en la web` : `${p.nombre} quedó oculto en la web`);
+    } else {
+      mostrarToast('Guardado');
+    }
+    return true;
+  } catch (err) {
+    if (el.type === 'checkbox') el.checked = !valor;
+    mostrarToast(err.message, 'error');
+    return false;
+  }
+}
+
+async function manejarClickProducto(e) {
+  const chip = e.target.closest('.chip-toggle');
+  if (chip) {
+    const p = productoDeFila(chip);
+    const nuevo = chip.getAttribute('aria-pressed') !== 'true';
+    chip.disabled = true;
+    if (await guardarFlagProducto(p, chip.dataset.flag, nuevo, chip)) chip.setAttribute('aria-pressed', String(nuevo));
+    chip.disabled = false;
+    return;
+  }
+  const boton = e.target.closest('[data-accion]');
+  if (!boton) return;
+  const p = productoDeFila(boton);
+  if (!p) return;
+  if (boton.dataset.accion === 'editar') {
+    try {
+      abrirModalProducto(await obtenerProductoAdminPorId(p.id));
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    }
+  }
+  if (boton.dataset.accion === 'inventario') abrirInventarioBuscando(`${p.marca} ${p.nombre}`);
+  if (boton.dataset.accion === 'eliminar') eliminarProductoDesdeLista(p);
+}
+
+// Un perfume con pedidos, reservas o movimientos no se puede borrar (se perdería el historial):
+// en ese caso se ofrece ocultarlo de la web, que es lo que normalmente se quiere.
+async function eliminarProductoDesdeLista(p) {
+  if (!confirm(`¿Eliminar ${p.marca} — ${p.nombre}?\n\nSi solo quieres que no se vea en la web, mejor apaga "Visible".`)) return;
+  try {
+    await eliminarProducto(p.id);
+    PRODUCTOS_CACHE = PRODUCTOS_CACHE.filter((x) => x.id !== p.id);
+    mostrarToast('Producto eliminado');
+    renderProductos();
+  } catch (err) {
+    if (/foreign key|violates|referenc|constraint/i.test(err.message)) {
+      if (!p.activo) return mostrarToast('Tiene ventas o movimientos guardados, por eso no se puede borrar (ya está oculto).', 'error');
+      if (confirm('Este perfume tiene ventas, reservas o movimientos guardados y no se puede borrar.\n\n¿Ocultarlo de la web en su lugar?')) {
+        await actualizarProducto(p.id, { activo: false }).then(() => { p.activo = false; mostrarToast('Quedó oculto en la web'); renderProductos(); }).catch((e2) => mostrarToast(e2.message, 'error'));
+      }
+    } else {
+      mostrarToast(err.message, 'error');
+    }
+  }
 }
 
 /* ================= AGREGAR DECANT ================= */
@@ -757,8 +805,8 @@ function abrirModalProducto(producto) {
       else field.value = val ?? '';
     });
   }
-  // Precio/stock/liquidación/mililitros de un decant se editan inline en su tarjeta (ver
-  // tarjetaDecantAdmin), no en este modal genérico -- se ocultan para no dar 2 lugares
+  // Precio/stock/liquidación/mililitros de un decant se editan en la lista (Productos →
+  // Decants) y en Inventario, no en este modal genérico -- se ocultan para no dar 2 lugares
   // distintos para el mismo dato. "required" se apaga junto con el campo: un input oculto
   // igual bloquea el submit si el navegador lo sigue validando.
   const esDecant = !!producto?.es_decant;
@@ -772,16 +820,31 @@ function abrirModalProducto(producto) {
   document.querySelectorAll('#form-producto .campo-decant').forEach((el) => {
     el.style.display = esDecant ? '' : 'none';
   });
+  // "Frascos que tienes ahora" solo al crear: después el stock se cambia en Inventario.
+  document.querySelectorAll('#form-producto .campo-solo-nuevo').forEach((el) => { el.hidden = !!producto; });
+  if (!producto) form.mililitros.value = 100;
+  document.getElementById('bloque-liquidacion').hidden = !form.es_liquidacion.checked;
+  llenarMarcasFormularioProducto();
   abrirModal('modal-producto');
+  if (!producto) form.nombre.focus();
+}
+
+// Sugerencias de marca (las que ya existen) para no crear "Lattafa" y "lattafa " por separado.
+function llenarMarcasFormularioProducto() {
+  const marcas = [...new Set((PRODUCTOS_CACHE.length ? PRODUCTOS_CACHE : INVENTARIO_CACHE || []).map((p) => p.marca))].sort();
+  document.getElementById('lista-marcas-producto').innerHTML = marcas.map((m) => `<option value="${escapeHtml(m)}"></option>`).join('');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('chk-es-liquidacion')?.addEventListener('change', (e) => { document.getElementById('bloque-liquidacion').hidden = !e.target.checked; });
   document.getElementById('btn-cancelar-producto')?.addEventListener('click', () => { COTIZACION_ORIGEN = null; cerrarModal('modal-producto'); });
   document.getElementById('form-producto')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.target));
     const id = data.id;
     delete data.id;
+    const stockInicial = !id && data.stock_inicial ? Math.max(0, Math.floor(Number(data.stock_inicial))) : 0;
+    delete data.stock_inicial;
     data.mililitros = Number(data.mililitros);
     data.precio_tienda_regular = Number(data.precio_tienda_regular);
     data.precio_consolidado_fijo = Number(data.precio_consolidado_fijo);
@@ -823,6 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let idProducto = id ? Number(id) : null;
       if (idProducto) await actualizarProducto(idProducto, data);
       else idProducto = await crearProducto(data);
+      if (stockInicial > 0) await ajustarInventario({ idProducto, cerrados: stockInicial, motivo: 'Ingreso', nota: 'Stock inicial al crear el perfume' });
       if (COTIZACION_ORIGEN) {
         await responderCotizacionAdmin(COTIZACION_ORIGEN, { estado: 'Convertido_A_Producto', id_producto_creado: idProducto });
         COTIZACION_ORIGEN = null;
@@ -2114,11 +2178,26 @@ async function guardarPedidoManual(e) {
 let INVENTARIO_CACHE = null;
 let INVENTARIO_LINEAS = [];
 let MOVIMIENTOS_FILTRO = null; // { ids: [...], nombre } cuando se entra desde "Historial"
+let inventarioChip = 'con-stock';
+// Modo conteo: se escriben los números reales de cada perfume y se guarda todo junto.
+let MODO_CONTEO = false;
+const CAMBIOS_CONTEO = new Map(); // clave de línea -> { cerrados?, abiertos?, ml? }
 
 const TIPOS_MOVIMIENTO_LABEL = {
   Ingreso: 'Ingreso', Venta: 'Venta', Anulacion_Venta: 'Venta anulada', Apertura_Decant: 'Frasco abierto',
   Frasco_Terminado: 'Frasco terminado', Ajuste: 'Ajuste', Merma: 'Merma', Conteo: 'Conteo',
 };
+
+const CHIPS_INVENTARIO = [
+  { id: 'con-stock', label: 'Con stock', f: (l) => l.conStock },
+  { id: 'bajo', label: 'Por acabarse', f: (l) => l.bajo, alerta: true },
+  { id: 'cerrados', label: 'Con frascos cerrados', f: (l) => (l.cerrados || 0) > 0 },
+  { id: 'abiertos', label: 'Con decant abierto', f: (l) => (l.abiertos || 0) > 0 },
+  { id: 'sin-stock', label: 'Sin stock', f: (l) => !l.conStock && l.activo },
+  { id: 'stock-oculto', label: 'Con stock pero ocultos en la web', f: (l) => l.stockOculto, alerta: true, soloSiHay: true },
+  { id: 'sin-vincular', label: 'Decants sin vincular', f: (l) => !!l.decant && !l.tienda, soloSiHay: true },
+  { id: 'todos', label: 'Todos', f: () => true },
+];
 
 function construirLineasInventario(productos) {
   const tienda = productos.filter((p) => !p.es_decant);
@@ -2128,7 +2207,8 @@ function construirLineasInventario(productos) {
   decants.forEach((d) => {
     if (d.id_perfume_tienda && tiendaPorId.has(d.id_perfume_tienda) && !decantPorTienda.has(d.id_perfume_tienda)) decantPorTienda.set(d.id_perfume_tienda, d);
   });
-  const lineas = tienda.map((t) => ({ clave: `t${t.id}`, tienda: t, decant: decantPorTienda.get(t.id) || null }));
+  // Los perfumes que solo se traen por consolidado no tienen stock propio: no van acá.
+  const lineas = tienda.filter((t) => t.estado !== 'Bajo_Pedido' || t.cerrados > 0).map((t) => ({ clave: `t${t.id}`, tienda: t, decant: decantPorTienda.get(t.id) || null }));
   decants.forEach((d) => {
     if (decantPorTienda.get(d.id_perfume_tienda) !== d) lineas.push({ clave: `d${d.id}`, tienda: null, decant: d });
   });
@@ -2146,6 +2226,7 @@ function construirLineasInventario(productos) {
         ...l,
         marca: base.marca,
         nombre: base.nombre,
+        imagen_url: l.tienda?.imagen_url || l.decant?.imagen_url || null,
         cerrados,
         abiertos,
         ml,
@@ -2154,6 +2235,7 @@ function construirLineasInventario(productos) {
         bajo: bajoTienda || bajoDecant,
         conStock: (cerrados || 0) > 0 || (abiertos || 0) > 0,
         activo: (l.tienda?.activo ?? false) || (l.decant?.activo ?? false),
+        stockOculto: (!!l.tienda && !l.tienda.activo && cerrados > 0) || (!!l.decant && !l.decant.activo && abiertos > 0),
         textoBusqueda: normalizarBusqueda(`${base.marca} ${base.nombre} ${l.decant && l.tienda ? `${l.decant.marca} ${l.decant.nombre}` : ''}`),
       };
     })
@@ -2163,7 +2245,19 @@ function construirLineasInventario(productos) {
 document.addEventListener('DOMContentLoaded', () => {
   let t;
   document.getElementById('inventario-busqueda')?.addEventListener('input', () => { clearTimeout(t); t = setTimeout(renderInventario, 200); });
-  document.getElementById('inventario-filtro')?.addEventListener('change', renderInventario);
+  document.getElementById('inventario-orden')?.addEventListener('change', renderInventario);
+  document.getElementById('inventario-chips')?.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-chip]');
+    if (!chip) return;
+    inventarioChip = chip.dataset.chip;
+    renderInventario();
+  });
+  document.getElementById('inventario-kpis')?.addEventListener('click', (e) => {
+    const card = e.target.closest('[data-chip]');
+    if (!card) return;
+    inventarioChip = card.dataset.chip;
+    renderInventario();
+  });
   document.querySelectorAll('#inventario-tabs .admin-tab').forEach((tab) => {
     tab.addEventListener('click', () => cambiarVistaInventario(tab.dataset.vista));
   });
@@ -2175,11 +2269,36 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-exportar-inventario')?.addEventListener('click', exportarInventarioExcel);
   document.getElementById('btn-imprimir-conteo')?.addEventListener('click', imprimirHojaConteo);
 
+  const tbody = document.getElementById('inventario-tbody');
+  tbody?.addEventListener('click', manejarClickInventario);
+  tbody?.addEventListener('input', manejarInputConteo);
+
+  document.getElementById('btn-modo-conteo')?.addEventListener('click', () => (MODO_CONTEO ? salirModoConteo() : entrarModoConteo()));
+  document.getElementById('btn-conteo-cancelar')?.addEventListener('click', salirModoConteo);
+  document.getElementById('btn-conteo-guardar')?.addEventListener('click', guardarConteo);
+  window.addEventListener('beforeunload', (e) => { if (CAMBIOS_CONTEO.size) { e.preventDefault(); e.returnValue = ''; } });
+
   document.getElementById('btn-cancelar-ajuste')?.addEventListener('click', () => cerrarModal('modal-ajuste-inventario'));
   document.getElementById('ajuste-motivo')?.addEventListener('change', prepararCamposAjuste);
   document.getElementById('form-ajuste-inventario')?.addEventListener('submit', guardarAjusteInventario);
+  document.getElementById('ajuste-vinculo')?.addEventListener('click', (e) => {
+    if (!e.target.closest('#btn-ajuste-vincular')) return;
+    cerrarModal('modal-ajuste-inventario');
+    abrirModalVincular(AJUSTE_LINEA);
+  });
   document.getElementById('btn-cancelar-vincular')?.addEventListener('click', () => cerrarModal('modal-vincular'));
   document.getElementById('form-vincular')?.addEventListener('submit', guardarVinculo);
+
+  document.getElementById('btn-ingreso-mercaderia')?.addEventListener('click', abrirModalIngreso);
+  document.getElementById('btn-dashboard-stock-bajo')?.addEventListener('click', () => abrirInventarioBuscando('', 'bajo'));
+  document.getElementById('btn-ingreso-fila')?.addEventListener('click', () => agregarFilaIngreso(true));
+  document.getElementById('btn-cancelar-ingreso')?.addEventListener('click', () => cerrarModal('modal-ingreso'));
+  document.getElementById('form-ingreso')?.addEventListener('submit', guardarIngreso);
+  document.getElementById('btn-ingreso-crear')?.addEventListener('click', () => {
+    cerrarModal('modal-ingreso');
+    irASeccion('productos');
+    abrirModalProducto();
+  });
 });
 
 function cambiarVistaInventario(vista) {
@@ -2190,13 +2309,15 @@ function cambiarVistaInventario(vista) {
   else cargarInventario();
 }
 
-// Entrada desde otra sección (ej. tarjeta de decant en Productos): abre el inventario ya
-// filtrado por ese perfume.
-function abrirInventarioBuscando(texto) {
+// Entrada desde otra sección (ej. Productos): abre el inventario ya filtrado por ese perfume
+// (o por un filtro rápido, ej. "Por acabarse" desde el Dashboard).
+function abrirInventarioBuscando(texto, chip = 'todos') {
   const input = document.getElementById('inventario-busqueda');
   if (input) input.value = texto;
-  const filtro = document.getElementById('inventario-filtro');
-  if (filtro) filtro.value = 'todos';
+  inventarioChip = chip;
+  document.querySelectorAll('#inventario-tabs .admin-tab').forEach((b) => b.classList.toggle('active', b.dataset.vista === 'stock'));
+  document.getElementById('inventario-vista-stock').hidden = false;
+  document.getElementById('inventario-vista-movimientos').hidden = true;
   irASeccion('inventario');
 }
 
@@ -2208,7 +2329,7 @@ async function cargarInventario({ refrescar = true } = {}) {
     renderKpisInventario();
     renderInventario();
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(err.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="admin-empty">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -2217,79 +2338,103 @@ function renderKpisInventario() {
   const conStock = L.filter((l) => l.conStock).length;
   const cerrados = L.reduce((acc, l) => acc + (l.cerrados || 0), 0);
   const abiertos = L.reduce((acc, l) => acc + (l.abiertos || 0), 0);
-  const valorCosto = L.reduce((acc, l) => acc + (l.cerrados > 0 && l.costo ? l.cerrados * l.costo : 0), 0);
-  const sinCosto = L.filter((l) => l.cerrados > 0 && !l.costo).length;
+  const decantsAbiertos = L.filter((l) => (l.abiertos || 0) > 0).length;
   const valorVenta = L.reduce((acc, l) => acc + (l.cerrados > 0 && l.precio ? l.cerrados * l.precio : 0), 0);
+  const valorCosto = L.reduce((acc, l) => acc + (l.cerrados > 0 && l.costo ? l.cerrados * l.costo : 0), 0);
   const bajos = L.filter((l) => l.bajo).length;
+  const ocultos = L.filter((l) => l.stockOculto).length;
   document.getElementById('inventario-kpis').innerHTML = `
-    <div class="stat-card"><div class="stat-value">${conStock}</div><div class="stat-label">Perfumes con stock</div></div>
-    <div class="stat-card"><div class="stat-value">${cerrados}</div><div class="stat-label">Frascos cerrados</div></div>
-    <div class="stat-card"><div class="stat-value">${abiertos}</div><div class="stat-label">Frascos abiertos (decants)</div></div>
-    <div class="stat-card"><div class="stat-value">${formatoMoneda(valorVenta)}</div><div class="stat-label">Cerrados a precio de venta</div></div>
-    <div class="stat-card"><div class="stat-value">${formatoMoneda(valorCosto)}</div><div class="stat-label">Cerrados a costo${sinCosto ? ` (${sinCosto} sin costo)` : ''}</div></div>
-    <div class="stat-card ${bajos ? 'warn' : ''}"><div class="stat-value">${bajos}</div><div class="stat-label">Por acabarse</div></div>
+    <button type="button" class="stat-card stat-click" data-chip="con-stock"><div class="stat-value">${conStock}</div><div class="stat-label">Perfumes con stock</div></button>
+    <button type="button" class="stat-card stat-click" data-chip="cerrados"><div class="stat-value">${cerrados}</div><div class="stat-label">Frascos cerrados</div><div class="stat-sub">${formatoMoneda(valorVenta)} a precio de venta${valorCosto ? ` · ${formatoMoneda(valorCosto)} a costo` : ''}</div></button>
+    <button type="button" class="stat-card stat-click" data-chip="abiertos"><div class="stat-value">${abiertos}</div><div class="stat-label">Frascos abiertos</div><div class="stat-sub">en ${decantsAbiertos} decant${decantsAbiertos === 1 ? '' : 's'}</div></button>
+    <button type="button" class="stat-card stat-click ${bajos ? 'warn' : ''}" data-chip="bajo"><div class="stat-value">${bajos}</div><div class="stat-label">Por acabarse</div><div class="stat-sub">pocos cerrados o poco perfume en el frasco</div></button>
+    ${ocultos ? `<button type="button" class="stat-card stat-click warn" data-chip="stock-oculto"><div class="stat-value">${ocultos}</div><div class="stat-label">Con stock pero ocultos</div><div class="stat-sub">tienes frascos que no se ven en la web</div></button>` : ''}
   `;
 }
 
 function lineasInventarioFiltradas() {
-  const q = normalizarBusqueda(document.getElementById('inventario-busqueda')?.value);
-  const palabras = q.split(' ').filter(Boolean);
-  const filtro = document.getElementById('inventario-filtro')?.value || 'con-stock';
-  return INVENTARIO_LINEAS.filter((l) => {
-    if (palabras.length && !palabras.every((w) => l.textoBusqueda.includes(w))) return false;
-    if (filtro === 'con-stock') return l.conStock;
-    if (filtro === 'bajo') return l.bajo;
-    if (filtro === 'abiertos') return (l.abiertos || 0) > 0;
-    if (filtro === 'cerrados') return (l.cerrados || 0) > 0;
-    if (filtro === 'sin-stock') return !l.conStock && l.activo;
-    if (filtro === 'sin-vincular') return !!l.decant && !l.tienda;
-    return true;
-  });
+  const palabras = normalizarBusqueda(document.getElementById('inventario-busqueda')?.value).split(' ').filter(Boolean);
+  const chip = CHIPS_INVENTARIO.find((c) => c.id === inventarioChip) || CHIPS_INVENTARIO[0];
+  const orden = document.getElementById('inventario-orden')?.value || 'marca';
+  const lista = INVENTARIO_LINEAS.filter((l) => (!palabras.length || palabras.every((w) => l.textoBusqueda.includes(w))) && chip.f(l));
+  const total = (l) => (l.cerrados || 0) + (l.abiertos || 0);
+  if (orden === 'mas') lista.sort((a, b) => total(b) - total(a));
+  if (orden === 'menos') lista.sort((a, b) => total(a) - total(b));
+  return lista;
 }
 
 function renderInventario() {
   const tbody = document.getElementById('inventario-tbody');
+  // Filtros rápidos con cantidad (sobre la búsqueda actual)
+  const palabras = normalizarBusqueda(document.getElementById('inventario-busqueda')?.value).split(' ').filter(Boolean);
+  const buscadas = INVENTARIO_LINEAS.filter((l) => !palabras.length || palabras.every((w) => l.textoBusqueda.includes(w)));
+  document.getElementById('inventario-chips').innerHTML = CHIPS_INVENTARIO.map((c) => {
+    const n = buscadas.filter(c.f).length;
+    if (c.soloSiHay && !n && inventarioChip !== c.id) return '';
+    return `<button type="button" class="chip-filtro${c.alerta && n ? ' alerta' : ''}${inventarioChip === c.id ? ' activo' : ''}" data-chip="${c.id}">${escapeHtml(c.label)} <span class="n">${n}</span></button>`;
+  }).join('');
+  document.querySelectorAll('#inventario-kpis [data-chip]').forEach((k) => k.classList.toggle('activo', k.dataset.chip === inventarioChip));
+
   const lineas = lineasInventarioFiltradas();
-  const conteo = document.getElementById('inventario-conteo');
-  if (conteo) conteo.textContent = `${lineas.length} perfume${lineas.length === 1 ? '' : 's'}`;
-  tbody.innerHTML = lineas.length ? lineas.map(filaInventario).join('') : '<tr><td colspan="6" class="admin-empty">Nada con este filtro.</td></tr>';
-  conectarEventosInventario();
+  document.getElementById('inventario-conteo').textContent = `${lineas.length} perfume${lineas.length === 1 ? '' : 's'}`;
+  tbody.innerHTML = lineas.length
+    ? lineas.map(filaInventario).join('')
+    : `<tr><td colspan="5" class="admin-empty">Nada con este filtro.${inventarioChip !== 'todos' ? ' <button type="button" class="btn-link-inline" data-chip-todos>Ver todos</button>' : ''}</td></tr>`;
+  actualizarBarraConteo();
 }
 
 function filaInventario(l) {
   const t = l.tienda;
   const d = l.decant;
-  const capacidad = d ? (t?.mililitros || d.mililitros || 100) * Math.max(l.abiertos || 0, 1) : 0;
-  const pctMl = d && l.ml != null ? Math.max(0, Math.min(100, Math.round((l.ml / capacidad) * 100))) : null;
-  const oculto = (t && !t.activo) || (!t && d && !d.activo);
-  const tipo = t && d ? 'Tienda + decants' : t ? 'Solo tienda' : 'Solo decants — sin perfume de tienda vinculado';
-  const puedeAbrir = !!d;
+  const badges = [];
+  if (!t) badges.push('<span class="badge badge-decant">Solo decant</span>');
+  if (l.stockOculto) badges.push('<span class="badge badge-aviso">Tiene stock pero está oculto en la web</span>');
+  else if ((t && !t.activo) || (!t && d && !d.activo)) badges.push('<span class="badge badge-out">Oculto en web</span>');
+  if (l.bajo) badges.push('<span class="badge badge-aviso">Por acabarse</span>');
+  const cambios = CAMBIOS_CONTEO.get(l.clave) || {};
+  const valorConteo = (campo, actual) => (campo in cambios ? cambios[campo] : (actual ?? ''));
+  const inputConteo = (campo, actual, etiqueta, paso = 1) => `<input type="number" class="conteo-input${campo in cambios ? ' cambiado' : ''}" data-campo="${campo}" min="0" step="${paso}" inputmode="decimal" value="${valorConteo(campo, actual)}" aria-label="${etiqueta}" placeholder="${campo === 'ml' ? 'ml' : ''}" />`;
+
+  let celdaCerrados = '<span class="celda-sub">—</span>';
+  if (t) {
+    celdaCerrados = MODO_CONTEO
+      ? inputConteo('cerrados', l.cerrados, 'Frascos cerrados contados')
+      : `<div class="stepper">
+          <button type="button" class="stepper-btn btn-cerrados-menos" aria-label="Restar 1 frasco cerrado" title="Restar 1 (se registra como ajuste)" ${l.cerrados <= 0 ? 'disabled' : ''}>&minus;</button>
+          <span class="stepper-val ${l.bajo && l.cerrados > 0 ? 'texto-alerta' : ''}">${l.cerrados}</span>
+          <button type="button" class="stepper-btn btn-cerrados-mas" aria-label="Sumar 1 frasco cerrado" title="Sumar 1 (se registra como ingreso)">+</button>
+        </div>`;
+  }
+  let celdaAbiertos = '<span class="celda-sub">Sin decant</span>';
+  if (d) {
+    celdaAbiertos = MODO_CONTEO
+      ? `<div class="conteo-par">${inputConteo('abiertos', l.abiertos, 'Frascos abiertos contados')}${inputConteo('ml', l.ml, 'ml que quedan en el frasco abierto', 0.5)}</div>`
+      : `<div class="abiertos-ctrl">
+          <span class="abiertos-val">${l.abiertos}</span>
+          <button type="button" class="btn-mini btn-abrir-frasco" title="Abrir un frasco para decants: pasa 1 cerrado a abierto">+ Abrir</button>
+          <button type="button" class="btn-mini btn-terminar-frasco" title="Se acabó un frasco abierto" ${l.abiertos > 0 ? '' : 'disabled'}>Terminado</button>
+        </div>
+        ${l.ml != null ? `<div class="celda-sub">${l.ml} ml en el frasco</div>` : ''}`;
+  }
+  const precio = l.precio ? formatoMoneda(l.precio) : d && tallasDecant(d).length ? `<span class="celda-sub">decant desde ${formatoMoneda(precioTallaDecant(d, tallasDecant(d)[0]))}</span>` : '—';
   return `
-    <tr data-clave="${l.clave}" class="${l.bajo ? 'fila-alerta' : ''}">
-      <td>
-        <div class="inv-nombre"><strong>${escapeHtml(l.marca)} — ${escapeHtml(l.nombre)}</strong>${t ? ` <span class="celda-sub">${t.mililitros} ml</span>` : ''}${oculto ? ' <span class="badge badge-out">Oculto en web</span>' : ''}</div>
-        <div class="celda-sub">${tipo}${d || t ? ` · <button type="button" class="btn-link-inline btn-vincular">${t && d ? 'Cambiar vínculo' : 'Vincular'}</button>` : ''}</div>
+    <tr data-clave="${l.clave}" class="${l.bajo ? 'fila-alerta' : ''}${cambios && Object.keys(cambios).length ? ' fila-cambiada' : ''}">
+      <td data-label="Perfume">
+        <div class="prod-celda">
+          <span class="mini-foto">${imagenProductoAdmin(l)}</span>
+          <div class="prod-texto">
+            <strong>${escapeHtml(l.marca)} — ${escapeHtml(l.nombre)}</strong>${t ? ` <span class="celda-sub">${t.mililitros} ml</span>` : ''}
+            ${badges.length ? `<div class="prod-badges">${badges.join('')}</div>` : ''}
+          </div>
+        </div>
       </td>
-      <td class="num">
-        ${t ? `<div class="stepper">
-          <button type="button" class="stepper-btn btn-cerrados-menos" aria-label="Restar 1 frasco cerrado" ${l.cerrados <= 0 ? 'disabled' : ''}>&minus;</button>
-          <span class="stepper-val ${l.cerrados > 0 && l.cerrados <= t.minimo ? 'texto-alerta' : ''}">${l.cerrados}</span>
-          <button type="button" class="stepper-btn btn-cerrados-mas" aria-label="Sumar 1 frasco cerrado">+</button>
-        </div>` : '<span class="celda-sub">—</span>'}
-      </td>
-      <td class="num">
-        ${d ? `<div class="inv-abiertos"><strong>${l.abiertos}</strong>${l.abiertos > 0 ? '<button type="button" class="btn-link-inline btn-terminar-frasco" title="Se acabó un frasco abierto">Terminado</button>' : '<span class="celda-sub">Agotado</span>'}</div>` : '<span class="celda-sub">—</span>'}
-      </td>
-      <td class="num">
-        ${d ? `<input type="number" class="inv-ml" min="0" step="0.5" value="${l.ml ?? ''}" placeholder="—" aria-label="ml en frasco abierto" />
-          ${pctMl != null ? `<div class="mini-bar"><div style="width:${pctMl}%"></div></div>` : ''}` : '<span class="celda-sub">—</span>'}
-      </td>
-      <td class="num">${l.precio ? formatoMoneda(l.precio) : d ? `<span class="celda-sub">${tallasDecant(d).map((tm) => `${tm}ml ${formatoMoneda(precioTallaDecant(d, tm))}`).join('<br>')}</span>` : '—'}</td>
-      <td>
-        <div class="row-actions" style="justify-content:flex-end;">
-          ${puedeAbrir ? '<button type="button" class="btn btn-outline btn-sm btn-abrir-frasco" title="Pasa 1 frasco cerrado de tienda a abierto para decants">Abrir frasco</button>' : ''}
-          <button type="button" class="btn btn-ghost btn-sm btn-ajustar">Ajustar</button>
-          <button type="button" class="btn btn-ghost btn-sm btn-historial">Historial</button>
+      <td class="num" data-label="Cerrados (tienda)">${celdaCerrados}</td>
+      <td class="num" data-label="Abiertos (decants)">${celdaAbiertos}</td>
+      <td class="num" data-label="Precio">${precio}</td>
+      <td class="acciones">
+        <div class="row-actions">
+          <button type="button" class="btn btn-ghost btn-sm btn-ajustar" title="Ingreso, merma o conteo con nota">Ajustar</button>
+          <button type="button" class="btn btn-ghost btn-sm btn-historial" title="Ver todos sus movimientos">Historial</button>
         </div>
       </td>
     </tr>
@@ -2313,53 +2458,313 @@ async function ejecutarAccionInventario(promesa, mensaje) {
   }
 }
 
-function conectarEventosInventario() {
-  const tbody = document.getElementById('inventario-tbody');
-  tbody.querySelectorAll('.btn-cerrados-mas').forEach((btn) => btn.addEventListener('click', () => {
-    const l = lineaDeFila(btn);
+function manejarClickInventario(e) {
+  if (e.target.closest('[data-chip-todos]')) { inventarioChip = 'todos'; renderInventario(); return; }
+  const btn = e.target.closest('button');
+  if (!btn || !btn.closest('tr[data-clave]')) return;
+  const l = lineaDeFila(btn);
+  if (btn.classList.contains('btn-cerrados-mas')) {
     btn.disabled = true;
     ejecutarAccionInventario(ajustarInventario({ idProducto: l.tienda.id, cerrados: 1, motivo: 'Ingreso', nota: 'Ingreso rápido desde Inventario' }), `${l.nombre}: +1 frasco cerrado`);
-  }));
-  tbody.querySelectorAll('.btn-cerrados-menos').forEach((btn) => btn.addEventListener('click', () => {
-    const l = lineaDeFila(btn);
+  } else if (btn.classList.contains('btn-cerrados-menos')) {
     btn.disabled = true;
     ejecutarAccionInventario(ajustarInventario({ idProducto: l.tienda.id, cerrados: -1, motivo: 'Ajuste', nota: 'Ajuste rápido desde Inventario' }), `${l.nombre}: −1 frasco cerrado`);
-  }));
-  tbody.querySelectorAll('.btn-abrir-frasco').forEach((btn) => btn.addEventListener('click', () => {
-    const l = lineaDeFila(btn);
+  } else if (btn.classList.contains('btn-abrir-frasco')) {
     const hayCerrados = l.tienda && l.cerrados > 0;
     const ml = l.tienda?.mililitros || l.decant.mililitros || 100;
     const mensaje = hayCerrados
-      ? `¿Abrir 1 frasco de ${l.marca} ${l.nombre} para decants?\n\nCerrados en tienda: ${l.cerrados} → ${l.cerrados - 1}\nAbiertos: ${l.abiertos} → ${l.abiertos + 1} (+${ml} ml)`
-      : `${l.tienda ? 'No quedan frascos cerrados en tienda' : 'Este decant no tiene perfume de tienda vinculado'}.\n\n¿Registrar igual 1 frasco abierto de ${l.nombre} (+${ml} ml) sin descontar de tienda?`;
+      ? `¿Abrir 1 frasco de ${l.marca} ${l.nombre} para decants?\n\nCerrados: ${l.cerrados} → ${l.cerrados - 1}\nAbiertos: ${l.abiertos} → ${l.abiertos + 1} (+${ml} ml)`
+      : `${l.tienda ? 'No quedan frascos cerrados de este perfume' : 'Este decant no tiene perfume de tienda vinculado'}.\n\n¿Registrar igual 1 frasco abierto de ${l.nombre} (+${ml} ml) sin descontar cerrados?`;
     if (!confirm(mensaje)) return;
     btn.disabled = true;
     ejecutarAccionInventario(abrirFrascoDecant(l.decant.id, hayCerrados), `Frasco abierto: ${l.nombre}`);
-  }));
-  tbody.querySelectorAll('.btn-terminar-frasco').forEach((btn) => btn.addEventListener('click', () => {
-    const l = lineaDeFila(btn);
+  } else if (btn.classList.contains('btn-terminar-frasco')) {
     const ultimo = l.abiertos <= 1;
-    if (!confirm(`¿Se terminó un frasco abierto de ${l.nombre}?\n\nAbiertos: ${l.abiertos} → ${l.abiertos - 1}${ultimo ? '\n\nEra el último: el decant pasa a Agotado en la web hasta que abras otro.' : ''}`)) return;
+    if (!confirm(`¿Se terminó un frasco abierto de ${l.nombre}?\n\nAbiertos: ${l.abiertos} → ${l.abiertos - 1}${ultimo ? '\n\nEra el último: el decant sale como Agotado en la web hasta que abras otro.' : ''}`)) return;
     btn.disabled = true;
     const accion = ultimo
       ? ajustarInventario({ idProducto: l.decant.id, abiertos: 0, ml: 0, esDelta: false, motivo: 'Frasco_Terminado', nota: 'Último frasco abierto terminado' })
       : ajustarInventario({ idProducto: l.decant.id, abiertos: -1, motivo: 'Frasco_Terminado', nota: 'Frasco abierto terminado' });
     ejecutarAccionInventario(accion, `Frasco terminado: ${l.nombre}`);
-  }));
-  tbody.querySelectorAll('.inv-ml').forEach((input) => input.addEventListener('change', () => {
-    const l = lineaDeFila(input);
-    const valor = input.value === '' ? null : Number(input.value);
-    if (valor == null || valor < 0) { input.value = l.ml ?? ''; return; }
-    ejecutarAccionInventario(ajustarInventario({ idProducto: l.decant.id, ml: valor, esDelta: false, motivo: 'Conteo', nota: 'ml medidos en el frasco' }), `${l.nombre}: ${valor} ml`);
-  }));
-  tbody.querySelectorAll('.btn-ajustar').forEach((btn) => btn.addEventListener('click', () => abrirModalAjuste(lineaDeFila(btn))));
-  tbody.querySelectorAll('.btn-historial').forEach((btn) => btn.addEventListener('click', () => {
-    const l = lineaDeFila(btn);
+  } else if (btn.classList.contains('btn-ajustar')) {
+    abrirModalAjuste(l);
+  } else if (btn.classList.contains('btn-historial')) {
     MOVIMIENTOS_FILTRO = { ids: [l.tienda?.id, l.decant?.id].filter(Boolean), nombre: `${l.marca} — ${l.nombre}` };
     document.getElementById('movimientos-periodo').value = '';
     cambiarVistaInventario('movimientos');
+  }
+}
+
+/* ---------- Modo conteo: escribir los números reales y guardar todo junto ---------- */
+
+function entrarModoConteo() {
+  MODO_CONTEO = true;
+  document.getElementById('btn-modo-conteo').textContent = 'Terminar conteo';
+  document.getElementById('conteo-aviso').hidden = false;
+  document.getElementById('conteo-barra').hidden = false;
+  document.getElementById('section-inventario').classList.add('en-conteo');
+  renderInventario();
+  document.querySelector('#inventario-tbody .conteo-input')?.focus();
+}
+
+function salirModoConteo() {
+  if (CAMBIOS_CONTEO.size && !confirm(`Tienes ${CAMBIOS_CONTEO.size} perfume(s) con cambios sin guardar. ¿Salir y descartarlos?`)) return;
+  CAMBIOS_CONTEO.clear();
+  MODO_CONTEO = false;
+  document.getElementById('btn-modo-conteo').textContent = 'Hacer conteo';
+  document.getElementById('conteo-aviso').hidden = true;
+  document.getElementById('conteo-barra').hidden = true;
+  document.getElementById('section-inventario').classList.remove('en-conteo');
+  renderInventario();
+}
+
+function manejarInputConteo(e) {
+  const input = e.target;
+  if (!input.classList.contains('conteo-input')) return;
+  const l = lineaDeFila(input);
+  const campo = input.dataset.campo;
+  const original = campo === 'cerrados' ? l.cerrados : campo === 'abiertos' ? l.abiertos : l.ml;
+  const cambios = { ...(CAMBIOS_CONTEO.get(l.clave) || {}) };
+  const valor = input.value === '' ? null : Number(input.value);
+  const invalido = valor != null && (!(valor >= 0) || (campo !== 'ml' && !Number.isInteger(valor)));
+  input.classList.toggle('invalido', invalido);
+  if (invalido || valor === (original ?? null) || (valor == null && campo !== 'ml')) delete cambios[campo];
+  else cambios[campo] = valor;
+  input.classList.toggle('cambiado', campo in cambios);
+  if (Object.keys(cambios).length) CAMBIOS_CONTEO.set(l.clave, cambios);
+  else CAMBIOS_CONTEO.delete(l.clave);
+  input.closest('tr').classList.toggle('fila-cambiada', CAMBIOS_CONTEO.has(l.clave));
+  actualizarBarraConteo();
+}
+
+function actualizarBarraConteo() {
+  const texto = document.getElementById('conteo-barra-texto');
+  const boton = document.getElementById('btn-conteo-guardar');
+  if (!texto) return;
+  const n = CAMBIOS_CONTEO.size;
+  texto.innerHTML = n ? `<strong>${n}</strong> perfume${n === 1 ? '' : 's'} con cambios sin guardar` : 'Escribe lo que contaste: los cambios se guardan todos juntos';
+  boton.disabled = !n;
+}
+
+async function guardarConteo() {
+  const boton = document.getElementById('btn-conteo-guardar');
+  const pendientes = [...CAMBIOS_CONTEO.entries()];
+  if (!pendientes.length) return;
+  boton.disabled = true;
+  let hechos = 0;
+  for (const [clave, cambios] of pendientes) {
+    const l = INVENTARIO_LINEAS.find((x) => x.clave === clave);
+    boton.textContent = `Guardando ${hechos + 1} de ${pendientes.length}…`;
+    try {
+      if (!l) throw new Error('Perfume no encontrado');
+      if (l.tienda && 'cerrados' in cambios) {
+        await ajustarInventario({ idProducto: l.tienda.id, cerrados: cambios.cerrados, esDelta: false, motivo: 'Conteo', nota: 'Conteo físico' });
+      }
+      if (l.decant && ('abiertos' in cambios || 'ml' in cambios)) {
+        await ajustarInventario({ idProducto: l.decant.id, abiertos: 'abiertos' in cambios ? cambios.abiertos : null, ml: 'ml' in cambios ? cambios.ml : null, esDelta: false, motivo: 'Conteo', nota: 'Conteo físico' });
+      }
+      CAMBIOS_CONTEO.delete(clave);
+      hechos += 1;
+    } catch (err) {
+      mostrarToast(`${l ? l.nombre : clave}: ${err.message}`, 'error');
+      break;
+    }
+  }
+  boton.textContent = 'Guardar conteo';
+  if (hechos) mostrarToast(`Conteo guardado: ${hechos} perfume${hechos === 1 ? '' : 's'} actualizado${hechos === 1 ? '' : 's'}`);
+  await cargarInventario();
+  actualizarBadgesNav();
+  if (!CAMBIOS_CONTEO.size) salirModoConteo();
+}
+
+/* ---------- Ingreso de mercadería: varios perfumes de una sola vez ---------- */
+
+let INGRESO_LIMPIAR = true;
+
+async function abrirModalIngreso() {
+  try {
+    INVENTARIO_CACHE = await obtenerInventarioAdmin();
+  } catch (err) {
+    return mostrarToast(err.message, 'error');
+  }
+  const mount = document.getElementById('ingreso-filas');
+  if (INGRESO_LIMPIAR || !mount.children.length) {
+    document.getElementById('form-ingreso').reset();
+    mount.innerHTML = '';
+    agregarFilaIngreso(false);
+    agregarFilaIngreso(false);
+    agregarFilaIngreso(false);
+    INGRESO_LIMPIAR = false;
+  }
+  actualizarResumenIngreso();
+  abrirModal('modal-ingreso');
+  mount.querySelector('.ingreso-producto')?.focus();
+}
+
+function productosParaIngreso() {
+  return (INVENTARIO_CACHE || []).filter((p) => !p.es_decant);
+}
+
+function agregarFilaIngreso(enfocar) {
+  const mount = document.getElementById('ingreso-filas');
+  const fila = document.createElement('div');
+  fila.className = 'ingreso-fila';
+  fila.innerHTML = `
+    <div class="autocomplete-wrap">
+      <input type="text" class="ingreso-producto" placeholder="Escribe marca o nombre…" autocomplete="off" aria-label="Perfume" />
+      <div class="autocomplete-list" hidden></div>
+      <div class="ingreso-info celda-sub"></div>
+    </div>
+    <input type="number" class="ingreso-cantidad" min="1" step="1" inputmode="numeric" placeholder="0" aria-label="Cantidad que llegó" />
+    <input type="number" class="ingreso-precio" min="0.01" step="0.01" inputmode="decimal" placeholder="Igual" aria-label="Nuevo precio de venta (opcional)" />
+    <button type="button" class="btn btn-ghost btn-sm ingreso-quitar" aria-label="Quitar fila">&times;</button>
+    <label class="ingreso-publicar" hidden><input type="checkbox" class="ingreso-chk-publicar" /> Publicar en la web (ahora está oculto)</label>
+  `;
+  mount.appendChild(fila);
+  const input = fila.querySelector('.ingreso-producto');
+  const lista = fila.querySelector('.autocomplete-list');
+  input.addEventListener('input', () => {
+    delete fila.dataset.id;
+    fila.querySelector('.ingreso-info').textContent = '';
+    fila.querySelector('.ingreso-publicar').hidden = true;
+    const palabras = normalizarBusqueda(input.value).split(' ').filter(Boolean);
+    if (!palabras.length) { lista.hidden = true; actualizarResumenIngreso(); return; }
+    const opciones = productosParaIngreso()
+      .filter((p) => palabras.every((w) => normalizarBusqueda(`${p.marca} ${p.nombre} #${p.id}`).includes(w)))
+      .slice(0, 8);
+    lista.innerHTML = opciones.length
+      ? opciones.map((p) => `<button type="button" class="autocomplete-opcion" data-id="${p.id}"><strong>${escapeHtml(p.marca)} — ${escapeHtml(p.nombre)} (${p.mililitros} ml)</strong><span>${p.cerrados} en stock · ${formatoMoneda(precioVentaTienda(p))}${p.activo ? '' : ' · oculto en la web'}${p.estado === 'Bajo_Pedido' ? ' · solo consolidado' : ''}</span></button>`).join('')
+      : '<div class="autocomplete-opcion" style="cursor:default;"><span>No está en el catálogo. Créalo primero en Productos.</span></div>';
+    lista.hidden = false;
+    actualizarResumenIngreso();
+  });
+  lista.addEventListener('click', (e) => {
+    const op = e.target.closest('[data-id]');
+    if (!op) return;
+    elegirProductoIngreso(fila, Number(op.dataset.id));
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const primera = lista.querySelector('[data-id]');
+      if (!lista.hidden && primera) elegirProductoIngreso(fila, Number(primera.dataset.id));
+    }
+  });
+  input.addEventListener('blur', () => setTimeout(() => { lista.hidden = true; }, 180));
+  fila.querySelector('.ingreso-cantidad').addEventListener('keydown', (e) => {
+    // Enter en la cantidad = pasar al siguiente perfume (carga rápida desde una lista).
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const siguiente = fila.nextElementSibling;
+    if (siguiente) siguiente.querySelector('.ingreso-producto').focus();
+    else agregarFilaIngreso(true);
+  });
+  fila.querySelector('.ingreso-quitar').addEventListener('click', () => {
+    fila.remove();
+    if (!mount.children.length) agregarFilaIngreso(true);
+    actualizarResumenIngreso();
+  });
+  fila.addEventListener('input', (e) => { if (!e.target.classList.contains('ingreso-producto')) actualizarResumenIngreso(); });
+  if (enfocar) input.focus();
+  return fila;
+}
+
+function elegirProductoIngreso(fila, id) {
+  const p = productosParaIngreso().find((x) => x.id === id);
+  if (!p) return;
+  fila.dataset.id = String(id);
+  fila.querySelector('.ingreso-producto').value = `${p.marca} — ${p.nombre} (${p.mililitros} ml)`;
+  fila.querySelector('.autocomplete-list').hidden = true;
+  fila.querySelector('.ingreso-info').textContent = `Ahora: ${p.cerrados} cerrado${p.cerrados === 1 ? '' : 's'} · precio ${formatoMoneda(precioVentaTienda(p))}`;
+  fila.querySelector('.ingreso-precio').placeholder = String(Number(p.precio_tienda_regular));
+  const publicar = fila.querySelector('.ingreso-publicar');
+  publicar.hidden = p.activo && p.estado !== 'Bajo_Pedido';
+  publicar.querySelector('input').checked = false;
+  fila.querySelector('.ingreso-cantidad').focus();
+  actualizarResumenIngreso();
+}
+
+function leerFilasIngreso() {
+  return [...document.querySelectorAll('#ingreso-filas .ingreso-fila')].map((fila) => ({
+    fila,
+    id: fila.dataset.id ? Number(fila.dataset.id) : null,
+    texto: fila.querySelector('.ingreso-producto').value.trim(),
+    cantidad: fila.querySelector('.ingreso-cantidad').value === '' ? null : Number(fila.querySelector('.ingreso-cantidad').value),
+    precio: fila.querySelector('.ingreso-precio').value === '' ? null : Number(fila.querySelector('.ingreso-precio').value),
+    publicar: !fila.querySelector('.ingreso-publicar').hidden && fila.querySelector('.ingreso-chk-publicar').checked,
   }));
-  tbody.querySelectorAll('.btn-vincular').forEach((btn) => btn.addEventListener('click', () => abrirModalVincular(lineaDeFila(btn))));
+}
+
+function actualizarResumenIngreso() {
+  const validas = leerFilasIngreso().filter((f) => f.id && f.cantidad > 0);
+  const frascos = validas.reduce((acc, f) => acc + f.cantidad, 0);
+  document.getElementById('ingreso-resumen').innerHTML = validas.length
+    ? `Se van a sumar <strong>${frascos} frasco${frascos === 1 ? '' : 's'}</strong> en <strong>${new Set(validas.map((f) => f.id)).size} perfume${validas.length === 1 ? '' : 's'}</strong>.`
+    : 'Elige un perfume y escribe la cantidad que llegó. Tip: Enter en la cantidad pasa al siguiente.';
+}
+
+async function guardarIngreso(e) {
+  e.preventDefault();
+  const nota = e.target.nota.value.trim() || 'Ingreso de mercadería';
+  const filas = leerFilasIngreso().filter((f) => f.texto || f.cantidad != null || f.precio != null);
+  if (!filas.length) return mostrarToast('Agrega al menos un perfume con su cantidad', 'error');
+  for (const f of filas) {
+    f.fila.classList.remove('con-error');
+    if (!f.id) { f.fila.classList.add('con-error'); return mostrarToast(`"${f.texto || 'Fila sin perfume'}": elige el perfume de la lista`, 'error'); }
+    if (!(f.cantidad > 0) || !Number.isInteger(f.cantidad)) { f.fila.classList.add('con-error'); return mostrarToast('Revisa las cantidades: deben ser números enteros mayores a 0', 'error'); }
+    if (f.precio != null && !(f.precio > 0)) { f.fila.classList.add('con-error'); return mostrarToast('Revisa los precios: deben ser mayores a 0', 'error'); }
+  }
+  // El mismo perfume en dos filas se suma en una sola.
+  const porId = new Map();
+  filas.forEach((f) => {
+    const previo = porId.get(f.id);
+    if (previo) { previo.cantidad += f.cantidad; previo.precio = f.precio ?? previo.precio; previo.publicar = previo.publicar || f.publicar; previo.filas.push(f.fila); }
+    else porId.set(f.id, { ...f, filas: [f.fila] });
+  });
+  const boton = document.getElementById('btn-guardar-ingreso');
+  boton.disabled = true;
+  let hechos = 0;
+  let frascos = 0;
+  for (const item of porId.values()) {
+    boton.textContent = `Guardando ${hechos + 1} de ${porId.size}…`;
+    const p = productosParaIngreso().find((x) => x.id === item.id);
+    try {
+      await ajustarInventario({ idProducto: item.id, cerrados: item.cantidad, motivo: 'Ingreso', nota });
+      const cambios = {};
+      if (item.precio != null) {
+        cambios.precio_tienda_regular = item.precio;
+        cambios.descuento_tienda_porcentaje = 0;
+        cambios.precio_consolidado_fijo = Math.min(Number(p.precio_consolidado_fijo) || item.precio, item.precio);
+        cambios.margen_aplicado = true;
+      }
+      if (item.publicar) {
+        cambios.activo = true;
+        if (p.estado === 'Bajo_Pedido') cambios.estado = 'Disponible';
+      }
+      if (Object.keys(cambios).length) await actualizarProducto(item.id, cambios);
+      item.filas.forEach((f) => f.remove());
+      hechos += 1;
+      frascos += item.cantidad;
+    } catch (err) {
+      item.filas.forEach((f) => f.classList.add('con-error'));
+      mostrarToast(`${p ? p.nombre : 'Perfume'}: ${err.message}`, 'error');
+      break;
+    }
+  }
+  boton.disabled = false;
+  boton.textContent = 'Guardar ingreso';
+  if (hechos) mostrarToast(`Ingreso guardado: ${frascos} frasco${frascos === 1 ? '' : 's'} en ${hechos} perfume${hechos === 1 ? '' : 's'}`);
+  // Solo cuentan las filas con algo escrito (la fila vacía que agrega el Enter no frena el cierre).
+  const quedan = leerFilasIngreso().filter((f) => f.texto || f.cantidad != null || f.precio != null).length;
+  if (hechos && !quedan) {
+    INGRESO_LIMPIAR = true;
+    cerrarModal('modal-ingreso');
+  } else if (!document.querySelectorAll('#ingreso-filas .ingreso-fila').length) {
+    agregarFilaIngreso(false);
+  }
+  actualizarResumenIngreso();
+  await cargarInventario();
+  actualizarBadgesNav();
 }
 
 /* ---------- Ajuste manual (ingreso de mercadería, merma, conteo) ---------- */
@@ -2374,6 +2779,11 @@ function abrirModalAjuste(linea) {
   document.getElementById('ajuste-grupo-cerrados').hidden = !linea.tienda;
   document.getElementById('ajuste-grupo-abiertos').hidden = !linea.decant;
   document.getElementById('ajuste-grupo-ml').hidden = !linea.decant;
+  document.getElementById('ajuste-vinculo').innerHTML = linea.tienda && linea.decant
+    ? `Sus decants salen de este perfume (${escapeHtml(linea.decant.marca)} — ${escapeHtml(linea.decant.nombre)}). <button type="button" class="btn-link-inline" id="btn-ajuste-vincular">Cambiar vínculo</button>`
+    : linea.tienda
+      ? `Este perfume no tiene un decant vinculado. <button type="button" class="btn-link-inline" id="btn-ajuste-vincular">Vincular un decant</button>`
+      : `Este decant no está vinculado a un perfume de tienda (al abrir un frasco no se descuenta de ningún lado). <button type="button" class="btn-link-inline" id="btn-ajuste-vincular">Vincular</button>`;
   prepararCamposAjuste();
   abrirModal('modal-ajuste-inventario');
 }

@@ -404,3 +404,184 @@ body.admin-body { min-height: 100vh; }
 .publi-url { display: flex; gap: 8px; margin-top: 10px; }
 .publi-url input[type="text"] { flex: 1; min-width: 0; }
 @media (max-width: 560px) { .publi-url { flex-direction: column; } }
+
+/* ==========================================================
+   Productos e Inventario más simples (sep 2026)
+   ========================================================== */
+
+/* Filtros rápidos (uno a la vez), con la cantidad de cada uno */
+.chips-filtro { display: flex; flex-wrap: wrap; gap: 8px; margin: -6px 0 14px; }
+.chip-filtro {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 20px; cursor: pointer;
+  border: 1px solid var(--color-border); background: var(--color-bg-card); color: var(--color-text-muted); font-size: 0.78rem;
+}
+.chip-filtro .n { font-size: 0.7rem; font-weight: 700; color: var(--color-text-faint); background: var(--color-bg-alt); border-radius: 10px; padding: 1px 7px; }
+.chip-filtro:hover { border-color: var(--color-gold); color: var(--color-text); }
+.chip-filtro.activo { background: var(--color-gold); border-color: var(--color-gold); color: #fff; }
+.chip-filtro.activo .n { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.chip-filtro.alerta:not(.activo) { border-color: #e2b25a; background: #fff8ea; color: #7a5200; }
+
+/* Celda "perfume" con foto */
+.prod-celda { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.prod-texto { min-width: 0; }
+.prod-texto strong { color: var(--color-text); font-size: 0.86rem; font-weight: 600; }
+.prod-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.prod-badges .badge { font-size: 0.58rem; padding: 3px 7px; }
+.badge-aviso { background: #fff3cd; color: #7a5200; }
+.badge-tipo-consolidado { background: rgba(122, 32, 48, 0.12); color: var(--color-gold); }
+.fila-oculta td:first-child .prod-texto strong { color: var(--color-text-faint); }
+.fila-oculta .mini-foto { opacity: 0.5; }
+
+.tabla-productos td, .inventario-table td { vertical-align: middle; padding: 10px 14px; }
+.tabla-productos td.acciones, .inventario-table td.acciones { width: 1%; white-space: nowrap; }
+.tabla-productos .row-actions, .inventario-table .row-actions { justify-content: flex-end; flex-wrap: nowrap; }
+
+/* Precios editables en la misma fila (se guardan solos) */
+.prod-precios { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.precio-campo { display: flex; flex-direction: column; gap: 2px; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-faint); }
+.precio-campo input {
+  width: 84px; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text);
+  padding: 6px 8px; border-radius: var(--radius); font-size: 0.84rem; text-align: right; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.precio-campo input:focus { border-color: var(--color-gold); outline: none; }
+input.guardado { border-color: var(--color-success) !important; box-shadow: 0 0 0 3px rgba(79, 140, 88, 0.18); }
+
+/* Interruptor "Visible" y marcas Nuevo / Más vendido */
+.switch-linea { display: inline-flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--color-text-muted); cursor: pointer; }
+.prod-marcas { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.chip-toggle {
+  font-size: 0.66rem; padding: 3px 8px; border-radius: 12px; cursor: pointer;
+  border: 1px dashed var(--color-border); background: none; color: var(--color-text-faint);
+}
+.chip-toggle[aria-pressed="true"] { border-style: solid; border-color: var(--color-gold); background: rgba(122, 32, 48, 0.1); color: var(--color-gold); font-weight: 600; }
+.chip-toggle[aria-pressed="true"]::before { content: "\2713  "; }
+.btn-icono-peligro { padding: 7px 9px; color: var(--color-text-faint); }
+.btn-icono-peligro:hover { color: var(--color-danger); border-color: var(--color-danger); }
+.btn-icono-peligro svg { width: 15px; height: 15px; display: block; }
+
+/* KPIs del inventario: se pueden tocar para filtrar */
+.stat-click { text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.stat-click:hover { border-color: var(--color-gold); }
+.stat-click.activo { border-color: var(--color-gold); box-shadow: inset 0 -3px 0 var(--color-gold); }
+.stat-sub { font-size: 0.7rem; color: var(--color-text-muted); margin-top: 6px; line-height: 1.35; }
+
+/* Abiertos: número + Abrir / Terminado */
+.abiertos-ctrl { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.abiertos-val { font-weight: 700; color: var(--color-text); min-width: 18px; text-align: center; font-size: 0.95rem; }
+.btn-mini {
+  font-size: 0.68rem; padding: 4px 8px; border-radius: var(--radius); cursor: pointer;
+  border: 1px solid var(--color-border); background: var(--color-bg-card); color: var(--color-text-muted);
+}
+.btn-mini:hover:not(:disabled) { border-color: var(--color-gold); color: var(--color-gold); }
+.btn-mini:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-abrir-frasco.btn-mini { color: var(--color-gold); }
+
+.ayuda-inventario { margin: -4px 0 14px; font-size: 0.8rem; color: var(--color-text-muted); }
+.ayuda-inventario summary { cursor: pointer; color: var(--color-gold); font-weight: 600; width: fit-content; }
+.ayuda-inventario ul { margin: 8px 0 0; padding-left: 18px; }
+.ayuda-inventario li { margin-bottom: 4px; }
+
+/* Modo conteo */
+.conteo-aviso { background: #fff8ea; border: 1px solid #f0d9a8; color: #6b4b00; border-radius: var(--radius); padding: 12px 14px; font-size: 0.82rem; margin-bottom: 14px; }
+.conteo-input {
+  width: 74px; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text);
+  padding: 7px 8px; border-radius: var(--radius); font-size: 0.9rem; text-align: right; font-weight: 600;
+}
+.conteo-input:focus { border-color: var(--color-gold); outline: none; }
+.conteo-input.cambiado { background: #fff3cd; border-color: #e2b25a; }
+.conteo-input.invalido { border-color: var(--color-danger); background: rgba(176, 71, 58, 0.06); }
+.conteo-par { display: inline-flex; gap: 6px; }
+.conteo-par .conteo-input[data-campo="ml"] { width: 66px; font-weight: 400; }
+.fila-cambiada td { background: rgba(226, 178, 90, 0.08); }
+.conteo-barra {
+  position: sticky; bottom: 0; z-index: 20; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: #17140f; color: #f3efe6; padding: 12px 16px; border-radius: var(--radius); box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.18);
+}
+.conteo-barra strong { color: #fff; }
+.conteo-barra .btn-ghost { color: #f3efe6; border-color: rgba(255, 255, 255, 0.35); }
+.en-conteo #btn-modo-conteo { background: var(--color-gold); color: #fff; }
+
+/* Ingreso de mercadería */
+.ingreso-cabecera, .ingreso-fila { display: grid; grid-template-columns: minmax(0, 1fr) 90px 120px 38px; gap: 8px; align-items: start; }
+.ingreso-cabecera { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-faint); padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
+.ingreso-fila { padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+.ingreso-fila input[type="text"], .ingreso-fila input[type="number"] {
+  width: 100%; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text);
+  padding: 9px 10px; border-radius: var(--radius); font-size: 0.86rem;
+}
+.ingreso-fila .ingreso-info { margin-top: 4px; }
+.ingreso-fila.con-error input { border-color: var(--color-danger); }
+.ingreso-publicar { grid-column: 1 / -1; font-size: 0.78rem; color: #7a5200; display: flex; gap: 8px; align-items: center; }
+.ingreso-resumen { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 10px 14px; font-size: 0.84rem; color: var(--color-text-muted); }
+.ingreso-resumen strong { color: var(--color-text); }
+@media (max-width: 640px) {
+  .ingreso-cabecera { display: none; }
+  .ingreso-fila { grid-template-columns: 1fr 1fr 38px; }
+  .ingreso-fila .autocomplete-wrap { grid-column: 1 / -1; }
+}
+
+/* Formulario de producto por pasos */
+.bloque-opcional { margin: 0 0 14px; font-size: 0.82rem; }
+.bloque-opcional summary { cursor: pointer; color: var(--color-gold); font-weight: 600; width: fit-content; }
+.ajuste-vinculo { margin: -4px 0 0; padding-top: 10px; border-top: 1px dashed var(--color-border); }
+
+/* Una línea por perfume en computadora: etiquetas de precio al costado y controles sin partir */
+.precio-campo { flex-direction: row; align-items: center; gap: 6px; }
+.precio-campo input { width: 76px; }
+.tabla-productos td[data-label="Precio (S/)"] { min-width: 330px; }
+.tabla-productos td[data-label="En la web"] { min-width: 180px; }
+.tabla-productos td[data-label="Stock"] { min-width: 104px; white-space: nowrap; }
+.prod-precios, .prod-marcas { flex-wrap: nowrap; }
+.prod-precios-tallas .precio-campo input { width: 60px; }
+.inventario-table td[data-label="Cerrados (tienda)"] { min-width: 120px; }
+.inventario-table td[data-label="Abiertos (decants)"] { min-width: 210px; }
+.abiertos-ctrl { flex-wrap: nowrap; }
+
+/* Celular: cada fila de Productos / Inventario se ve como una tarjeta */
+@media (max-width: 760px) {
+  .admin-table-wrap .tabla-productos, .admin-table-wrap .inventario-table { min-width: 0; }
+  .tabla-productos thead, .inventario-table thead { display: none; }
+  .tabla-productos tbody tr, .inventario-table tbody tr {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; padding: 14px; border-bottom: 1px solid var(--color-border);
+  }
+  .tabla-productos tbody tr:hover td, .inventario-table tbody tr:hover td { background: none; }
+  .tabla-productos td, .inventario-table td { display: block; padding: 0; border: none; text-align: left !important; width: auto !important; min-width: 0 !important; }
+  .prod-precios, .prod-marcas, .abiertos-ctrl { flex-wrap: wrap; }
+  .tabla-productos td[data-label]::before, .inventario-table td[data-label]::before {
+    content: attr(data-label); display: block; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-faint); margin-bottom: 4px;
+  }
+  .tabla-productos td[data-label="Perfume"], .inventario-table td[data-label="Perfume"] { grid-column: 1 / -1; }
+  .tabla-productos td[data-label="Perfume"]::before, .inventario-table td[data-label="Perfume"]::before { display: none; }
+  .tabla-productos td[data-label="Precio (S/)"] { grid-column: 1 / -1; }
+  .tabla-productos td.acciones, .inventario-table td.acciones { grid-column: 1 / -1; }
+  .tabla-productos .row-actions, .inventario-table .row-actions { justify-content: flex-start; }
+  .inventario-table .abiertos-ctrl { justify-content: flex-start; }
+  .tabla-productos tbody tr.fila-cambiada, .inventario-table tbody tr.fila-cambiada { background: rgba(226, 178, 90, 0.08); }
+  .fila-alerta { box-shadow: inset 3px 0 0 #d29a3a; }
+  .fila-alerta td:first-child { box-shadow: none; }
+  .chips-filtro { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .chip-filtro { white-space: nowrap; flex-shrink: 0; }
+  .admin-toolbar input[type="text"], .admin-toolbar input[type="search"] { min-width: 0; width: 100%; }
+  .admin-toolbar select { flex: 1 1 45%; }
+  #inventario-kpis { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+  #inventario-kpis .stat-card { padding: 10px 12px; }
+  #inventario-kpis .stat-value { font-size: 1.15rem; }
+  #inventario-kpis .stat-label { font-size: 0.62rem; margin-top: 2px; }
+  #inventario-kpis .stat-sub { display: none; }
+  #section-inventario .admin-page-header .row-actions { width: 100%; }
+  #section-inventario .admin-page-header .row-actions .btn { flex: 1 1 auto; }
+  #btn-ingreso-mercaderia { order: -2; flex-basis: 100% !important; }
+  #btn-modo-conteo { order: -1; }
+  #section-productos .admin-page-header .row-actions { width: 100%; }
+  #section-productos .admin-page-header .row-actions .btn { flex: 1 1 auto; }
+  .admin-tabs { overflow-x: auto; }
+  .admin-tab { white-space: nowrap; }
+  .inventario-table td.acciones { grid-column: auto; align-self: end; }
+  .inventario-table td.acciones .row-actions { justify-content: flex-end; }
+  .fila-cambiada td { background: none; }
+  .en-conteo .inventario-table td.acciones, .en-conteo .inventario-table td[data-label="Precio"] { display: none; }
+  .conteo-barra { padding: 10px 12px; gap: 8px; }
+  .conteo-barra > span { flex: 1 1 100%; font-size: 0.82rem; }
+  .conteo-barra .row-actions { width: 100%; flex-wrap: nowrap; }
+  .conteo-barra .row-actions .btn { flex: 1; padding: 10px 8px; }
+}

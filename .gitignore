@@ -5,3 +5,7 @@ chrome-profile*/
 *.xlsx
 *.xls
 
+
+# Catálogos en PDF: pesan más de lo que GitHub acepta (100 MB) y no hacen falta en la web
+CATALAGO*.pdf
+CATALOGO*.pdf

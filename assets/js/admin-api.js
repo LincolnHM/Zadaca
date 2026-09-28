@@ -196,38 +196,8 @@ async function obtenerTopPerfumesVendidos(limite = 6) {
 // para que el admin pueda encontrar rápido "todos los Árabe sin clasificar" o "los Hombre".
 // tipoCasa === '__sin_definir__' es un valor especial (no un tipo_casa real) para ubicar
 // productos que todavía no se clasificaron -- ver constraint chk en perfumes.tipo_casa.
-async function obtenerProductosAdmin({ busqueda, filtro, genero, tipoCasa, pagina = 1, porPagina = 20 } = {}) {
-  let query = supabaseClient
-    .from('perfumes')
-    .select('*, inventario(stock_fisico, frascos_abiertos, stock_reservado_consolidados, stock_disponible, stock_minimo_alerta)', { count: 'exact' });
-  // "Solo Decants" ordena por marca/nombre en vez de fecha de creación -- resultado más
-  // predecible para el dueño que recorrer la grilla por cuándo se cargó cada uno.
-  query = filtro === 'decants'
-    ? query.order('marca', { ascending: true }).order('nombre', { ascending: true })
-    : query.order('fecha_creacion', { ascending: false });
-  if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
-  // id_decant_grupo is null: una familia de decant es UNA fila desde la migración 0016 -- las
-  // filas "hijas" que quedaron de antes siguen existiendo (desactivadas, para no romper
-  // pedidos históricos) pero no deben aparecer acá como si fueran otro producto más.
-  if (filtro === 'decants') query = query.eq('es_decant', true).is('id_decant_grupo', null);
-  if (filtro === 'liquidaciones') query = query.eq('es_liquidacion', true);
-  if (filtro === 'ocultos') query = query.eq('activo', false);
-  if (genero) query = query.eq('genero', genero);
-  if (tipoCasa === '__sin_definir__') query = query.is('tipo_casa', null);
-  else if (tipoCasa) query = query.eq('tipo_casa', tipoCasa);
-
-  const desde = (pagina - 1) * porPagina;
-  query = query.range(desde, desde + porPagina - 1);
-
-  const { data, error, count } = await query;
-  if (error) throw new Error(error.message);
-  const productos = (data || []).map((p) => ({ ...p, inventario: Array.isArray(p.inventario) ? p.inventario[0] : p.inventario }));
-  return { productos, total: count || 0, totalPaginas: Math.max(1, Math.ceil((count || 0) / porPagina)) };
-}
-
-// Trae un solo producto por id (para abrir el modal de edición) -- separado de
-// obtenerProductosAdmin() porque ese ahora viene paginado: el producto que se quiere editar
-// puede estar en cualquier página, no solo en la que está visible en pantalla.
+// Trae un solo producto por id con todos sus campos (para abrir el modal de edición: la lista
+// de Productos solo trae las columnas que muestra, ver obtenerInventarioAdmin).
 async function obtenerProductoAdminPorId(id) {
   const { data, error } = await supabaseClient
     .from('perfumes')
@@ -573,7 +543,7 @@ async function seleccionarTodo(crearQuery, tamanoTramo = 1000) {
 async function obtenerInventarioAdmin() {
   const filas = await seleccionarTodo(() => supabaseClient
     .from('perfumes')
-    .select('id, slug, nombre, marca, mililitros, es_decant, id_perfume_tienda, activo, estado, tipo_casa, genero, imagen_url, precio_tienda_regular, precio_consolidado_fijo, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, costo_importacion_pen, precio_3ml, precio_5ml, precio_10ml, mililitros_restantes, inventario(stock_fisico, frascos_abiertos, stock_minimo_alerta)')
+    .select('id, slug, nombre, marca, mililitros, es_decant, id_perfume_tienda, activo, estado, tipo_casa, genero, concentracion, familia_olfativa, inspirado_en, es_nuevo, es_bestseller, margen_aplicado, fecha_creacion, imagen_url, precio_tienda_regular, precio_consolidado_fijo, descuento_tienda_porcentaje, es_liquidacion, precio_liquidacion, costo_importacion_pen, precio_3ml, precio_5ml, precio_10ml, mililitros_restantes, inventario(stock_fisico, frascos_abiertos, stock_minimo_alerta)')
     .is('id_decant_grupo', null)
     .order('marca', { ascending: true })
     .order('nombre', { ascending: true })

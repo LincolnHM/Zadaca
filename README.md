@@ -4,6 +4,26 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## Panel: Inventario y Productos más simples (28 sep 2026)
+
+Solo cambia el panel (no hay SQL nuevo).
+
+- **Inventario** — una línea por perfume: frascos **cerrados** (− / +) y **abiertos** (+ Abrir /
+  Terminado). Filtros rápidos con cantidad (Con stock, Por acabarse, Sin stock, Con stock pero ocultos
+  en la web…); las tarjetas de arriba también filtran al tocarlas.
+  - **+ Ingreso de mercadería**: cuando llega un pedido se cargan varios perfumes en un solo paso
+    (cantidad y, si cambió, precio de venta; Enter pasa al siguiente) y se puede publicar lo que
+    estaba oculto.
+  - **Hacer conteo**: se escriben los números reales de la tienda y se guarda todo junto.
+  - Todo queda en *Historial de movimientos* con motivo.
+- **Productos** — lista compacta con pestañas Perfumes / Decants / Solo consolidado / Todos,
+  buscador y filtros rápidos (incluye "Con stock pero ocultos" y "Sin foto").
+  - Precios, Visible, Nuevo y Más vendido **se guardan solos al cambiarlos**; el resto de datos se
+    edita con *Editar* (formulario por pasos).
+  - El stock ya no se edita acá: se maneja en Inventario, para que cada cambio tenga su motivo.
+  - Al crear un perfume se puede poner cuántos frascos hay.
+  - Borrar un perfume con ventas ofrece ocultarlo.
+
 ## 28 sep 2026: Consolidado con Carrito de Avión, anuncio con fotos, redes y stock
 
 **Puesta en marcha (Supabase → SQL Editor, en este orden):**
