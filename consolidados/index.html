@@ -35,14 +35,26 @@
 
     <section class="section-tight">
       <div class="container">
-        <p style="max-width:680px; color:var(--color-text-muted); font-size:0.95rem;">
-          Un <strong style="color:var(--color-gold)">consolidado</strong> es una campaña de importación grupal: reserva tu perfume al precio preferencial y, al alcanzar el mínimo de unidades, lo importamos todos juntos para reducir costos.
+        <p style="max-width:700px; color:var(--color-text-muted); font-size:0.95rem; margin:0 0 18px;">
+          Un <strong style="color:var(--color-gold)">consolidado</strong> es una importación grupal: eliges tus perfumes en el Catálogo Consolidado, los juntas en tu <strong>Carrito de Avión</strong> y los traemos junto con los pedidos de otros clientes para que pagues menos que en tienda.
         </p>
+        <ol class="avion-como">
+          <li><strong>Elige</strong> tus perfumes en el <a href="https://madisonzadaca.com/catalogo-consolidado/" class="link-arrow">Catálogo Consolidado</a>.</li>
+          <li><strong>Pedido mínimo: <span data-cfg="consolidado_minimo_unidades">4</span> unidades</strong> en total (pueden ser perfumes distintos).</li>
+          <li><strong>Confirma</strong> tu Carrito de Avión en la web o envíalo por WhatsApp. Cada campaña cierra los <span data-cfg="consolidado_dia_cierre">domingos</span>.</li>
+          <li><strong>Llega en <span data-cfg="envio_dias_texto">7 a 14</span> días</strong> aprox. y te lo enviamos o lo recoges.</li>
+        </ol>
+        <div style="display:flex; flex-wrap:wrap; gap:10px;">
+          <a href="https://madisonzadaca.com/catalogo-consolidado/" class="btn btn-primary">Ver Catálogo Consolidado</a>
+          <a href="https://madisonzadaca.com/carrito-avion/" class="btn btn-outline">Mi Carrito de Avión</a>
+          <a class="btn btn-whatsapp" data-whatsapp-consolidado href="https://wa.me/51990278017" target="_blank" rel="noopener">Cotizar por WhatsApp</a>
+        </div>
       </div>
     </section>
 
     <section class="section" style="padding-top:24px;">
       <div class="container">
+        <h2 style="font-size:1.3rem; margin-bottom:18px;">Campañas abiertas</h2>
         <div class="consolidado-grid reveal-grid" id="grid-consolidados"><div class="loading-state">Cargando consolidados…</div></div>
       </div>
     </section>
@@ -62,7 +74,7 @@
       if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>'; return; }
       try {
         const consolidados = (await obtenerConsolidados()).filter(consolidadoEstaAbierto);
-        mount.innerHTML = consolidados.length ? consolidados.map(tarjetaConsolidado).join('') : '<div class="empty-state">No hay consolidados abiertos por el momento. Vuelve pronto.</div>';
+        mount.innerHTML = consolidados.length ? consolidados.map(tarjetaConsolidado).join('') : '<div class="empty-state">No hay una campaña abierta en este momento. Igual puedes armar tu Carrito de Avión y enviárnoslo por WhatsApp: te confirmamos precio y fecha de la próxima salida.</div>';
       } catch (err) {
         mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
       }

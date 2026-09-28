@@ -8,13 +8,13 @@ const WHATSAPP_NUMERO = '51990278017';
 // de notificaciones (columna url_destino, ver supabase/migrations/0009_urls_limpias.sql).
 const SITE_ROOT = 'https://madisonzadaca.com/';
 
-// Consolidados (compras grupales) APAGADOS por ahora: no se muestran en el menú, el home, las
-// fichas, "Mi Cuenta" ni el panel admin, y sus páginas redirigen al catálogo. No se borró
-// nada (tablas, reservas, campañas y código siguen intactos): para volver a mostrarlos basta
-// con poner esto en true y subir el cambio. En el HTML estático, lo que depende de
-// consolidados lleva el atributo data-consolidado (nace oculto y se destapa si esto es true,
-// ver aplicarVisibilidadConsolidados).
-const CONSOLIDADOS_ACTIVOS = false;
+// Consolidado (importación por encargo) ACTIVO: Catálogo Consolidado con su propio Carrito de
+// Avión (aparte del carrito de tienda/decants, mínimo de unidades por pedido). Si algún día
+// hay que apagarlo, basta con poner esto en false y subir el cambio: el menú, el ícono del
+// avión y las páginas de consolidado desaparecen (redirigen al catálogo) sin borrar nada. En el
+// HTML estático, lo que depende de consolidados lleva el atributo data-consolidado (nace
+// oculto y se destapa si esto es true, ver aplicarVisibilidadConsolidados).
+const CONSOLIDADOS_ACTIVOS = true;
 
 function aplicarVisibilidadConsolidados(raiz = document) {
   raiz.querySelectorAll('[data-consolidado]').forEach((el) => { el.hidden = !CONSOLIDADOS_ACTIVOS; });
@@ -113,10 +113,10 @@ function imprimirHojaReclamacion(r, cfg) {
   ventana.document.close();
 }
 
-// Con consolidados apagados, el recojo es en la tienda de Chiclayo (donde está el stock); el
-// almacén de Lima solo servía para recoger pedidos de consolidado.
-function etiquetaRecojoEnTienda() {
-  return CONSOLIDADOS_ACTIVOS ? 'Recojo en almacén (Lima)' : 'Recojo en tienda (Chiclayo)';
+// Los pedidos de tienda y decants se recogen en la tienda de Chiclayo (donde está el stock); los
+// de consolidado llegan importados y se recogen en el almacén de Lima.
+function etiquetaRecojoEnTienda(modo = 'tienda') {
+  return modo === 'consolidado' ? 'Recojo en almacén (Lima)' : 'Recojo en tienda (Chiclayo)';
 }
 
 /* ---------------- Sesión ---------------- */
@@ -274,7 +274,9 @@ async function obtenerProductos({ genero, marca, familia, tipo_casa, busqueda, d
   // 0016) -- el catálogo de tienda normal nunca los muestra (viven en su propia sección, ver
   // decants/index.html).
   if (destacado === 'decant') query = query.eq('es_decant', true);
-  else query = query.eq('es_decant', false);
+  // 'Bajo_Pedido' = perfume que solo se trae por consolidado (lo carga el admin con nombre y
+  // precio): vive únicamente en el Catálogo Consolidado, nunca en la tienda.
+  else query = query.eq('es_decant', false).neq('estado', 'Bajo_Pedido');
 
   // 'marca' (default): agrupa por marca y, dentro de cada marca, por nombre -- así las
   // variantes de una misma línea (ej. todos los Khamrah, todos los Game of Spades) salen
@@ -316,7 +318,7 @@ async function obtenerProductosConsolidado({ genero, marca, familia, tipo_casa, 
   if (marca) query = query.eq('marca', marca);
   if (familia) query = query.eq('familia_olfativa', familia);
   if (tipo_casa) query = query.eq('tipo_casa', tipo_casa);
-  if (busqueda) query = query.or(`nombre.ilike.%${escaparFiltroSupabase(busqueda)}%,marca.ilike.%${escaparFiltroSupabase(busqueda)}%`);
+  if (busqueda) query = query.or(filtroBusquedaProductos(busqueda));
 
   query = aplicarOrden(query, orden, 'precio_consolidado_fijo');
 
@@ -334,7 +336,9 @@ function normalizarProducto(p) {
   return { ...p, stock_disponible: Math.max(stock ?? 0, 0) };
 }
 
-async function obtenerFiltrosCatalogo() {
+// consolidado=true: opciones del Catálogo Consolidado (incluye los perfumes 'Bajo_Pedido', que
+// solo se traen por consolidado y en la tienda no existen).
+async function obtenerFiltrosCatalogo({ consolidado = false } = {}) {
   // es_decant=false: los decants viven en su propia sección (ver destacado: 'decant' en
   // obtenerProductos()), así que una marca que solo tenga decants no debe aparecer como
   // opción de filtro acá -- si apareciera, filtrar por ella daría 0 resultados.
@@ -343,11 +347,11 @@ async function obtenerFiltrosCatalogo() {
   // sin necesitar una consulta aparte para cada uno.
   const { data: filasData } = await supabaseClient
     .from('perfumes')
-    .select('marca, familia_olfativa, notas_olfativas, inventario(stock_disponible)')
+    .select('marca, familia_olfativa, notas_olfativas, estado, inventario(stock_disponible)')
     .eq('activo', true)
     .eq('es_decant', false);
 
-  const filas = (filasData || []).map((r) => ({
+  const filas = (filasData || []).filter((r) => consolidado || r.estado !== 'Bajo_Pedido').map((r) => ({
     marca: r.marca,
     familia_olfativa: r.familia_olfativa,
     notas_olfativas: r.notas_olfativas,
@@ -398,10 +402,10 @@ const TIPOS_CASA = ['Árabe', 'Diseñador', 'Nicho'];
 // Sugerencias del buscador en vivo del catálogo (dropdown mientras se escribe). Trae pocos
 // campos y un límite bajo porque se dispara en cada tecleo (con debounce) — a diferencia de
 // obtenerProductos(), que trae la página completa con paginación.
-async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = false) {
+async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = false, { soloTienda = true } = {}) {
   const q = (texto || '').trim();
   if (!q) return [];
-  const campos = 'slug, nombre, marca, imagen_url, inspirado_en, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo';
+  const campos = 'id, slug, nombre, marca, imagen_url, inspirado_en, precio_tienda_regular, descuento_tienda_porcentaje, precio_consolidado_fijo';
   let query = supabaseClient
     .from('perfumes')
     .select(soloConStock ? `${campos}, inventario!inner(stock_disponible)` : campos)
@@ -411,6 +415,7 @@ async function obtenerSugerenciasBusqueda(texto, limite = 6, soloConStock = fals
     .order('nombre', { ascending: true })
     .limit(limite);
   if (soloConStock) query = query.gt('inventario.stock_disponible', 0);
+  if (soloTienda) query = query.neq('estado', 'Bajo_Pedido');
   const { data, error } = await query;
   if (error) return [];
   return data || [];
@@ -881,28 +886,6 @@ async function obtenerConsolidadoPorId(id) {
   };
 }
 
-// El precio se calcula del lado del servidor (ver reservar_en_consolidado en schema.sql):
-// el cliente nunca manda el precio, así no hay forma de manipular a cuánto se reserva. La
-// función también valida ahí mismo que la campaña siga dentro de su fecha límite y que la
-// dirección sea del cliente que llama.
-// Devuelve el estado_item resultante (no solo el id): si esa fila llegó a 10 unidades o más
-// del mismo perfume, el servidor la deja en 'Pendiente_Aprobacion' en vez de 'Reservado' (ver
-// migración 0006) — consolidado.js usa esto para avisarle al cliente que su reserva no se
-// perdió, solo está esperando que el admin la confirme.
-async function reservarEnConsolidado(idConsolidado, idProducto, cantidad, idDireccion) {
-  const session = await obtenerSesion();
-  if (!session) throw new Error('Debes iniciar sesión');
-  const { data: idDetalle, error } = await supabaseClient.rpc('reservar_en_consolidado', {
-    p_id_consolidado: idConsolidado,
-    p_id_producto: idProducto,
-    p_cantidad: cantidad,
-    p_id_direccion: idDireccion,
-  });
-  if (error) throw new Error(error.message);
-  const { data: detalle } = await supabaseClient.from('detalle_consolidado').select('estado_item').eq('id', idDetalle).single();
-  return detalle?.estado_item || 'Reservado';
-}
-
 // Escalones de descuento por volumen (ver migración 0005): un monto fijo por unidad, igual
 // para cualquier perfume, que se activa cuando el cliente supera cierto total acumulado (en
 // soles) reservado en esa campaña. Se cachea porque son datos públicos que casi no cambian.
@@ -961,6 +944,174 @@ async function obtenerMisReservas() {
     .order('fecha_reserva', { ascending: false });
   if (error) throw new Error(error.message);
   return data.map((r) => ({ ...r, ...r.perfumes, codigo_campana: r.consolidados.codigo_campana, estado_consolidado: r.consolidados.estado, id_consolidado: r.consolidados.id }));
+}
+
+/* ---------------- Carrito de Avión (consolidado) ---------------- */
+
+// Es un carrito APARTE del de la tienda: lo que se trae por consolidado (importación por
+// encargo, a precio de consolidado, con un mínimo de unidades por pedido) no se mezcla con lo
+// que hay en stock. Vive en este navegador (localStorage) para que cualquiera lo arme sin
+// cuenta; recién al confirmar hace falta iniciar sesión (reserva en la campaña abierta) o se
+// envía por WhatsApp. Cada cambio avisa con el evento "carrito-avion" (el ícono del avión del
+// encabezado y las páginas que lo muestran se actualizan solos).
+const CLAVE_CARRITO_AVION = 'zadaca_carrito_avion';
+const MAX_UNIDADES_AVION_POR_PERFUME = 99;
+
+function leerCarritoAvion() {
+  try {
+    const items = JSON.parse(localStorage.getItem(CLAVE_CARRITO_AVION) || '[]');
+    if (!Array.isArray(items)) return [];
+    // Se normaliza cada línea (tipos y topes): lo guardado en el navegador no es confiable.
+    return items
+      .map((i) => ({
+        id_producto: Math.floor(Number(i?.id_producto)),
+        slug: String(i?.slug || ''),
+        marca: String(i?.marca || ''),
+        nombre: String(i?.nombre || ''),
+        mililitros: Math.floor(Number(i?.mililitros)) || null,
+        imagen_url: typeof i?.imagen_url === 'string' ? i.imagen_url : null,
+        precio: Number(i?.precio) || 0,
+        cantidad: Math.min(Math.floor(Number(i?.cantidad)), MAX_UNIDADES_AVION_POR_PERFUME),
+      }))
+      .filter((i) => i.id_producto > 0 && i.cantidad > 0);
+  } catch {
+    return [];
+  }
+}
+
+function guardarCarritoAvion(items) {
+  try {
+    localStorage.setItem(CLAVE_CARRITO_AVION, JSON.stringify(items));
+  } catch { /* localStorage bloqueado (modo privado, etc.): el carrito dura solo esta visita */ }
+  document.dispatchEvent(new CustomEvent('carrito-avion', { detail: items }));
+  return items;
+}
+
+function unidadesCarritoAvion(items = leerCarritoAvion()) {
+  return items.reduce((acc, i) => acc + Number(i.cantidad), 0);
+}
+
+function totalCarritoAvion(items = leerCarritoAvion()) {
+  return Math.round(items.reduce((acc, i) => acc + Number(i.cantidad) * Number(i.precio), 0) * 100) / 100;
+}
+
+// p: fila de perfumes (id, slug, marca, nombre, mililitros, imagen_url, precio_consolidado_fijo).
+function agregarAlCarritoAvion(p, cantidad = 1) {
+  const items = leerCarritoAvion();
+  const n = Math.max(1, Math.floor(Number(cantidad) || 1));
+  const existente = items.find((i) => i.id_producto === p.id);
+  if (existente) {
+    existente.cantidad = Math.min(existente.cantidad + n, MAX_UNIDADES_AVION_POR_PERFUME);
+    existente.precio = Number(p.precio_consolidado_fijo);
+  } else {
+    items.push({
+      id_producto: p.id,
+      slug: p.slug,
+      marca: p.marca,
+      nombre: p.nombre,
+      mililitros: p.mililitros,
+      imagen_url: p.imagen_url || null,
+      precio: Number(p.precio_consolidado_fijo),
+      cantidad: Math.min(n, MAX_UNIDADES_AVION_POR_PERFUME),
+    });
+  }
+  return guardarCarritoAvion(items);
+}
+
+function cambiarCantidadCarritoAvion(idProducto, cantidad) {
+  const n = Math.floor(Number(cantidad) || 0);
+  if (n < 1) return quitarDelCarritoAvion(idProducto);
+  const items = leerCarritoAvion();
+  const item = items.find((i) => i.id_producto === idProducto);
+  if (item) item.cantidad = Math.min(n, MAX_UNIDADES_AVION_POR_PERFUME);
+  return guardarCarritoAvion(items);
+}
+
+function quitarDelCarritoAvion(idProducto) {
+  return guardarCarritoAvion(leerCarritoAvion().filter((i) => i.id_producto !== idProducto));
+}
+
+function vaciarCarritoAvion() {
+  return guardarCarritoAvion([]);
+}
+
+// El carrito guarda nombre y precio del momento en que se agregó: antes de mostrarlo completo
+// se vuelve a leer de la base (precio de consolidado actual, foto, nombre corregido) y se sacan
+// los perfumes que el admin ya no ofrece. Devuelve también los nombres de los que se quitaron.
+async function refrescarCarritoAvion() {
+  const items = leerCarritoAvion();
+  if (!items.length || !SUPABASE_CONFIGURADO) return { items, quitados: [] };
+  const { data, error } = await supabaseClient
+    .from('perfumes')
+    .select('id, slug, marca, nombre, mililitros, imagen_url, precio_consolidado_fijo')
+    .in('id', items.map((i) => i.id_producto))
+    .eq('activo', true)
+    .eq('es_decant', false);
+  if (error) return { items, quitados: [] };
+  const porId = new Map((data || []).map((p) => [p.id, p]));
+  const quitados = [];
+  const actualizados = [];
+  items.forEach((i) => {
+    const p = porId.get(i.id_producto);
+    if (!p) { quitados.push(`${i.marca} ${i.nombre}`); return; }
+    actualizados.push({ ...i, slug: p.slug, marca: p.marca, nombre: p.nombre, mililitros: p.mililitros, imagen_url: p.imagen_url || null, precio: Number(p.precio_consolidado_fijo) });
+  });
+  guardarCarritoAvion(actualizados);
+  return { items: actualizados, quitados };
+}
+
+// Campaña que hoy recibe reservas (la que cierra primero, si hubiera más de una). Misma regla
+// que consolidadoEstaAbierto() de main.js: estado Abierto y fecha de cierre sin vencer.
+async function obtenerConsolidadoAbierto() {
+  if (!SUPABASE_CONFIGURADO) return null;
+  const { data, error } = await supabaseClient
+    .from('consolidados')
+    .select('*')
+    .eq('estado', 'Abierto')
+    .order('fecha_cierre_programada', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data || []).find((c) => new Date(c.fecha_cierre_programada).getTime() > Date.now()) || null;
+}
+
+// Confirma TODO el Carrito de Avión en la campaña abierta de una sola vez (ver
+// reservar_carrito_avion en la migración 0020: todo o nada, precio y mínimo validados en el
+// servidor). Devuelve una fila por perfume con su estado (Reservado / Pendiente_Aprobacion).
+async function reservarCarritoAvion(idConsolidado, items, idDireccion) {
+  const session = await obtenerSesion();
+  if (!session) throw new Error('Inicia sesión para confirmar tu Carrito de Avión');
+  const { data, error } = await supabaseClient.rpc('reservar_carrito_avion', {
+    p_id_consolidado: idConsolidado,
+    p_items: items.map((i) => ({ id_producto: i.id_producto, cantidad: i.cantidad })),
+    p_id_direccion: idDireccion,
+  });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+// Pedido completo listo para pegar en WhatsApp (el admin lo registra tal cual en el panel →
+// Pedidos → Registrar pedido → Consolidado).
+function mensajeWhatsappCarritoAvion(items, { nombre, campana, minimo } = {}) {
+  const lineas = items.map((i) => `• ${i.cantidad} × ${i.marca} — ${i.nombre}${i.mililitros ? ` (${i.mililitros} ml)` : ''} — ${formatoMoneda(i.precio)} c/u`);
+  const unidades = unidadesCarritoAvion(items);
+  const partes = [
+    `Hola Maison Zadaca! Quiero hacer este pedido por CONSOLIDADO (Carrito de Avión)${campana ? ` — campaña ${campana}` : ''}:`,
+    '',
+    ...lineas,
+    '',
+    `Total: ${unidades} unidad${unidades === 1 ? '' : 'es'} — ${formatoMoneda(totalCarritoAvion(items))} (precio de consolidado referencial)`,
+  ];
+  if (minimo && unidades < minimo) partes.push(`(Sé que el mínimo es de ${minimo} unidades.)`);
+  if (nombre) partes.push(`Mi nombre: ${nombre}`);
+  partes.push('¿Me confirman disponibilidad, precio final y fecha de llegada?');
+  return partes.join('\n');
+}
+
+function enlaceWhatsappCarritoAvion(items, opciones) {
+  return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(mensajeWhatsappCarritoAvion(items, opciones))}`;
+}
+
+function minimoUnidadesConsolidado(cfg) {
+  return Math.max(Number(cfg?.consolidado_minimo_unidades) || 4, 1);
 }
 
 /* ---------------- Cotizaciones ---------------- */
@@ -1139,6 +1290,113 @@ async function obtenerPublicidadPopup() {
   }
 }
 
+// Fotos del anuncio: la lista "imagenes" (migración 0020) o, si la base todavía no la tiene, la
+// imagen única de antes.
+function imagenesPublicidad(promo) {
+  const lista = Array.isArray(promo?.imagenes) ? promo.imagenes.filter((u) => typeof u === 'string' && u.trim()) : [];
+  if (!lista.length && promo?.imagen_url) lista.push(promo.imagen_url);
+  return lista.slice(0, 8);
+}
+
+function publicidadVigente(promo, ahora = new Date()) {
+  if (!promo || !promo.activo) return false;
+  if (!promo.titulo && !promo.mensaje && !imagenesPublicidad(promo).length) return false;
+  if (promo.fecha_inicio && ahora < new Date(promo.fecha_inicio)) return false;
+  if (promo.fecha_fin && ahora > new Date(promo.fecha_fin)) return false;
+  return true;
+}
+
+// Dibuja el anuncio encima de la página (lo usa main.js al cargar cualquier página y el panel
+// admin para la "Vista previa"). Con varias fotos arma un carrusel: flechas, puntos, deslizar
+// con el dedo y avance automático (salvo "reducir movimiento"). Se cierra con la X, tocando
+// afuera o con Escape; alCerrar() se llama una sola vez (también si se toca el botón del anuncio).
+function mostrarPublicidadPopup(promo, { alCerrar } = {}) {
+  document.querySelector('.promo-popup-overlay')?.remove();
+  const imagenes = imagenesPublicidad(promo).map(urlSegura).filter(Boolean);
+  const varias = imagenes.length > 1;
+  const enlaceBoton = promo.texto_boton && promo.url_boton ? urlSegura(promo.url_boton) : null;
+  const overlay = document.createElement('div');
+  overlay.className = 'promo-popup-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-label', promo.titulo || 'Anuncio');
+  overlay.innerHTML = `
+    <div class="promo-popup-box${imagenes.length ? ' con-fotos' : ''}">
+      <button type="button" class="promo-popup-close" aria-label="Cerrar anuncio">&times;</button>
+      ${imagenes.length ? `
+      <div class="promo-carrusel">
+        <div class="promo-track">
+          ${imagenes.map((u, i) => `<div class="promo-slide"><img src="${escapeHtml(u)}" alt="${escapeHtml(promo.titulo || 'Anuncio')}${varias ? ` (${i + 1} de ${imagenes.length})` : ''}" ${i ? 'loading="lazy"' : ''} /></div>`).join('')}
+        </div>
+        ${varias ? `
+        <button type="button" class="promo-nav promo-prev" aria-label="Foto anterior">&#8249;</button>
+        <button type="button" class="promo-nav promo-next" aria-label="Foto siguiente">&#8250;</button>
+        <div class="promo-dots">${imagenes.map((_, i) => `<button type="button" class="promo-dot${i ? '' : ' active'}" data-i="${i}" aria-label="Ver foto ${i + 1}"></button>`).join('')}</div>` : ''}
+      </div>` : ''}
+      ${promo.titulo || promo.mensaje || enlaceBoton ? `
+      <div class="promo-popup-body">
+        ${promo.titulo ? `<h3>${escapeHtml(promo.titulo)}</h3>` : ''}
+        ${promo.mensaje ? `<p>${escapeHtml(promo.mensaje)}</p>` : ''}
+        ${enlaceBoton ? `<a class="btn btn-primary" href="${escapeHtml(enlaceBoton)}">${escapeHtml(promo.texto_boton)}</a>` : ''}
+      </div>` : ''}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.classList.add('popup-abierto');
+  const focoAnterior = document.activeElement;
+  const cerrarBtn = overlay.querySelector('.promo-popup-close');
+  cerrarBtn.focus({ preventScroll: true });
+
+  let actual = 0;
+  let temporizador = null;
+  const track = overlay.querySelector('.promo-track');
+  const ir = (i) => {
+    if (!track) return;
+    actual = (i + imagenes.length) % imagenes.length;
+    track.style.transform = `translateX(-${actual * 100}%)`;
+    overlay.querySelectorAll('.promo-dot').forEach((d, n) => d.classList.toggle('active', n === actual));
+  };
+  const detenerAuto = () => { clearInterval(temporizador); temporizador = null; };
+  if (varias) {
+    overlay.querySelector('.promo-prev').addEventListener('click', () => { detenerAuto(); ir(actual - 1); });
+    overlay.querySelector('.promo-next').addEventListener('click', () => { detenerAuto(); ir(actual + 1); });
+    overlay.querySelectorAll('.promo-dot').forEach((d) => d.addEventListener('click', () => { detenerAuto(); ir(Number(d.dataset.i)); }));
+    let inicioX = null;
+    track.addEventListener('touchstart', (e) => { inicioX = e.touches[0].clientX; }, { passive: true });
+    track.addEventListener('touchend', (e) => {
+      if (inicioX === null) return;
+      const dx = e.changedTouches[0].clientX - inicioX;
+      inicioX = null;
+      if (Math.abs(dx) > 40) { detenerAuto(); ir(actual + (dx < 0 ? 1 : -1)); }
+    });
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) temporizador = setInterval(() => ir(actual + 1), 5000);
+  }
+
+  let cerrado = false;
+  let avisado = false;
+  const avisar = () => { if (!avisado && alCerrar) { avisado = true; alCerrar(); } };
+  function alEscapar(e) {
+    if (e.key === 'Escape') cerrar();
+    if (varias && e.key === 'ArrowRight') { detenerAuto(); ir(actual + 1); }
+    if (varias && e.key === 'ArrowLeft') { detenerAuto(); ir(actual - 1); }
+  }
+  function cerrar() {
+    if (cerrado) return;
+    cerrado = true;
+    detenerAuto();
+    overlay.remove();
+    document.body.classList.remove('popup-abierto');
+    document.removeEventListener('keydown', alEscapar);
+    if (focoAnterior && typeof focoAnterior.focus === 'function') focoAnterior.focus({ preventScroll: true });
+    avisar();
+  }
+  cerrarBtn.addEventListener('click', cerrar);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
+  overlay.querySelector('.promo-popup-body .btn')?.addEventListener('click', avisar);
+  document.addEventListener('keydown', alEscapar);
+  return cerrar;
+}
+
 async function obtenerPreguntasFrecuentes() {
   const [{ data, error }, cfg] = await Promise.all([
     supabaseClient.from('preguntas_frecuentes').select('pregunta, respuesta').eq('activo', true).order('orden', { ascending: true }),
@@ -1187,10 +1445,27 @@ function tallasDecant(p) {
   return [3, 5, 10].filter((t) => precioTallaDecant(p, t) != null);
 }
 
+// Escapa también comillas: el resultado se usa tanto dentro de etiquetas como dentro de
+// atributos (value="...", data-*="...", title="..."). Sin escapar " y ', un dato escrito por un
+// cliente (nombre, dirección...) podía cerrar el atributo e inyectar código en el panel admin.
 function escapeHtml(texto) {
-  const div = document.createElement('div');
-  div.textContent = texto ?? '';
-  return div.innerHTML;
+  return String(texto ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// URL segura para un href/src armado con datos: solo http(s) (o rutas del propio sitio, que se
+// resuelven contra SITE_ROOT). Cualquier otra cosa (javascript:, data:, texto inválido) → null.
+function urlSegura(valor) {
+  try {
+    const u = new URL(String(valor || '').trim(), SITE_ROOT);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+  } catch {
+    return null;
+  }
 }
 
 function mostrarToast(mensaje, tipo = 'ok') {

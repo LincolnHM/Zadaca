@@ -1,10 +1,14 @@
 // Catálogo de CONSOLIDADO: misma UI de filtros/paginación que catalogo.js (tienda), pero
 // consulta obtenerProductosConsolidado() (todo el catálogo, sin filtrar por stock físico) y
 // muestra precio_consolidado_fijo en vez de precio_tienda_regular — ver api.js para el porqué
-// de separar las dos consultas.
+// de separar las dos consultas. 12 tarjetas por página; cada tarjeta suma directo al Carrito
+// de Avión (no abre ninguna ficha de producto).
 let paginaActual = 1;
 let generoActivo = '';
 let cargaProductosSeq = 0;
+let MINIMO_UNIDADES = 4;
+// Productos de la página actual por id (para armar la línea del Carrito de Avión al agregar).
+const PRODUCTOS_PAGINA = new Map();
 
 document.addEventListener('DOMContentLoaded', async () => {
   // Consolidados apagados (ver CONSOLIDADOS_ACTIVOS en api.js): esta página manda al catálogo.
@@ -17,6 +21,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const params = new URLSearchParams(window.location.search);
   generoActivo = params.get('genero') || '';
+  const busquedaInicial = (params.get('busqueda') || '').trim();
+  if (busquedaInicial) document.querySelector('#filter-form input[name="busqueda"]').value = busquedaInicial;
+  obtenerConfiguracionSitio().then((cfg) => { MINIMO_UNIDADES = minimoUnidadesConsolidado(cfg); renderBarraAvion(); }).catch(() => {});
+  iniciarTarjetasAvion();
+  renderBarraAvion();
+  document.addEventListener('carrito-avion', () => { renderBarraAvion(); actualizarMarcasEnCarrito(); });
   document.querySelectorAll('.pill[data-genero]').forEach((p) => {
     p.classList.toggle('active', p.dataset.genero === generoActivo);
     p.addEventListener('click', () => {
@@ -32,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // La grilla no depende de que el sidebar de filtros ya haya cargado -- se dispara ya mismo,
   // en paralelo con cargarFiltros(), en vez de esperarlo primero (ver mismo cambio en catalogo.js).
   cargarProductos({
+    busqueda: busquedaInicial || undefined,
     genero: generoActivo || undefined,
     marca: params.get('marca') || undefined,
     familia: params.get('familia') || undefined,
@@ -60,7 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function cargarFiltros(marcaSeleccionada, familiaSeleccionada, casaSeleccionada) {
   try {
-    const { marcas, familias } = await obtenerFiltrosCatalogo();
+    const { marcas, familias } = await obtenerFiltrosCatalogo({ consolidado: true });
     document.getElementById('filtro-marcas').innerHTML =
       `<label class="filter-option"><input type="radio" name="marca" value="" ${!marcaSeleccionada ? 'checked' : ''}/> Todas</label>` +
       marcas.map((m) => `<label class="filter-option"><input type="radio" name="marca" value="${escapeHtml(m)}" ${m === marcaSeleccionada ? 'checked' : ''}/> ${escapeHtml(m)}</label>`).join('');
@@ -157,7 +168,7 @@ async function cargarSugerencias(texto) {
   const q = texto.trim();
   if (!q) { ocultarSugerencias(); return; }
   const idSolicitud = ++sugerenciasSeq;
-  const lista = await obtenerSugerenciasBusqueda(q, 6);
+  const lista = await obtenerSugerenciasBusqueda(q, 6, false, { soloTienda: false });
   if (idSolicitud !== sugerenciasSeq) return;
   renderSugerencias(lista, q);
 }
@@ -170,14 +181,14 @@ function renderSugerencias(lista, texto) {
       ? `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
       : `<span class="fallback-icon">${ICONS.box}</span>`;
     return `
-      <a href="${SITE_ROOT}producto/?slug=${p.slug}&origen=consolidado" class="search-suggest-item">
+      <button type="button" class="search-suggest-item" data-texto="${escapeHtml(p.nombre)}" style="width:100%; background:none; border:none; text-align:left;">
         ${miniatura}
         <span class="ss-info">
           <span class="ss-marca">${escapeHtml(p.marca)}</span>
           <span class="ss-nombre">${escapeHtml(p.nombre)}</span>
         </span>
         <span class="ss-precio">${precio}</span>
-      </a>`;
+      </button>`;
   }).join('');
 
   panel.innerHTML =
@@ -185,7 +196,14 @@ function renderSugerencias(lista, texto) {
     `<button type="button" class="search-suggest-footer" id="ss-ver-todos">Ver todos los resultados para "${escapeHtml(texto)}"</button>`;
   panel.classList.add('open');
 
-  document.getElementById('ss-ver-todos').addEventListener('click', () => ocultarSugerencias());
+  document.getElementById('ss-ver-todos').addEventListener('click', () => aplicarFiltrosYActualizar());
+  panel.querySelectorAll('.search-suggest-item').forEach((item) => item.addEventListener('click', () => elegirSugerencia(item)));
+}
+
+// Elegir una sugerencia deja la grilla con ese perfume (para agregarlo desde su tarjeta).
+function elegirSugerencia(item) {
+  document.querySelector('#filter-form input[name="busqueda"]').value = item.dataset.texto;
+  aplicarFiltrosYActualizar();
 }
 
 function ocultarSugerencias() {
@@ -207,7 +225,7 @@ function manejarTecladoSugerencias(e) {
     idx = idx <= 0 ? items.length - 1 : idx - 1;
   } else if (e.key === 'Enter' && idx >= 0) {
     e.preventDefault();
-    window.location.href = items[idx].href;
+    elegirSugerencia(items[idx]);
     return;
   } else if (e.key === 'Escape') {
     ocultarSugerencias();
@@ -305,8 +323,13 @@ async function cargarProductos(filtrosIniciales) {
   try {
     const { productos, total, totalPaginas } = await obtenerProductosConsolidado(filtrosIniciales || leerFiltros());
     if (idSolicitud !== cargaProductosSeq) return;
-    document.getElementById('resultado-conteo').textContent = `${total} producto${total === 1 ? '' : 's'} encontrados`;
-    mount.innerHTML = productos.length ? productos.map(tarjetaProductoConsolidado).join('') : '<div class="empty-state">No se encontraron perfumes con esos filtros.</div>';
+    document.getElementById('resultado-conteo').textContent = `${total} perfume${total === 1 ? '' : 's'} para traer`;
+    PRODUCTOS_PAGINA.clear();
+    productos.forEach((p) => PRODUCTOS_PAGINA.set(p.id, p));
+    const enCarrito = new Map(leerCarritoAvion().map((i) => [i.id_producto, i.cantidad]));
+    mount.innerHTML = productos.length
+      ? productos.map((p) => tarjetaProductoConsolidado(p, enCarrito.get(p.id) || 0)).join('')
+      : `<div class="empty-state">No encontramos ese perfume en el catálogo consolidado. <a class="link-arrow" href="${enlaceWhatsappConsolidado(leerFiltros().busqueda || '')}" target="_blank" rel="noopener">Cotízalo por WhatsApp &rarr;</a></div>`;
     renderPaginacion(totalPaginas);
   } catch (err) {
     if (idSolicitud !== cargaProductosSeq) return;
@@ -350,4 +373,82 @@ function renderPaginacion(totalPaginas) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
+}
+
+/* ---------- Carrito de Avión desde la tarjeta ---------- */
+
+// Un solo listener para toda la grilla (las tarjetas se vuelven a dibujar en cada página).
+function iniciarTarjetasAvion() {
+  const grid = document.getElementById('grid-catalogo');
+  grid.addEventListener('click', (e) => {
+    const boton = e.target.closest('[data-accion]');
+    if (!boton) return;
+    const tarjeta = boton.closest('.card-avion');
+    const input = tarjeta.querySelector('.avion-cantidad');
+    const actual = Math.max(1, Math.floor(Number(input.value) || 1));
+    if (boton.dataset.accion === 'menos') input.value = Math.max(1, actual - 1);
+    if (boton.dataset.accion === 'mas') input.value = Math.min(MAX_UNIDADES_AVION_POR_PERFUME, actual + 1);
+    if (boton.dataset.accion === 'agregar') agregarDesdeTarjeta(tarjeta, boton, actual);
+  });
+  grid.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('avion-cantidad')) return;
+    const n = Math.floor(Number(e.target.value) || 1);
+    e.target.value = Math.min(Math.max(n, 1), MAX_UNIDADES_AVION_POR_PERFUME);
+  });
+  grid.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.classList.contains('avion-cantidad')) {
+      e.preventDefault();
+      const tarjeta = e.target.closest('.card-avion');
+      agregarDesdeTarjeta(tarjeta, tarjeta.querySelector('[data-accion="agregar"]'), Math.max(1, Math.floor(Number(e.target.value) || 1)));
+    }
+  });
+}
+
+function agregarDesdeTarjeta(tarjeta, boton, cantidad) {
+  const p = PRODUCTOS_PAGINA.get(Number(tarjeta.dataset.id));
+  if (!p) return;
+  agregarAlCarritoAvion(p, cantidad);
+  animarAgregarAvion(boton);
+  const unidades = unidadesCarritoAvion();
+  const faltan = Math.max(MINIMO_UNIDADES - unidades, 0);
+  mostrarToast(`${cantidad} × ${p.nombre} al Carrito de Avión${faltan ? ` — te faltan ${faltan} para el mínimo` : ''}`);
+  tarjeta.querySelector('.avion-cantidad').value = 1;
+  boton.classList.add('agregado');
+  boton.innerHTML = `${ICONS.check} Agregado`;
+  setTimeout(() => { boton.classList.remove('agregado'); boton.innerHTML = `${ICONS.plane} Agregar`; }, 1400);
+}
+
+// "✓ 2 en tu Carrito de Avión" debajo de cada tarjeta que ya está en el carrito.
+function actualizarMarcasEnCarrito() {
+  const enCarrito = new Map(leerCarritoAvion().map((i) => [i.id_producto, i.cantidad]));
+  document.querySelectorAll('#grid-catalogo .card-avion').forEach((t) => {
+    const marca = t.querySelector('.avion-en-carrito');
+    const n = enCarrito.get(Number(t.dataset.id)) || 0;
+    marca.hidden = !n;
+    marca.querySelector('span').textContent = n;
+  });
+}
+
+function renderBarraAvion() {
+  const barra = document.getElementById('avion-barra');
+  if (!barra) return;
+  const items = leerCarritoAvion();
+  const unidades = unidadesCarritoAvion(items);
+  if (!unidades) {
+    barra.classList.remove('visible');
+    document.body.classList.remove('con-barra-avion');
+    return;
+  }
+  const faltan = Math.max(MINIMO_UNIDADES - unidades, 0);
+  barra.innerHTML = `
+    <div class="avion-barra-inner">
+      <span class="avion-barra-icono">${ICONS.plane}</span>
+      <div class="avion-barra-texto">
+        <strong>${unidades} unidad${unidades === 1 ? '' : 'es'}</strong><span class="solo-desktop"> en tu Carrito de Avión</span> · ${formatoMoneda(totalCarritoAvion(items))}
+        <span class="avion-barra-sub">${faltan ? `Te falta${faltan === 1 ? '' : 'n'} ${faltan} para el mínimo de ${MINIMO_UNIDADES}` : '¡Pedido mínimo completo!'}</span>
+      </div>
+      <a href="${SITE_ROOT}carrito-avion/" class="btn ${faltan ? 'btn-outline' : 'btn-primary'} btn-sm">Ver carrito</a>
+    </div>`;
+  barra.classList.add('visible');
+  document.body.classList.add('con-barra-avion');
 }

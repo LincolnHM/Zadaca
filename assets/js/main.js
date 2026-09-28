@@ -23,7 +23,8 @@ const ICONS = {
   search: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
   book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3V4Z"/><path d="M4 17a3 3 0 0 1 3-3h11"/><path d="M8 8h6"/></svg>`,
   drop: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7s6 6.6 6 11.3a6 6 0 0 1-12 0c0-4.7 6-11.3 6-11.3Z"/></svg>`,
-  plane: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/></svg>`,
+  plane: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>`,
+  tiktok: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 3v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M15 3c.5 2.5 2 4 5 4.3"/></svg>`,
 };
 
 // Logo real de la marca (assets/img/brand/logo.png) -- reemplaza el ícono de caja genérico
@@ -45,7 +46,7 @@ const NAV_LINKS = [
   { href: 'contacto/', label: 'Contacto' },
 ].filter((l) => !l.soloConsolidados || CONSOLIDADOS_ACTIVOS);
 
-const TAGLINE_MARCA = CONSOLIDADOS_ACTIVOS ? 'SELECCIÓN &amp; CONSOLIDADOS' : 'PERFUMES &amp; DECANTS';
+const TAGLINE_MARCA = 'PERFUMES &amp; DECANTS';
 
 async function iniciarLayout(activo) {
   aplicarVisibilidadConsolidados();
@@ -61,7 +62,33 @@ async function iniciarLayout(activo) {
   // días/domingos" repetidos en varias páginas -- ver aplicarConfiguracionSitio) y no debe
   // demorar el resto del layout ni la verificación de sesión de abajo.
   aplicarConfiguracionDelSitio();
+  cargarPublicidadPopup();
   await actualizarEstadoSesionHeader();
+}
+
+// Anuncio editable desde el panel → Publicidad (título, descripción, fotos y botón). Sale al
+// entrar a la página (en todas o solo en el inicio, según lo elija el admin), una sola vez por
+// visita; si el admin cambia el contenido vuelve a salir. No se muestra en páginas donde
+// estorbaría (carritos, cuenta, reclamos y políticas). Cualquier fallo se ignora: es un
+// adorno, no puede romper la página.
+const PAGINAS_SIN_ANUNCIO = ['carrito', 'carrito-avion', 'cuenta', 'admin', 'libro-de-reclamaciones', 'politica-privacidad', 'terminos-condiciones', 'cambios-y-devoluciones'];
+async function cargarPublicidadPopup() {
+  try {
+    const seccion = window.location.pathname.split('/').filter(Boolean)[0] || '';
+    if (PAGINAS_SIN_ANUNCIO.includes(seccion)) return;
+    const promo = await obtenerPublicidadPopup();
+    if (!publicidadVigente(promo)) return;
+    if (promo.mostrar_en === 'inicio' && seccion !== '') return;
+    const clave = `promo-popup-visto-${promo.actualizado_en}`;
+    try {
+      if (sessionStorage.getItem(clave)) return;
+    } catch { /* sessionStorage bloqueado (modo privado, etc.) -- se muestra igual */ }
+    mostrarPublicidadPopup(promo, {
+      alCerrar: () => { try { sessionStorage.setItem(clave, '1'); } catch { /* no pasa nada si no se puede recordar */ } },
+    });
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 // Trae la fila única de configuracion_sitio (panel admin → Configuración del Sitio) y llena
@@ -123,6 +150,7 @@ function aplicarRedesSociales(cfg) {
   [
     ['social-instagram', 'instagram_url'],
     ['social-tiktok', 'tiktok_url'],
+    ['social-tiktok-2', 'tiktok_url_2'],
     ['social-facebook', 'facebook_url'],
   ].forEach(([id, campo]) => {
     const el = document.getElementById(id);
@@ -200,8 +228,7 @@ async function actualizarAnnounceBar() {
     if (!activos.length) return;
     const c = activos[0];
     const { texto } = calcularTiempoRestanteConsolidado(c.fecha_cierre_programada);
-    const extra = activos.length > 1 ? ` (y ${activos.length - 1} campaña${activos.length - 1 === 1 ? '' : 's'} más abierta${activos.length - 1 === 1 ? '' : 's'})` : '';
-    bar.innerHTML = `<a href="${SITE_ROOT}consolidado/?id=${c.id}">CONSOLIDADO ABIERTO: ${escapeHtml(c.codigo_campana)}${extra} &mdash; ${texto} para reservar &rarr;</a>`;
+    bar.innerHTML = `<a href="${SITE_ROOT}catalogo-consolidado/" class="announce-avion">${ICONS.plane}<span class="solo-desktop">CONSOLIDADO ABIERTO: ${escapeHtml(c.codigo_campana)} &mdash; ${texto.toUpperCase()} PARA ARMAR TU CARRITO DE AVIÓN &rarr;</span><span class="solo-movil">CONSOLIDADO ABIERTO &mdash; ${texto.toUpperCase()} &rarr;</span></a>`;
   } catch {
     /* se queda con el mensaje genérico del HTML -- no es crítico para el resto del header */
   }
@@ -381,7 +408,7 @@ function renderHeaderEstatico(activo) {
   if (!mount) return;
   mount.innerHTML = `
     <div class="announce-bar" id="announce-bar">${CONSOLIDADOS_ACTIVOS
-      ? 'ENVÍOS A TODO EL PERÚ &mdash; RESERVA TU PERFUME EN NUESTROS CONSOLIDADOS'
+      ? `<a href="${SITE_ROOT}catalogo-consolidado/" class="announce-avion">${ICONS.plane}<span class="solo-desktop">CONSOLIDADO: ARMA TU CARRITO DE AVIÓN DESDE <span data-cfg="consolidado_minimo_unidades">4</span> UNIDADES</span><span class="solo-movil">CONSOLIDADO DESDE <span data-cfg="consolidado_minimo_unidades">4</span> UNIDADES &rarr;</span></a><span class="solo-desktop"> &nbsp;&middot;&nbsp; <a href="${enlaceWhatsappConsolidado()}" target="_blank" rel="noopener">COTIZA AL WHATSAPP ${formatoWhatsapp()} &rarr;</a></span>`
       : `<a href="${enlaceWhatsappConsolidado()}" target="_blank" rel="noopener">¿NO ESTÁ EN STOCK? TE LO TRAEMOS POR CONSOLIDADO &mdash; COTIZA AL WHATSAPP ${formatoWhatsapp()} &rarr;</a>`}</div>
     <header class="site-header">
       <div class="header-inner container">
@@ -409,8 +436,16 @@ function renderHeaderEstatico(activo) {
             </div>
           </div>
           <a href="${SITE_ROOT}cuenta/" class="icon-btn account-label" id="nav-account-link">${ICONS.user}<span id="nav-account-label">Ingresar</span></a>
+          ${CONSOLIDADOS_ACTIVOS ? `<div class="cart-wrap avion-wrap" id="avion-wrap">
+            <button class="icon-btn avion-toggle" id="avion-toggle" aria-label="Carrito de Avión (consolidado)" title="Carrito de Avión — pedidos por consolidado" aria-haspopup="true" aria-expanded="false">${ICONS.plane}<span class="cart-badge avion-badge" id="avion-badge" hidden>0</span></button>
+            <div class="cart-dropdown avion-dropdown" id="avion-dropdown" hidden>
+              <div class="notif-dropdown-head avion-dropdown-head"><span class="avion-title">${ICONS.plane} Carrito de Avión</span><span class="avion-head-tag">Consolidado</span></div>
+              <div id="avion-dropdown-lista"></div>
+              <div class="cart-dropdown-foot" id="avion-dropdown-foot"></div>
+            </div>
+          </div>` : ''}
           <div class="cart-wrap" id="cart-wrap">
-            <button class="icon-btn" id="cart-toggle" aria-label="Carrito" aria-haspopup="true" aria-expanded="false">${ICONS.bag}<span class="cart-badge" id="cart-badge" hidden>0</span></button>
+            <button class="icon-btn" id="cart-toggle" aria-label="Carrito de tienda" title="Carrito de tienda y decants" aria-haspopup="true" aria-expanded="false">${ICONS.bag}<span class="cart-badge" id="cart-badge" hidden>0</span></button>
             <div class="cart-dropdown" id="cart-dropdown" hidden>
               <div class="notif-dropdown-head"><span>Tu Carrito</span></div>
               <div id="cart-dropdown-lista"><div class="notif-empty">Cargando…</div></div>
@@ -460,6 +495,7 @@ function renderHeaderEstatico(activo) {
 
   configurarCampanitaNotificaciones();
   configurarCarritoDropdown();
+  configurarAvionDropdown();
 }
 
 // Mini-carrito desplegable del header: mismo patrón que la campanita de notificaciones (abre
@@ -473,9 +509,10 @@ function configurarCarritoDropdown() {
   btn.addEventListener('click', async (e) => {
     e.stopPropagation();
     const abrir = dropdown.hidden;
+    if (abrir) cerrarAvionDropdown();
     dropdown.hidden = !abrir;
     btn.setAttribute('aria-expanded', String(abrir));
-    if (abrir) await cargarCarritoDropdown();
+    if (abrir) { await cargarCarritoDropdown(); encajarEnPantalla(dropdown); }
   });
   document.addEventListener('click', (e) => {
     if (!dropdown.hidden && !dropdown.contains(e.target) && !btn.contains(e.target)) {
@@ -528,6 +565,101 @@ async function cargarCarritoDropdown() {
     mount.innerHTML = `<div class="notif-empty">${err.message}</div>`;
     foot.hidden = true;
   }
+}
+
+/* ---------- Carrito de Avión (consolidado) en el encabezado ---------- */
+
+// Mismo patrón que el mini-carrito de la bolsa, pero con el avión: es otro carrito (pedidos por
+// consolidado, ver leerCarritoAvion en api.js) y se ve distinto a propósito para que nadie los
+// confunda. El número del avión son UNIDADES (el mínimo por pedido se cuenta en unidades).
+let MINIMO_AVION = 4;
+
+function configurarAvionDropdown() {
+  const btn = document.getElementById('avion-toggle');
+  const dropdown = document.getElementById('avion-dropdown');
+  if (!btn) return;
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const abrir = dropdown.hidden;
+    if (abrir) {
+      const carrito = document.getElementById('cart-dropdown');
+      if (carrito) { carrito.hidden = true; document.getElementById('cart-toggle')?.setAttribute('aria-expanded', 'false'); }
+    }
+    dropdown.hidden = !abrir;
+    btn.setAttribute('aria-expanded', String(abrir));
+    if (abrir) { renderAvionDropdown(); encajarEnPantalla(dropdown); }
+  });
+  document.addEventListener('click', (e) => {
+    if (!dropdown.hidden && !dropdown.contains(e.target) && !btn.contains(e.target)) cerrarAvionDropdown();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarAvionDropdown(); });
+  document.addEventListener('carrito-avion', () => { actualizarBadgeAvion(); if (!dropdown.hidden) renderAvionDropdown(); });
+  // Otra pestaña del mismo navegador cambió el carrito.
+  window.addEventListener('storage', (e) => { if (e.key === CLAVE_CARRITO_AVION) actualizarBadgeAvion(); });
+  obtenerConfiguracionSitio().then((cfg) => { MINIMO_AVION = minimoUnidadesConsolidado(cfg); }).catch(() => {});
+  actualizarBadgeAvion();
+}
+
+function cerrarAvionDropdown() {
+  const dropdown = document.getElementById('avion-dropdown');
+  if (!dropdown || dropdown.hidden) return;
+  dropdown.hidden = true;
+  document.getElementById('avion-toggle')?.setAttribute('aria-expanded', 'false');
+}
+
+function actualizarBadgeAvion() {
+  const badge = document.getElementById('avion-badge');
+  if (!badge) return;
+  const unidades = unidadesCarritoAvion();
+  badge.textContent = unidades > 99 ? '99+' : unidades;
+  badge.hidden = unidades === 0;
+}
+
+// Barra "X de 4 unidades mínimas" (compartida por el mini-carrito, el catálogo y la página del
+// Carrito de Avión).
+function htmlProgresoAvion(unidades, minimo) {
+  const faltan = Math.max(minimo - unidades, 0);
+  return `
+    <div class="avion-progreso">
+      <div class="progress-track"><div class="progress-fill" style="width:${Math.min(Math.round((100 * unidades) / minimo), 100)}%"></div></div>
+      <div class="progress-label"><span>${unidades} de ${minimo} unidades mínimas</span><span>${faltan > 0 ? `Faltan ${faltan}` : '¡Mínimo completo!'}</span></div>
+    </div>`;
+}
+
+function renderAvionDropdown() {
+  const mount = document.getElementById('avion-dropdown-lista');
+  const foot = document.getElementById('avion-dropdown-foot');
+  if (!mount) return;
+  const items = leerCarritoAvion();
+  if (!items.length) {
+    mount.innerHTML = `<div class="notif-empty">Tu Carrito de Avión está vacío.<span class="avion-empty-sub">Aquí van los perfumes que te traemos por consolidado — es aparte de tu carrito de tienda.</span></div>`;
+    foot.innerHTML = `<a href="${SITE_ROOT}catalogo-consolidado/" class="btn btn-primary btn-block btn-sm">Ver Catálogo Consolidado</a>`;
+    return;
+  }
+  const visibles = items.slice(0, 5);
+  const resto = items.length - visibles.length;
+  mount.innerHTML = visibles.map((item) => `
+    <div class="cart-drop-item">
+      <div class="cart-drop-media">${imagenProducto(item)}</div>
+      <div class="cart-drop-info">
+        <span class="cart-drop-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}</span>
+        <span class="cart-drop-meta">${item.cantidad} &times; ${formatoMoneda(item.precio)}</span>
+      </div>
+    </div>`).join('') + (resto > 0 ? `<div class="avion-drop-mas">y ${resto} perfume${resto === 1 ? '' : 's'} más</div>` : '');
+  foot.innerHTML = `
+    ${htmlProgresoAvion(unidadesCarritoAvion(items), MINIMO_AVION)}
+    <div class="cart-dropdown-total"><span>Subtotal consolidado</span><span>${formatoMoneda(totalCarritoAvion(items))}</span></div>
+    <a href="${SITE_ROOT}carrito-avion/" class="btn btn-primary btn-block btn-sm">${ICONS.plane} Ver Carrito de Avión</a>`;
+}
+
+// Si un panel desplegable se sale de la pantalla (celulares angostos), lo corre hacia adentro.
+function encajarEnPantalla(panel, margen = 12) {
+  panel.style.translate = '';
+  const rect = panel.getBoundingClientRect();
+  let dx = 0;
+  if (rect.right > window.innerWidth - margen) dx = window.innerWidth - margen - rect.right;
+  if (rect.left + dx < margen) dx = margen - rect.left;
+  if (dx) panel.style.translate = `${Math.round(dx)}px 0`;
 }
 
 function configurarCampanitaNotificaciones() {
@@ -666,7 +798,8 @@ function iniciarBuscadorGlobal() {
         <div class="global-search-acciones">
           <a href="${SITE_ROOT}catalogo/?busqueda=${encodeURIComponent(q)}&disponibilidad=todos">Ver todo en el catálogo &rarr;</a>
           <a href="${SITE_ROOT}decants/?q=${encodeURIComponent(q)}">Buscar en decants &rarr;</a>
-          <a href="${enlaceWhatsappConsolidado(q)}" target="_blank" rel="noopener" class="gs-encargo">¿No lo encuentras? Te lo traemos por consolidado</a>
+          ${CONSOLIDADOS_ACTIVOS ? `<a href="${SITE_ROOT}catalogo-consolidado/?busqueda=${encodeURIComponent(q)}">${ICONS.plane} Buscar en el Catálogo Consolidado &rarr;</a>` : ''}
+          <a href="${enlaceWhatsappConsolidado(q)}" target="_blank" rel="noopener" class="gs-encargo">¿No lo encuentras? Te lo cotizamos por WhatsApp</a>
         </div>`;
     }, 250);
   });
@@ -776,12 +909,13 @@ function renderFooter() {
                 <span class="brand-tagline">${TAGLINE_MARCA}</span>
               </span>
             </a>
-            <p>${CONSOLIDADOS_ACTIVOS ? 'Perfumería importada seleccionada, disponible en tienda o mediante compras consolidadas a precio preferencial.' : 'Perfumería importada seleccionada: perfumes originales árabes y de diseñador, y decants para probarlos antes.'}</p>
+            <p>${CONSOLIDADOS_ACTIVOS ? 'Perfumería importada seleccionada: perfumes originales árabes y de diseñador en tienda, decants para probarlos antes y consolidado para traer lo que buscas a mejor precio.' : 'Perfumería importada seleccionada: perfumes originales árabes y de diseñador, y decants para probarlos antes.'}</p>
             <div class="social-row">
-              <a href="#" aria-label="Instagram" id="social-instagram" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg></a>
-              <a href="#" aria-label="TikTok" id="social-tiktok" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 3v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M15 3c.5 2.5 2 4 5 4.3"/></svg></a>
-              <a href="#" aria-label="Facebook" id="social-facebook" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3.2L18 12h-4V7a1 1 0 0 1 1-1h3Z"/></svg></a>
-              <a href="https://wa.me/${WHATSAPP_NUMERO}" target="_blank" rel="noopener" aria-label="WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 1 1-4.2-7.6"/></svg></a>
+              <a href="#" aria-label="Instagram @zadaca_maison" title="Instagram @zadaca_maison" id="social-instagram" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg></a>
+              <a href="#" aria-label="TikTok @maisonzadaca.perfumeria" title="TikTok @maisonzadaca.perfumeria" id="social-tiktok" hidden target="_blank" rel="noopener">${ICONS.tiktok}</a>
+              <a href="#" aria-label="TikTok @perfumeriazadaca" title="TikTok @perfumeriazadaca" id="social-tiktok-2" hidden target="_blank" rel="noopener">${ICONS.tiktok}</a>
+              <a href="#" aria-label="Facebook" title="Facebook" id="social-facebook" hidden target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3.2L18 12h-4V7a1 1 0 0 1 1-1h3Z"/></svg></a>
+              <a href="https://wa.me/${WHATSAPP_NUMERO}" target="_blank" rel="noopener" aria-label="WhatsApp" title="WhatsApp ${formatoWhatsapp()}">${ICONS.whatsapp}</a>
             </div>
           </div>
           <div class="footer-col">
@@ -796,8 +930,9 @@ function renderFooter() {
           ${CONSOLIDADOS_ACTIVOS ? `<div class="footer-col">
             <h4>Consolidado</h4>
             <a href="${SITE_ROOT}catalogo-consolidado/">Catálogo consolidado</a>
-            <a href="${SITE_ROOT}consolidados/">Campañas activas</a>
-            <a href="${SITE_ROOT}contacto/">Cómo funciona</a>
+            <a href="${SITE_ROOT}carrito-avion/">Mi Carrito de Avión</a>
+            <a href="${SITE_ROOT}consolidados/">Campañas y cómo funciona</a>
+            <a href="${enlaceWhatsappConsolidado()}" target="_blank" rel="noopener">Cotizar por WhatsApp</a>
           </div>` : ''}
           <div class="footer-col">
             <h4>Empresa</h4>
@@ -921,41 +1056,69 @@ function tarjetaProducto(p) {
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
         </div>
         ${esLiquidacion ? `<div class="liq-unidad-note">${p.liquidacion_unidad_minima > 1 ? `Solo por mayor · mínimo ${p.liquidacion_unidad_minima} unidades` : 'Por unidad o por mayor'}</div>` : ''}
-        ${agotado && !p.es_decant && !CONSOLIDADOS_ACTIVOS ? '<div class="liq-unidad-note">Disponible por encargo (consolidado)</div>' : ''}
+        ${agotado && !p.es_decant ? '<div class="liq-unidad-note">Disponible por encargo (consolidado)</div>' : ''}
       </div>
     </a>
   `;
 }
 
-// Tarjeta del catálogo de CONSOLIDADO: mismo layout que tarjetaProducto(), pero con
-// precio_consolidado_fijo (no hay descuento de tienda ni estado "Agotado" — un consolidado se
-// importa bajo pedido, no depende del stock físico) y una nota de "unidad mínima" en vez de
-// las badges de tienda.
-function tarjetaProductoConsolidado(p) {
-  // "&origen=consolidado" le dice a producto.js que muestre el precio de consolidado (no el
-  // de tienda) como principal -- ver modoConsolidado en producto.js. Antes este link era
-  // idéntico al de una tarjeta de tienda normal, así que el precio de consolidado que se veía
-  // acá en la grilla cambiaba al de tienda apenas se hacía click en la tarjeta.
+// Tarjeta del catálogo de CONSOLIDADO: no abre ninguna ficha (el cliente solo elige cuántas
+// unidades quiere y las suma a su Carrito de Avión desde la misma tarjeta). Muestra
+// precio_consolidado_fijo -- no hay descuento de tienda ni "Agotado": se importa bajo pedido.
+// Los botones se manejan por delegación en catalogo-consolidado.js (data-accion).
+function tarjetaProductoConsolidado(p, enCarrito = 0) {
   return `
-    <a href="${SITE_ROOT}producto/?slug=${p.slug}&origen=consolidado" class="product-card">
+    <article class="product-card card-avion" data-id="${p.id}">
       <div class="product-media">
         ${imagenProducto(p)}
         <div class="product-badges">
           ${p.es_nuevo ? '<span class="badge badge-new">Nuevo</span>' : ''}
-          <span class="badge badge-consolidado">Consolidado</span>
+          <span class="badge badge-consolidado">${ICONS.plane} Consolidado</span>
         </div>
       </div>
       <div class="product-info">
         <span class="product-brand">${escapeHtml(p.marca)}</span>
         <h3 class="product-name">${escapeHtml(p.nombre)}</h3>
-        <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.mililitros ? ` · ${p.mililitros} ml` : ''}</span>
+        <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.mililitros && p.mililitros > 1 ? `${p.concentracion ? ' · ' : ''}${p.mililitros} ml` : ''}</span>
+        ${p.inspirado_en ? `<span class="product-inspirado" title="Inspirado en ${escapeHtml(p.inspirado_en)}">Inspirado en ${escapeHtml(p.inspirado_en)}</span>` : ''}
         <div class="product-price-row">
           <span class="price-current">${formatoMoneda(p.precio_consolidado_fijo)}</span>
+          <span class="avion-precio-nota">c/u</span>
         </div>
-        <div class="liq-unidad-note">Precio consolidado · desde 4 unidades</div>
+        <div class="avion-add">
+          <div class="qty-mini" role="group" aria-label="Cantidad">
+            <button type="button" data-accion="menos" aria-label="Una unidad menos">${ICONS.minus}</button>
+            <input type="number" class="avion-cantidad" value="1" min="1" max="${MAX_UNIDADES_AVION_POR_PERFUME}" inputmode="numeric" aria-label="Cantidad de ${escapeHtml(p.nombre)}" />
+            <button type="button" data-accion="mas" aria-label="Una unidad más">${ICONS.plus}</button>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm btn-avion" data-accion="agregar">${ICONS.plane} Agregar</button>
+        </div>
+        <span class="avion-en-carrito" ${enCarrito ? '' : 'hidden'}>${ICONS.check} <span>${enCarrito}</span> en tu Carrito de Avión</span>
       </div>
-    </a>
+    </article>
   `;
+}
+
+// Mismo "vuelo" que animarAgregarCarrito(), pero hacia el avión del encabezado.
+function animarAgregarAvion(origenEl) {
+  pulsarBadge('avion-badge');
+  const destino = document.getElementById('avion-toggle');
+  if (!origenEl || !destino || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const origenRect = origenEl.getBoundingClientRect();
+  const destinoRect = destino.getBoundingClientRect();
+  const vuelo = document.createElement('div');
+  vuelo.className = 'cart-fly-icon';
+  vuelo.innerHTML = ICONS.plane;
+  vuelo.style.left = `${origenRect.left + origenRect.width / 2 - 11}px`;
+  vuelo.style.top = `${origenRect.top + origenRect.height / 2 - 11}px`;
+  document.body.appendChild(vuelo);
+  const dx = (destinoRect.left + destinoRect.width / 2) - (origenRect.left + origenRect.width / 2);
+  const dy = (destinoRect.top + destinoRect.height / 2) - (origenRect.top + origenRect.height / 2);
+  requestAnimationFrame(() => {
+    vuelo.style.transform = `translate(${dx}px, ${dy}px) scale(0.4)`;
+    vuelo.style.opacity = '0';
+  });
+  vuelo.addEventListener('transitionend', () => vuelo.remove(), { once: true });
 }
 
 document.addEventListener('DOMContentLoaded', () => {

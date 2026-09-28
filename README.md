@@ -4,6 +4,40 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## 28 sep 2026: Consolidado con Carrito de Avión, anuncio con fotos, redes y stock
+
+**Puesta en marcha (Supabase → SQL Editor, en este orden):**
+
+1. `supabase/migrations/0020_carrito_avion_anuncio_redes.sql` — confirmación del Carrito de Avión
+   (todo o nada, mínimo validado en la base), fotos del anuncio, bucket público `imagenes` en
+   Storage (solo el admin sube), 2 cuentas de TikTok + Instagram + Facebook, y las FAQ del consolidado.
+   Si el Storage no se deja crear desde SQL, el script lo avisa: crear el bucket `imagenes` (público)
+   a mano en Supabase → Storage.
+2. `supabase/actualizar_stock_28sep2026.sql` — stock real: la lista de conteo (cerrados/abiertos) +
+   la lista con precios que se suma a la tienda (con sus precios de venta). Al final dice qué se asumió
+   y qué queda pendiente de confirmar.
+3. `supabase/migrations/0021_reservas_solo_por_carrito_avion.sql` — los clientes ya no pueden
+   reservar perfume por perfume (así se saltaban el mínimo): solo confirmando el carrito completo.
+4. Subir el código.
+
+**Seguridad (revisión del 28 sep).** `escapeHtml()` ahora escapa también comillas: antes, un nombre
+o dirección con comillas escrito por un cliente podía inyectar código en el panel admin (detalle de
+pedido). Los links y fotos del anuncio solo aceptan `http(s)` o rutas del sitio (`urlSegura()`).
+
+**Consolidado (Carrito de Avión).** `CONSOLIDADOS_ACTIVOS = true`. El cliente elige en
+`catalogo-consolidado/` (12 tarjetas por página, sin ficha: cantidad + "Agregar") y todo va a un
+**carrito aparte**, el del **avión** del encabezado (la bolsa sigue siendo el de tienda y decants).
+`carrito-avion/` exige el mínimo de unidades de Configuración del Sitio (4) y cierra de dos formas:
+con una campaña **Abierta** + sesión, "Confirmar reserva" (queda en Panel → Consolidados); siempre,
+"Enviar pedido por WhatsApp" con la lista armada (se registra en Pedidos → Registrar pedido →
+Consolidado). En Panel → Consolidados, **"+ Perfume (nombre y precio)"** agrega perfumes que no están
+en el catálogo: quedan con estado `Bajo_Pedido` y salen solo en el Catálogo Consolidado. Recojo: tienda
+de Chiclayo para tienda/decants, almacén de Lima para consolidado.
+
+**Anuncio (Panel → Publicidad).** Título, descripción, hasta 8 fotos subidas desde el panel (se
+comprimen solas; varias = carrusel), botón, fechas y "todas las páginas / solo inicio", con vista
+previa. Sale una vez por visita al entrar a la web (no en carritos, cuenta ni políticas).
+
 ## Septiembre 2026: inventario, pedidos manuales, contabilidad y consolidados apagados
 
 **Puesta en marcha (en este orden, todo en Supabase → SQL Editor, y recién al final subir el
@@ -40,7 +74,7 @@ Son una base sólida, pero conviene que un abogado las revise antes de darlas po
 (`.github/workflows/deploy.yml`) agrega `?v=<commit>` a esos archivos en cada publicación para que
 nadie mezcle versiones viejas y nuevas. No hay que hacer nada a mano.
 
-**Consolidados apagados, no borrados.** `CONSOLIDADOS_ACTIVOS = false` en `assets/js/api.js` oculta
+**Consolidados apagados, no borrados** (así estuvo hasta el 28 sep; hoy están activos, ver arriba). `CONSOLIDADOS_ACTIVOS = false` en `assets/js/api.js` oculta
 consolidados del menú, home, fichas, carrito, "Mi Cuenta" y panel admin; sus páginas redirigen al
 catálogo. Tablas, campañas, reservas y código siguen intactos: para volver a mostrarlos, poner `true`
 (y restaurar las FAQ con el bloque final de `faq_sin_consolidados.sql`). En el HTML, lo que depende

@@ -521,7 +521,7 @@ async function cargarDirecciones() {
               <div>
                 <strong>${escapeHtml(d.etiqueta || 'Dirección')}</strong> ${d.predeterminada ? '<span class="status-tag">Predeterminada</span>' : ''}
                 <p style="margin:6px 0 0; font-size:0.85rem; color:var(--color-text-muted);">${escapeHtml(d.direccion_detalle)}, ${escapeHtml(d.distrito)}, ${escapeHtml(d.provincia)}</p>
-                <p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? etiquetaRecojoEnTienda() : d.tipo_despacho.replace(/_/g, ' '))}${d.agencia_nombre ? ' — ' + escapeHtml(d.agencia_nombre) : ''}</p>
+                <p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">${escapeHtml(d.tipo_despacho === 'Recojo_En_Tienda' ? (CONSOLIDADOS_ACTIVOS ? 'Recojo en tienda (Chiclayo) / almacén (Lima)' : etiquetaRecojoEnTienda()) : d.tipo_despacho.replace(/_/g, ' '))}${d.agencia_nombre ? ' — ' + escapeHtml(d.agencia_nombre) : ''}</p>
                 ${d.nombre_receptor ? `<p style="margin:4px 0 0; font-size:0.75rem; color:var(--color-text-faint);">Recibe/recoge: ${escapeHtml(d.nombre_receptor)}</p>` : ''}
               </div>
               <button class="btn btn-danger btn-sm" data-eliminar-dir="${d.id}">Eliminar</button>
@@ -551,11 +551,11 @@ async function cargarDirecciones() {
             <option value="Domicilio">Entrega a domicilio</option>
             <option value="Agencia_Shalom">Agencia Shalom</option>
             <option value="Agencia_Olva">Agencia Olva</option>
-            <option value="Recojo_En_Tienda">${etiquetaRecojoEnTienda()}</option>
+            <option value="Recojo_En_Tienda">${CONSOLIDADOS_ACTIVOS ? 'Recojo en tienda (Chiclayo) / almacén (Lima)' : etiquetaRecojoEnTienda()}</option>
           </select>
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
-        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">${CONSOLIDADOS_ACTIVOS ? `El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.` : `Recoges tu pedido en nuestra tienda de Chiclayo: ${escapeHtml(cfg?.direccion_chiclayo || 'Av. Los Incas 1090, La Victoria')}. Te avisamos por WhatsApp cuando esté listo.`}</p>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">${CONSOLIDADOS_ACTIVOS ? `Pedidos de tienda y decants: recojo en nuestra tienda de Chiclayo (${escapeHtml(cfg?.direccion_chiclayo || 'Av. Los Incas 1090, La Victoria')}). Pedidos por consolidado: recojo en nuestro almacén de Lima (${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}), que no es tienda de atención al público.` : `Recoges tu pedido en nuestra tienda de Chiclayo: ${escapeHtml(cfg?.direccion_chiclayo || 'Av. Los Incas 1090, La Victoria')}. Te avisamos por WhatsApp cuando esté listo.`}</p>
         <div class="form-group"><label>¿Quién recibe/recoge el pedido?</label><input type="text" name="nombre_receptor" placeholder="Déjalo vacío si eres tú mismo" /></div>
         <label class="filter-option"><input type="checkbox" name="predeterminada" /> Usar como predeterminada</label>
         <button type="submit" class="btn btn-outline btn-block" style="margin-top:20px;">Guardar Dirección</button>

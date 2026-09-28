@@ -386,3 +386,21 @@ body.admin-body { min-height: 100vh; }
 .hoja-reclamo-admin th, .hoja-reclamo-admin td { border: 1px solid var(--color-border); padding: 6px 8px; text-align: left; vertical-align: top; color: var(--color-text-muted); }
 .hoja-reclamo-admin th { width: 30%; background: var(--color-bg-alt); color: var(--color-text); font-weight: 600; }
 .hoja-reclamo-admin .hoja-nota { font-size: 0.72rem; color: var(--color-text-faint); margin: 10px 0; }
+
+/* ---------- Fotos subidas (anuncio, perfumes del consolidado) ---------- */
+.mini-foto { width: 40px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--color-border); border-radius: 4px; overflow: hidden; }
+.mini-foto img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.mini-foto svg { width: 20px; height: 20px; }
+.publi-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin: 6px 0 10px; }
+.publi-foto { position: relative; aspect-ratio: 4 / 5; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; background: var(--color-bg-alt); }
+.publi-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.publi-portada { position: absolute; top: 6px; left: 6px; background: var(--color-red); color: #fff; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 20px; }
+.publi-foto-acciones { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; background: rgba(10, 8, 6, 0.6); }
+.publi-foto-acciones button { flex: 1; background: none; border: none; color: #fff; font-size: 1.1rem; padding: 4px 0; cursor: pointer; }
+.publi-foto-acciones button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
+.publi-foto-acciones button:disabled { opacity: 0.3; cursor: default; }
+.publi-subir { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.publi-subir-btn { cursor: pointer; }
+.publi-url { display: flex; gap: 8px; margin-top: 10px; }
+.publi-url input[type="text"] { flex: 1; min-width: 0; }
+@media (max-width: 560px) { .publi-url { flex-direction: column; } }

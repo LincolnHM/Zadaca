@@ -226,7 +226,7 @@ async function renderCheckoutInvitado(mount) {
           </div>
         </div>
         <div class="form-group" id="agencia-group" style="display:none;"><label>Nombre de la agencia</label><input type="text" name="agencia_nombre" /></div>
-        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">${CONSOLIDADOS_ACTIVOS ? `El recojo es en nuestro almacén de Lima: ${escapeHtml(cfg?.direccion_lima || 'Jr. Ávila Godoy 664, San Martín de Porres')}. No es tienda física de atención al público.` : `Recoges tu pedido en nuestra tienda de Chiclayo: ${escapeHtml(cfg?.direccion_chiclayo || 'Av. Los Incas 1090, La Victoria')}. Te avisamos por WhatsApp cuando esté listo.`}</p>
+        <p class="form-hint" id="recojo-hint" style="display:none; margin:-10px 0 18px;">Recoges tu pedido en nuestra tienda de Chiclayo: ${escapeHtml(cfg?.direccion_chiclayo || 'Av. Los Incas 1090, La Victoria')}. Te avisamos por WhatsApp cuando esté listo.</p>
         <button type="submit" class="btn btn-primary btn-block" id="checkout-invitado-submit">Confirmar Pedido</button>
         <p class="form-hint aviso-legal-compra">Al confirmar aceptas los <a href="${SITE_ROOT}terminos-condiciones/" target="_blank">Términos y Condiciones</a> y la <a href="${SITE_ROOT}politica-privacidad/" target="_blank">Política de Privacidad</a>.</p>
       </form>

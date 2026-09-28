@@ -1076,6 +1076,112 @@ async function obtenerPublicidadAdmin() {
 
 async function actualizarPublicidad(data) {
   const { error } = await supabaseClient.from('publicidad_popup').update({ ...data, actualizado_en: new Date().toISOString() }).eq('id', 1);
+  if (error) {
+    if (/imagenes|mostrar_en/.test(error.message)) throw new Error('Falta correr la migración 0020 en Supabase (fotos del anuncio). Ver README.');
+    throw new Error(error.message);
+  }
+}
+
+/* ================= FOTOS (Supabase Storage, bucket "imagenes" — migración 0020) ================= */
+
+const BUCKET_IMAGENES = 'imagenes';
+
+// Achica la foto en el navegador antes de subirla (lado mayor 1600 px, WebP): una foto de
+// celular de 4-8 MB queda en ~200-400 KB, carga rápido en el anuncio y no llena el Storage.
+// Los GIF se suben tal cual (perderían la animación).
+async function comprimirImagen(file, { maxLado = 1600, calidad = 0.86 } = {}) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('El archivo no es una imagen');
+  if (file.type === 'image/gif') return file;
+  let bitmap;
+  try { bitmap = await createImageBitmap(file); } catch { return file; }
+  const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
+  if (escala === 1 && file.size <= 450 * 1024) return file;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * escala);
+  canvas.height = Math.round(bitmap.height * escala);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const aBlob = (tipo) => new Promise((r) => canvas.toBlob(r, tipo, calidad));
+  let blob = await aBlob('image/webp');
+  // Safari viejo no sabe codificar WebP (devuelve PNG, más pesado): ahí se usa JPEG.
+  if (!blob || blob.type !== 'image/webp') blob = await aBlob('image/jpeg');
+  if (!blob || blob.size >= file.size) return file;
+  const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
+  return new File([blob], `${(file.name || 'foto').replace(/\.[^.]+$/, '')}.${ext}`, { type: blob.type });
+}
+
+function traducirErrorStorage(error) {
+  const m = error?.message || String(error);
+  if (/bucket not found/i.test(m)) return 'Falta crear el espacio de fotos: corre la migración 0020 en Supabase (ver README).';
+  if (/row-level security|unauthorized|403|permission/i.test(m)) return 'Tu cuenta no tiene permiso para subir fotos (tiene que ser administrador).';
+  if (/payload too large|size/i.test(m)) return 'La foto es demasiado pesada (máximo 5 MB).';
+  return m;
+}
+
+// Sube una foto al bucket público y devuelve su URL (sirve directo en imagen_url / anuncio).
+async function subirImagen(file, carpeta = 'publicidad') {
+  const archivo = await comprimirImagen(file);
+  if (archivo.size > 5 * 1024 * 1024) throw new Error('La foto pesa más de 5 MB incluso comprimida: usa una más liviana.');
+  const ext = ({ 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/avif': 'avif' })[archivo.type] || 'jpg';
+  const ruta = `${carpeta}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabaseClient.storage.from(BUCKET_IMAGENES).upload(ruta, archivo, { contentType: archivo.type, cacheControl: '31536000', upsert: false });
+  if (error) throw new Error(traducirErrorStorage(error));
+  return supabaseClient.storage.from(BUCKET_IMAGENES).getPublicUrl(ruta).data.publicUrl;
+}
+
+// Borra del Storage una foto que ya no se usa (solo si es una subida al bucket; las rutas
+// "assets/img/..." del sitio no se tocan). Si falla no pasa nada: queda una foto huérfana.
+async function borrarImagenSubida(url) {
+  const marca = `/storage/v1/object/public/${BUCKET_IMAGENES}/`;
+  if (!url || !url.includes(marca)) return;
+  const ruta = decodeURIComponent(url.split(marca)[1].split('?')[0]);
+  await supabaseClient.storage.from(BUCKET_IMAGENES).remove([ruta]).catch(() => {});
+}
+
+/* ================= PERFUMES SOLO POR CONSOLIDADO ================= */
+
+// Perfumes que no están en el catálogo y el admin agrega solo con nombre y precio para que se
+// puedan pedir por consolidado. Se guardan con estado 'Bajo_Pedido': aparecen únicamente en el
+// Catálogo Consolidado (nunca en la tienda, ver obtenerProductos en api.js).
+async function obtenerPerfumesSoloConsolidado() {
+  const { data, error } = await supabaseClient
+    .from('perfumes')
+    .select('id, slug, nombre, marca, mililitros, genero, imagen_url, precio_consolidado_fijo, activo, fecha_creacion')
+    .eq('estado', 'Bajo_Pedido')
+    .eq('es_decant', false)
+    .order('fecha_creacion', { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function crearPerfumeConsolidado({ marca, nombre, mililitros = 100, genero = 'Unisex', tipo_casa = null, precio, imagen_url = null }) {
+  const payload = {
+    marca, nombre, mililitros, genero, tipo_casa, imagen_url,
+    precio_tienda_regular: precio,
+    precio_consolidado_fijo: precio,
+    estado: 'Bajo_Pedido',
+    activo: true,
+    es_decant: false,
+    margen_aplicado: true,
+  };
+  const base = `${generarSlug(nombre, marca)}-${mililitros}ml-consolidado`;
+  for (let intento = 0; intento < 4; intento++) {
+    const slug = intento ? `${base}-${intento + 1}` : base;
+    const { data, error } = await supabaseClient.from('perfumes').insert({ ...payload, slug }).select('id').single();
+    if (!error) return data.id;
+    if (!/duplicate|unique/i.test(error.message)) throw new Error(error.message);
+  }
+  throw new Error('Ya existe un perfume con ese nombre y marca en el consolidado');
+}
+
+// El precio de consolidado y el de tienda van iguales (este perfume no se vende en tienda).
+async function actualizarPerfumeConsolidado(id, cambios) {
+  const payload = { ...cambios };
+  if (payload.precio != null) {
+    payload.precio_consolidado_fijo = payload.precio;
+    payload.precio_tienda_regular = payload.precio;
+    delete payload.precio;
+  }
+  const { error } = await supabaseClient.from('perfumes').update(payload).eq('id', id);
   if (error) throw new Error(error.message);
 }
 

@@ -2645,6 +2645,7 @@ function abrirModalConsolidado(c) {
 }
 
 async function cargarConsolidados() {
+  cargarPerfumesSoloConsolidado();
   const mount = document.getElementById('consolidados-lista');
   try {
     const consolidados = await obtenerConsolidadosAdmin();
@@ -2798,6 +2799,126 @@ function conectarEventosConsolidados(consolidados) {
       }
     });
   });
+}
+
+/* ================= PERFUMES SOLO POR CONSOLIDADO (nombre y precio) ================= */
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('form-perfume-consolidado');
+  if (!form) return;
+  const inputFoto = document.getElementById('perfume-consolidado-foto');
+  const nombreFoto = document.getElementById('perfume-consolidado-foto-nombre');
+  document.getElementById('btn-nuevo-perfume-consolidado').addEventListener('click', abrirModalPerfumeConsolidado);
+  document.getElementById('btn-cancelar-perfume-consolidado').addEventListener('click', () => cerrarModal('modal-perfume-consolidado'));
+  inputFoto.addEventListener('change', () => {
+    nombreFoto.textContent = inputFoto.files[0] ? inputFoto.files[0].name : 'Sin foto (se muestra el ícono genérico)';
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    const boton = form.querySelector('button[type="submit"]');
+    boton.disabled = true;
+    try {
+      const imagen_url = inputFoto.files[0] ? await subirImagen(inputFoto.files[0], 'perfumes') : null;
+      await crearPerfumeConsolidado({
+        marca: data.marca.trim(),
+        nombre: data.nombre.trim(),
+        precio: Number(data.precio),
+        mililitros: Number(data.mililitros) || 100,
+        genero: data.genero,
+        tipo_casa: data.tipo_casa || null,
+        imagen_url,
+      });
+      mostrarToast(`${data.nombre.trim()} ya está en el Catálogo Consolidado`);
+      cerrarModal('modal-perfume-consolidado');
+      cargarPerfumesSoloConsolidado();
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    } finally {
+      boton.disabled = false;
+    }
+  });
+});
+
+async function abrirModalPerfumeConsolidado() {
+  const form = document.getElementById('form-perfume-consolidado');
+  form.reset();
+  document.getElementById('perfume-consolidado-foto-nombre').textContent = 'Sin foto (se muestra el ícono genérico)';
+  abrirModal('modal-perfume-consolidado');
+  form.marca.focus();
+  try {
+    const { marcas } = await obtenerFiltrosCatalogo({ consolidado: true });
+    document.getElementById('lista-marcas-consolidado').innerHTML = marcas.map((m) => `<option value="${escapeHtml(m)}"></option>`).join('');
+  } catch { /* sin sugerencias de marca no pasa nada */ }
+}
+
+async function cargarPerfumesSoloConsolidado() {
+  const mount = document.getElementById('perfumes-consolidado-lista');
+  if (!mount) return;
+  try {
+    const perfumes = await obtenerPerfumesSoloConsolidado();
+    if (!perfumes.length) {
+      mount.innerHTML = '<p class="admin-empty" style="padding:14px 0 0;">Todavía no agregaste ninguno. Usa "+ Perfume (nombre y precio)" cuando un cliente pida algo que no está en el catálogo.</p>';
+      return;
+    }
+    mount.innerHTML = `
+      <div class="admin-table-wrap" style="margin-top:12px;"><table class="data-table">
+        <thead><tr><th>Perfume</th><th>ml</th><th>Precio consolidado</th><th>Visible</th><th></th></tr></thead>
+        <tbody>
+          ${perfumes.map((p) => `
+            <tr data-id="${p.id}">
+              <td><div style="display:flex; align-items:center; gap:10px;"><span class="mini-foto">${imagenProductoAdmin(p)}</span><span><strong>${escapeHtml(p.marca)}</strong> — ${escapeHtml(p.nombre)}</span></div></td>
+              <td>${p.mililitros}</td>
+              <td><input type="number" class="input-precio-consolidado" min="0.01" step="0.01" value="${Number(p.precio_consolidado_fijo)}" style="width:96px; background:var(--color-bg); border:1px solid var(--color-border); color:var(--color-text); padding:6px 8px; border-radius:3px;" /></td>
+              <td><label class="filter-option" style="margin:0;"><input type="checkbox" class="check-visible-consolidado" ${p.activo ? 'checked' : ''} /> ${p.activo ? 'Sí' : 'Oculto'}</label></td>
+              <td><button type="button" class="btn btn-danger btn-sm btn-eliminar-perfume-consolidado">Eliminar</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+    mount.querySelectorAll('.input-precio-consolidado').forEach((input) => {
+      const original = input.value;
+      input.addEventListener('change', async () => {
+        const precio = Number(input.value);
+        if (!(precio > 0)) { input.value = original; mostrarToast('El precio debe ser mayor a 0', 'error'); return; }
+        try {
+          await actualizarPerfumeConsolidado(Number(input.closest('tr').dataset.id), { precio });
+          mostrarToast('Precio actualizado');
+        } catch (err) {
+          input.value = original;
+          mostrarToast(err.message, 'error');
+        }
+      });
+    });
+    mount.querySelectorAll('.check-visible-consolidado').forEach((check) => {
+      check.addEventListener('change', async () => {
+        try {
+          await actualizarPerfumeConsolidado(Number(check.closest('tr').dataset.id), { activo: check.checked });
+          mostrarToast(check.checked ? 'Visible en el Catálogo Consolidado' : 'Oculto del Catálogo Consolidado');
+          cargarPerfumesSoloConsolidado();
+        } catch (err) {
+          check.checked = !check.checked;
+          mostrarToast(err.message, 'error');
+        }
+      });
+    });
+    mount.querySelectorAll('.btn-eliminar-perfume-consolidado').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const fila = btn.closest('tr');
+        if (!confirm('¿Eliminar este perfume del consolidado?')) return;
+        try {
+          await eliminarProducto(Number(fila.dataset.id));
+          mostrarToast('Perfume eliminado');
+        } catch {
+          // Si ya tiene reservas o pedidos, no se puede borrar: se oculta para no perder el historial.
+          await actualizarPerfumeConsolidado(Number(fila.dataset.id), { activo: false }).catch(() => {});
+          mostrarToast('Tiene reservas o pedidos: se ocultó en vez de borrarse');
+        }
+        cargarPerfumesSoloConsolidado();
+      });
+    });
+  } catch (err) {
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
+  }
 }
 
 /* ================= CONTABILIDAD ================= */
@@ -3702,7 +3823,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = Object.fromEntries(new FormData(e.target));
     data.consolidado_minimo_unidades = Number(data.consolidado_minimo_unidades);
     // Opcionales: vacío = null (el RUC vacío no pasaría el formato de 11 dígitos de la base).
-    ['instagram_url', 'tiktok_url', 'facebook_url', 'razon_social', 'ruc', 'domicilio_fiscal', 'correo_legal', 'responsable_datos'].forEach((campo) => {
+    ['instagram_url', 'tiktok_url', 'tiktok_url_2', 'facebook_url', 'razon_social', 'ruc', 'domicilio_fiscal', 'correo_legal', 'responsable_datos'].forEach((campo) => {
       data[campo] = (data[campo] || '').trim() || null;
     });
     // Obligatorios en la base: si se dejan vacíos vuelven a su valor por defecto.
@@ -3736,28 +3857,109 @@ async function cargarConfiguracion() {
   }
 }
 
-/* ================= PUBLICIDAD (popup del inicio) ================= */
+/* ================= PUBLICIDAD (anuncio al entrar a la página) ================= */
+
+// Fotos del anuncio en el orden en que se muestran (la primera es la portada). Se suben al
+// Storage apenas se eligen (ver subirImagen en admin-api.js) y se guardan como lista de URLs.
+let PUBLI_FOTOS = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('form-publicidad')?.addEventListener('submit', async (e) => {
+  const form = document.getElementById('form-publicidad');
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const data = Object.fromEntries(new FormData(e.target));
-    data.activo = e.target.elements.activo.checked;
-    data.fecha_inicio = data.fecha_inicio ? new Date(data.fecha_inicio).toISOString() : null;
-    data.fecha_fin = data.fecha_fin ? new Date(data.fecha_fin).toISOString() : null;
-    ['titulo', 'mensaje', 'imagen_url', 'texto_boton', 'url_boton'].forEach((campo) => { if (!data[campo]) data[campo] = null; });
-    const boton = e.target.querySelector('button[type="submit"]');
+    const data = datosFormularioPublicidad();
+    const boton = form.querySelector('button[type="submit"]');
     boton.disabled = true;
     try {
       await actualizarPublicidad(data);
-      mostrarToast('Publicidad guardada');
+      mostrarToast(data.activo ? 'Anuncio guardado y activo' : 'Anuncio guardado (está desactivado)');
     } catch (err) {
       mostrarToast(err.message, 'error');
     } finally {
       boton.disabled = false;
     }
   });
+  document.getElementById('publi-archivo').addEventListener('change', async (e) => {
+    const archivos = [...e.target.files];
+    e.target.value = '';
+    await subirFotosPublicidad(archivos);
+  });
+  document.getElementById('publi-url-agregar').addEventListener('click', () => {
+    const input = document.getElementById('publi-url');
+    const url = input.value.trim();
+    if (!url) return;
+    if (!urlSegura(url)) { mostrarToast('Ese link no es válido: usa https://... o una ruta como assets/img/...', 'error'); return; }
+    if (PUBLI_FOTOS.length >= 8) { mostrarToast('Máximo 8 fotos por anuncio', 'error'); return; }
+    PUBLI_FOTOS.push(url);
+    input.value = '';
+    renderFotosPublicidad();
+  });
+  document.getElementById('publi-fotos').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-accion]');
+    if (!btn) return;
+    const i = Number(btn.closest('.publi-foto').dataset.i);
+    if (btn.dataset.accion === 'quitar') {
+      const [quitada] = PUBLI_FOTOS.splice(i, 1);
+      borrarImagenSubida(quitada);
+    }
+    if (btn.dataset.accion === 'izq' && i > 0) [PUBLI_FOTOS[i - 1], PUBLI_FOTOS[i]] = [PUBLI_FOTOS[i], PUBLI_FOTOS[i - 1]];
+    if (btn.dataset.accion === 'der' && i < PUBLI_FOTOS.length - 1) [PUBLI_FOTOS[i + 1], PUBLI_FOTOS[i]] = [PUBLI_FOTOS[i], PUBLI_FOTOS[i + 1]];
+    renderFotosPublicidad();
+  });
+  document.getElementById('btn-vista-previa-publi').addEventListener('click', () => {
+    const data = datosFormularioPublicidad();
+    if (!data.titulo && !data.mensaje && !data.imagenes.length) { mostrarToast('Agrega al menos un título, una descripción o una foto', 'error'); return; }
+    mostrarPublicidadPopup(data);
+  });
 });
+
+function datosFormularioPublicidad() {
+  const form = document.getElementById('form-publicidad');
+  const data = Object.fromEntries(new FormData(form));
+  data.activo = form.elements.activo.checked;
+  data.fecha_inicio = data.fecha_inicio ? new Date(data.fecha_inicio).toISOString() : null;
+  data.fecha_fin = data.fecha_fin ? new Date(data.fecha_fin).toISOString() : null;
+  ['titulo', 'mensaje', 'texto_boton', 'url_boton'].forEach((campo) => { data[campo] = (data[campo] || '').trim() || null; });
+  data.imagenes = [...PUBLI_FOTOS];
+  // imagen_url (la foto única de antes) queda con la portada, por compatibilidad.
+  data.imagen_url = PUBLI_FOTOS[0] || null;
+  data.mostrar_en = data.mostrar_en === 'inicio' ? 'inicio' : 'todas';
+  return data;
+}
+
+async function subirFotosPublicidad(archivos) {
+  const estado = document.getElementById('publi-subiendo');
+  const espacio = 8 - PUBLI_FOTOS.length;
+  if (espacio <= 0) { mostrarToast('Máximo 8 fotos por anuncio', 'error'); return; }
+  const lote = archivos.slice(0, espacio);
+  if (archivos.length > espacio) mostrarToast(`Solo se agregaron ${espacio} foto${espacio === 1 ? '' : 's'} (máximo 8)`, 'error');
+  for (let i = 0; i < lote.length; i++) {
+    estado.textContent = `Subiendo foto ${i + 1} de ${lote.length}…`;
+    try {
+      PUBLI_FOTOS.push(await subirImagen(lote[i], 'publicidad'));
+      renderFotosPublicidad();
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    }
+  }
+  estado.textContent = lote.length ? 'Listo. No olvides "Guardar Publicidad".' : '';
+}
+
+function renderFotosPublicidad() {
+  const mount = document.getElementById('publi-fotos');
+  if (!PUBLI_FOTOS.length) { mount.innerHTML = '<p class="form-hint" style="margin:0 0 8px;">Todavía no hay fotos.</p>'; return; }
+  mount.innerHTML = PUBLI_FOTOS.map((url, i) => `
+    <div class="publi-foto" data-i="${i}">
+      <img src="${escapeHtml(urlSegura(url) || '')}" alt="Foto ${i + 1}" />
+      ${i === 0 ? '<span class="publi-portada">Portada</span>' : ''}
+      <div class="publi-foto-acciones">
+        <button type="button" data-accion="izq" title="Mover a la izquierda" ${i === 0 ? 'disabled' : ''}>&#8249;</button>
+        <button type="button" data-accion="quitar" title="Quitar foto">&times;</button>
+        <button type="button" data-accion="der" title="Mover a la derecha" ${i === PUBLI_FOTOS.length - 1 ? 'disabled' : ''}>&#8250;</button>
+      </div>
+    </div>`).join('');
+}
 
 async function cargarPublicidad() {
   const form = document.getElementById('form-publicidad');
@@ -3766,17 +3968,42 @@ async function cargarPublicidad() {
     form.elements.activo.checked = p.activo;
     form.titulo.value = p.titulo || '';
     form.mensaje.value = p.mensaje || '';
-    form.imagen_url.value = p.imagen_url || '';
     form.texto_boton.value = p.texto_boton || '';
     form.url_boton.value = p.url_boton || '';
+    form.mostrar_en.value = p.mostrar_en === 'inicio' ? 'inicio' : 'todas';
     // datetime-local espera "YYYY-MM-DDTHH:mm" -- el timestamp de Postgres viene con segundos
     // y offset, se recorta a los primeros 16 caracteres tal como hace cuenta.js con fechas.
     form.fecha_inicio.value = p.fecha_inicio ? p.fecha_inicio.slice(0, 16) : '';
     form.fecha_fin.value = p.fecha_fin ? p.fecha_fin.slice(0, 16) : '';
+    PUBLI_FOTOS = imagenesPublicidad(p);
+    renderFotosPublicidad();
   } catch (err) {
     mostrarToast(err.message, 'error');
   }
 }
+
+/* ================= SUBIR FOTO A UN CAMPO "imagen_url" (productos y decants) ================= */
+
+// Cualquier <input type="file" class="foto-a-campo"> dentro de un formulario sube la foto y
+// deja su URL en el campo imagen_url de ese mismo formulario.
+document.addEventListener('change', async (e) => {
+  if (!e.target.classList?.contains('foto-a-campo') || !e.target.files.length) return;
+  const input = e.target;
+  const campo = input.closest('form')?.elements.imagen_url;
+  const etiqueta = input.closest('label');
+  const textoOriginal = etiqueta.lastChild.textContent;
+  etiqueta.lastChild.textContent = ' Subiendo…';
+  try {
+    const url = await subirImagen(input.files[0], 'perfumes');
+    if (campo) campo.value = url;
+    mostrarToast('Foto subida. Guarda el producto para aplicarla.');
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+  } finally {
+    input.value = '';
+    etiqueta.lastChild.textContent = textoOriginal;
+  }
+});
 
 /* ================= COTIZACIONES ================= */
 

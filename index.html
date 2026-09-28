@@ -33,6 +33,12 @@
     "telephone": "+51990278017",
     "areaServed": "PE",
     "priceRange": "S/",
+    "sameAs": [
+      "https://www.instagram.com/zadaca_maison",
+      "https://www.tiktok.com/@maisonzadaca.perfumeria",
+      "https://www.tiktok.com/@perfumeriazadaca",
+      "https://www.facebook.com/share/19cJ7mVC6B/"
+    ],
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "Av. Los Incas 1090, La Victoria",
@@ -52,11 +58,11 @@
         <div class="hero-text">
           <span class="eyebrow">Bienvenido a Maison Zadaca</span>
           <h1>Perfumes originales.<br>Precios <em>justos</em>.</h1>
-          <p>Fragancias árabes y de diseñador seleccionadas, en frasco completo o en decants para probarlas antes. Cómpralas en nuestra tienda de Chiclayo o recíbelas en cualquier parte del Perú.</p>
+          <p>Fragancias árabes y de diseñador seleccionadas, en frasco completo o en decants para probarlas antes. Cómpralas en nuestra tienda de Chiclayo o recíbelas en cualquier parte del Perú — y lo que no tengamos en stock, te lo traemos por consolidado.</p>
           <div class="hero-actions">
             <a href="https://madisonzadaca.com/catalogo/" class="btn btn-primary">Ver Catálogo</a>
-            <a href="https://madisonzadaca.com/catalogo-consolidado/" class="btn btn-outline" data-consolidado hidden>Ver Consolidado</a>
-            <a href="https://madisonzadaca.com/decants/" class="btn btn-outline" data-sin-consolidado>Ver Decants</a>
+            <a href="https://madisonzadaca.com/decants/" class="btn btn-outline">Ver Decants</a>
+            <a href="https://madisonzadaca.com/catalogo-consolidado/" class="btn btn-outline" data-consolidado hidden>Consolidado</a>
           </div>
           <div class="hero-stats">
             <div class="hero-stat"><span id="hero-icon-truck"></span><span>Envíos a todo el Perú</span></div>
@@ -77,7 +83,7 @@
         <div class="section-header" style="margin-bottom:24px;">
           <div><span class="eyebrow">Guía rápida</span><h2>¿Cómo comprar en Maison Zadaca?</h2></div>
         </div>
-        <div class="info-grid">
+        <div class="info-grid info-grid-4">
           <div class="info-card">
             <div class="info-icon" id="info-icon-catalogo"></div>
             <h3>Catálogo</h3>
@@ -86,15 +92,16 @@
           </div>
           <div class="info-card" data-consolidado hidden>
             <div class="info-icon" id="info-icon-consolidados"></div>
-            <h3>Consolidados</h3>
-            <p>Campañas de importación grupal: reservas tu perfume a precio preferencial y, al reunirse el mínimo, lo importamos todos juntos.</p>
+            <h3>Consolidado</h3>
+            <p>Lo que no está en stock te lo traemos por importación, a mejor precio que en tienda: eliges en el Catálogo Consolidado y lo juntas en tu <strong>Carrito de Avión</strong>.</p>
             <ul>
-              <li>Pedido mínimo: <strong><span data-cfg="consolidado_minimo_unidades">4</span> unidades</strong> por consolidado</li>
-              <li>Demora de llegada: <strong><span data-cfg="envio_dias_texto">7 a 14</span> días</strong> tras el cierre</li>
-              <li>Cada consolidado <strong>cierra los <span data-cfg="consolidado_dia_cierre">domingos</span></strong></li>
+              <li>Pedido mínimo: <strong><span data-cfg="consolidado_minimo_unidades">4</span> unidades</strong> (pueden ser distintos)</li>
+              <li>Llega en <strong><span data-cfg="envio_dias_texto">7 a 14</span> días</strong> tras el cierre</li>
+              <li>Cada campaña <strong>cierra los <span data-cfg="consolidado_dia_cierre">domingos</span></strong></li>
             </ul>
+            <p style="margin:0;"><a href="https://madisonzadaca.com/catalogo-consolidado/" class="link-arrow">Ver Catálogo Consolidado &rarr;</a></p>
           </div>
-          <div class="info-card" data-sin-consolidado>
+          <div class="info-card">
             <div class="info-icon" id="info-icon-decants"></div>
             <h3>Decants</h3>
             <p>Fracciones de 3, 5 y 10 ml del mismo perfume original, servidas de un frasco abierto en tienda: la forma de probarlo antes de comprar el frasco completo.</p>
@@ -124,7 +131,7 @@
       <div class="feature-item"><span id="icon-truck"></span><div><div class="f-title">Envío a todo el Perú</div><div class="f-sub">Vía Shalom / Olva</div></div></div>
       <div class="feature-item"><span id="icon-shield"></span><div><div class="f-title">100% Originales</div><div class="f-sub">Garantía de autenticidad</div></div></div>
       <div class="feature-item"><span id="icon-lock"></span><div><div class="f-title">Pago Seguro</div><div class="f-sub">Yape, Plin, tarjeta y más</div></div></div>
-      <div class="feature-item" data-consolidado hidden><span id="icon-box"></span><div><div class="f-title">Consolidados</div><div class="f-sub">Importa y ahorra</div></div></div>
+      <div class="feature-item" data-consolidado hidden><span id="icon-box"></span><div><div class="f-title">Consolidado</div><div class="f-sub">Te lo traemos desde 4 unidades</div></div></div>
       <div class="feature-item" data-sin-consolidado><span id="icon-decants"></span><div><div class="f-title">Decants</div><div class="f-sub">Pruébalo desde 3 ml</div></div></div>
     </section>
 
@@ -177,31 +184,34 @@
       <img src="" alt="" id="lightbox-img" />
     </div>
 
-    <section class="section reveal" style="padding-top:0;" data-consolidado hidden>
+    <section class="section reveal" style="padding-top:0;" data-consolidado hidden id="seccion-consolidados">
       <div class="container">
         <div class="section-header">
-          <div><span class="eyebrow">Compra grupal</span><h2>Consolidados Activos</h2></div>
+          <div><span class="eyebrow">Compra grupal</span><h2>Campañas de Consolidado Abiertas</h2></div>
           <a href="https://madisonzadaca.com/consolidados/" class="link-arrow">Ver todos &rarr;</a>
         </div>
         <div class="consolidado-grid reveal-grid" id="grid-consolidados"><div class="loading-state">Cargando consolidados…</div></div>
       </div>
     </section>
 
-    <section class="section reveal" style="padding-top:0;" data-sin-consolidado>
+    <section class="section reveal" style="padding-top:0;">
       <div class="container">
         <div class="encargo-band">
           <div>
-            <span class="eyebrow">Consolidados · Importación por encargo</span>
+            <span class="eyebrow">Consolidado · Carrito de Avión</span>
             <h2>¿El perfume que buscas no está en stock?</h2>
-            <p>Te lo traemos por <strong>consolidado</strong>: lo importamos junto con los pedidos de otros clientes y pagas un mejor precio que en tienda. Escríbenos y te cotizamos al toque.</p>
-            <a class="btn btn-whatsapp" data-whatsapp-consolidado href="https://wa.me/51990278017" target="_blank" rel="noopener">Cotizar por WhatsApp</a>
+            <p>Te lo traemos por <strong>consolidado</strong>: lo importamos junto con los pedidos de otros clientes y pagas un mejor precio que en tienda. Arma tu <strong>Carrito de Avión</strong> en la web o escríbenos y te cotizamos al toque.</p>
+            <div style="display:flex; flex-wrap:wrap; gap:10px;">
+              <a class="btn btn-primary" href="https://madisonzadaca.com/catalogo-consolidado/" data-consolidado hidden>Ver Catálogo Consolidado</a>
+              <a class="btn btn-whatsapp" data-whatsapp-consolidado href="https://wa.me/51990278017" target="_blank" rel="noopener">Cotizar por WhatsApp</a>
+            </div>
             <span class="encargo-numero">WhatsApp +51 990 278 017</span>
           </div>
           <ol class="encargo-pasos">
-            <li><span><strong>Escríbenos</strong> el perfume que quieres (nombre y marca, o una foto).</span></li>
-            <li><span><strong>Te cotizamos</strong> precio y tiempo de llegada (<span data-cfg="envio_dias_texto">7 a 14</span> días aprox.).</span></li>
-            <li><span><strong>Separas tu pedido</strong> con un adelanto por Yape, Plin o transferencia.</span></li>
-            <li><span><strong>Lo recibes</strong> en tu ciudad por Shalom u Olva, o lo recoges en nuestra tienda de Chiclayo.</span></li>
+            <li><span><strong>Elige</strong> tus perfumes en el Catálogo Consolidado (o mándanos nombre, marca o una foto).</span></li>
+            <li><span><strong>Pedido mínimo de <span data-cfg="consolidado_minimo_unidades">4</span> unidades</strong> en total: pueden ser perfumes distintos.</span></li>
+            <li><span><strong>Confirmas</strong> tu Carrito de Avión en la web o por WhatsApp y separas con un adelanto (Yape, Plin o transferencia).</span></li>
+            <li><span><strong>Lo recibes</strong> en <span data-cfg="envio_dias_texto">7 a 14</span> días aprox. por Shalom u Olva, o lo recoges.</span></li>
           </ol>
         </div>
       </div>

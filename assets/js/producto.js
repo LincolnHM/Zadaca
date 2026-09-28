@@ -145,12 +145,12 @@ function renderDetalle(data) {
           </div>
         </div>` : ''}
         ${modoConsolidado
-          ? `<div class="pd-consolidado-note">Reserva de consolidado — se importa bajo pedido junto con el resto de clientes de la campaña, no depende del stock actual. Precio de tienda (stock inmediato): <strong>${formatoMoneda(precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje))}</strong> — <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="link-arrow">ver ficha de tienda</a></div>`
+          ? `<div class="pd-consolidado-note">Pedido por consolidado — se importa bajo pedido junto con el resto de clientes, no depende del stock actual. Pedido mínimo: <strong><span data-cfg="consolidado_minimo_unidades">4</span> unidades</strong> en total en tu Carrito de Avión (pueden ser perfumes distintos).</div>`
           : esLiquidacion
             ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
             : p.es_decant || !CONSOLIDADOS_ACTIVOS
               ? ''
-              : `<div class="pd-consolidado-note">O resérvalo en el próximo consolidado desde <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> — <a href="${SITE_ROOT}producto/?slug=${p.slug}&origen=consolidado" class="link-arrow">ver precio de consolidado</a></div>`}
+              : `<div class="pd-consolidado-note pd-avion-note">${ICONS.plane}<span>${agotado ? 'Sin stock ahora: ' : 'O '}tráelo por <strong>consolidado</strong> a <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> c/u (pedido mínimo <span data-cfg="consolidado_minimo_unidades">4</span> unidades, pueden ser perfumes distintos). <button type="button" class="link-arrow" id="btn-avion-ficha">Agregar al Carrito de Avión</button></span></div>`}
         ${htmlOtraPresentacion(p, data.otraPresentacion)}
 
         <div class="pd-meta-row">
@@ -162,7 +162,12 @@ function renderDetalle(data) {
 
         <div class="pd-actions">
           ${modoConsolidado ? `
-          <a class="btn btn-primary" href="${SITE_ROOT}consolidados/">${ICONS.plane} Ver Campañas de Consolidado Activas</a>
+          <div class="qty-selector">
+            <button type="button" id="qty-menos">${ICONS.minus}</button>
+            <input type="number" id="qty-input" value="1" min="1" max="${MAX_UNIDADES_AVION_POR_PERFUME}" />
+            <button type="button" id="qty-mas">${ICONS.plus}</button>
+          </div>
+          <button class="btn btn-primary" id="btn-agregar-avion">${ICONS.plane} Agregar al Carrito de Avión</button>
           ` : `
           <div class="qty-selector">
             <button type="button" id="qty-menos" ${agotado ? 'disabled' : ''}>${ICONS.minus}</button>
@@ -171,12 +176,12 @@ function renderDetalle(data) {
           </div>
           <button class="btn btn-primary" id="btn-agregar-carrito" ${agotado ? 'disabled' : ''}>${agotado ? 'Agotado' : 'Agregar al Carrito'}</button>
           `}
-          ${agotado && !modoConsolidado ? `<a class="btn btn-outline" href="${enlaceWhatsappConsolidado(`${p.marca} ${p.nombre}${p.es_decant ? ' (decant)' : ''}`)}" target="_blank" rel="noopener">${ICONS.plane} Pídelo por encargo</a>` : ''}
+          ${agotado && !modoConsolidado && (p.es_decant || !CONSOLIDADOS_ACTIVOS) ? `<a class="btn btn-outline" href="${enlaceWhatsappConsolidado(`${p.marca} ${p.nombre}${p.es_decant ? ' (decant)' : ''}`)}" target="_blank" rel="noopener">${ICONS.plane} Pídelo por encargo</a>` : ''}
           <button class="heart-toggle" id="btn-favorito" aria-label="Agregar a favoritos" aria-pressed="false">${ICONS.heart}</button>
           <a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera consultar sobre ${p.marca} ${p.nombre}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Consultar</a>
         </div>
 
-        ${agotado && !modoConsolidado && !p.es_decant ? `<p class="pd-encargo-note">Sin stock por ahora: te lo traemos por <strong>consolidado</strong> (importación por encargo, a mejor precio). Escríbenos al WhatsApp <strong>${formatoWhatsapp()}</strong> y te cotizamos precio y tiempo de llegada.</p>` : ''}
+        ${agotado && !modoConsolidado && !p.es_decant && !CONSOLIDADOS_ACTIVOS ? `<p class="pd-encargo-note">Sin stock por ahora: te lo traemos por <strong>consolidado</strong> (importación por encargo, a mejor precio). Escríbenos al WhatsApp <strong>${formatoWhatsapp()}</strong> y te cotizamos precio y tiempo de llegada.</p>` : ''}
 
         <div class="trust-row">
           <div class="trust-item"><span>${ICONS.shield}</span>100% Original — nunca réplicas ni clones</div>
@@ -198,7 +203,15 @@ function renderDetalle(data) {
     document.getElementById('qty-menos').addEventListener('click', () => ajustarCantidad(-1));
     document.getElementById('qty-mas').addEventListener('click', () => ajustarCantidad(1));
     document.getElementById('btn-agregar-carrito').addEventListener('click', agregarAlCarritoUI);
+  } else {
+    const input = document.getElementById('qty-input');
+    const fijar = (n) => { input.value = Math.min(Math.max(Math.floor(Number(n) || 1), 1), MAX_UNIDADES_AVION_POR_PERFUME); };
+    document.getElementById('qty-menos').addEventListener('click', () => fijar(Number(input.value) - 1));
+    document.getElementById('qty-mas').addEventListener('click', () => fijar(Number(input.value) + 1));
+    input.addEventListener('change', () => fijar(input.value));
+    document.getElementById('btn-agregar-avion').addEventListener('click', (e) => agregarFichaAlAvion(p, Number(input.value), e.currentTarget));
   }
+  document.getElementById('btn-avion-ficha')?.addEventListener('click', (e) => agregarFichaAlAvion(p, 1, e.currentTarget));
   document.getElementById('btn-favorito').addEventListener('click', favoritoUI);
   pintarEstadoFavorito();
 
@@ -307,4 +320,15 @@ async function favoritoUI() {
   } finally {
     btn.disabled = false;
   }
+}
+
+// Suma el perfume (frasco entero) al Carrito de Avión: el pedido por consolidado, aparte del
+// carrito de tienda (ver agregarAlCarritoAvion en api.js).
+async function agregarFichaAlAvion(p, cantidad, origen) {
+  const n = Math.max(1, Math.floor(Number(cantidad) || 1));
+  agregarAlCarritoAvion(p, n);
+  animarAgregarAvion(origen);
+  const cfg = await obtenerConfiguracionSitio().catch(() => null);
+  const faltan = Math.max(minimoUnidadesConsolidado(cfg) - unidadesCarritoAvion(), 0);
+  mostrarToast(`${n} × ${p.nombre} al Carrito de Avión${faltan ? ` — te faltan ${faltan} para el mínimo` : ''}`);
 }

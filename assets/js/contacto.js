@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('icon-mail').innerHTML = ICONS.mail;
   document.getElementById('icon-whatsapp').innerHTML = ICONS.whatsapp;
   document.getElementById('icon-envios').innerHTML = ICONS.truck;
+  document.getElementById('icon-redes').innerHTML = ICONS.heart;
   document.getElementById('icon-tienda-lima').innerHTML = ICONS.pin;
   document.getElementById('icon-tienda-chiclayo').innerHTML = ICONS.pin;
   document.getElementById('texto-whatsapp').textContent = formatoWhatsapp();

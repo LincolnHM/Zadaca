@@ -555,6 +555,9 @@ h1, h2, h3, h4 {
 /* ---------- Info cards ("cómo comprar") ---------- */
 .info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 @media (max-width: 900px) { .info-grid { grid-template-columns: 1fr; } }
+.info-grid-4 { grid-template-columns: repeat(4, 1fr); gap: 18px; }
+@media (max-width: 1100px) { .info-grid-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .info-grid-4 { grid-template-columns: 1fr; } }
 .info-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 26px 24px; transition: border-color 0.2s, transform 0.2s; }
 .info-card:hover { border-color: var(--color-gold-dim); transform: translateY(-3px); }
 .info-card .info-icon { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; color: var(--color-gold); background: rgba(122,32,48,0.08); border-radius: 50%; }
@@ -740,26 +743,65 @@ h1, h2, h3, h4 {
   font-size: 2rem; line-height: 1; cursor: pointer; padding: 6px 10px;
 }
 
-/* ---------- Popup de publicidad (inicio) ---------- */
+/* ---------- Anuncio (popup) al entrar a la página — ver mostrarPublicidadPopup() en api.js ---------- */
 .promo-popup-overlay {
-  position: fixed; inset: 0; z-index: 400; background: rgba(10,8,6,0.75);
+  position: fixed; inset: 0; z-index: 450; background: rgba(10,8,6,0.78);
   display: flex; align-items: center; justify-content: center; padding: 20px;
 }
 .promo-popup-box {
   position: relative; background: var(--color-bg-card); border: 1px solid var(--color-border);
-  border-radius: var(--radius); max-width: 420px; width: 100%; overflow: hidden;
-  box-shadow: var(--shadow-card); animation: promo-pop-in 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 10px; width: 100%; max-width: 440px; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+  overflow-x: hidden; overflow-y: auto; display: flex; flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.45); animation: promo-pop-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
-@keyframes promo-pop-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
-.promo-popup-img { width: 100%; max-height: 260px; object-fit: cover; display: block; }
-.promo-popup-body { padding: 26px 28px 30px; text-align: center; }
-.promo-popup-body h3 { margin-bottom: 10px; }
-.promo-popup-body p { color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 20px; white-space: pre-line; }
+.promo-popup-box.con-fotos { max-width: 480px; }
+@keyframes promo-pop-in { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
+.promo-carrusel { position: relative; overflow: hidden; background: var(--color-bg-alt); flex-shrink: 0; }
+.promo-track { display: flex; transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.promo-slide { flex: 0 0 100%; height: min(62vh, 520px); height: min(62dvh, 520px); display: flex; align-items: center; justify-content: center; }
+.promo-slide img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.promo-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(10,8,6,0.55); color: #fff; border: none; font-size: 1.6rem; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; padding-bottom: 3px;
+}
+.promo-nav:hover { background: rgba(10,8,6,0.8); }
+.promo-prev { left: 10px; }
+.promo-next { right: 10px; }
+.promo-dots { position: absolute; bottom: 10px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; }
+.promo-dot { width: 9px; height: 9px; border-radius: 50%; border: none; padding: 0; background: rgba(255,255,255,0.55); box-shadow: 0 0 0 1px rgba(0,0,0,0.25); cursor: pointer; }
+.promo-dot.active { background: #fff; transform: scale(1.25); }
+.promo-popup-body { padding: 22px 26px 26px; text-align: center; }
+.promo-popup-body h3 { margin: 0 0 8px; font-size: 1.35rem; }
+.promo-popup-body p { color: var(--color-text-muted); font-size: 0.92rem; margin: 0 0 18px; white-space: pre-line; }
+.promo-popup-body p:last-child { margin-bottom: 0; }
+.promo-popup-body .btn { width: 100%; max-width: 320px; }
 .promo-popup-close {
-  position: absolute; top: 10px; right: 10px; background: rgba(10,8,6,0.5); color: #fff; border: none;
-  width: 30px; height: 30px; border-radius: 50%; font-size: 1.3rem; line-height: 1; cursor: pointer; z-index: 1;
+  position: absolute; top: 10px; right: 10px; background: rgba(10,8,6,0.6); color: #fff; border: none;
+  width: 34px; height: 34px; border-radius: 50%; font-size: 1.4rem; line-height: 1; cursor: pointer; z-index: 2;
+  display: flex; align-items: center; justify-content: center; padding-bottom: 2px;
 }
-@media (prefers-reduced-motion: reduce) { .promo-popup-box { animation: none; } }
+.promo-popup-close:hover { background: rgba(10,8,6,0.85); }
+.promo-popup-box:not(.con-fotos) .promo-popup-close { background: transparent; color: var(--color-text-faint); }
+.promo-popup-box:not(.con-fotos) .promo-popup-body { padding-top: 34px; }
+body.popup-abierto { overflow: hidden; }
+@media (max-width: 560px) {
+  .promo-popup-overlay { padding: 12px; }
+  .promo-popup-box { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); }
+  .promo-slide { height: min(56vh, 460px); height: min(56dvh, 460px); }
+  .promo-popup-body { padding: 18px 18px 20px; }
+  .promo-popup-body h3 { font-size: 1.15rem; }
+  .promo-popup-body p { font-size: 0.86rem; }
+}
+/* Celular en horizontal: foto y texto lado a lado para que entre todo sin deslizar. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .promo-popup-overlay { padding: 10px; }
+  .promo-popup-box.con-fotos { flex-direction: row; max-width: 760px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
+  .promo-popup-box.con-fotos .promo-carrusel { width: 50%; }
+  .promo-popup-box.con-fotos .promo-slide { height: calc(100vh - 22px); height: calc(100dvh - 22px); }
+  .promo-popup-box.con-fotos .promo-popup-body { flex: 1; align-self: center; max-height: 100%; overflow-y: auto; padding: 20px 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .promo-popup-box { animation: none; } .promo-track { transition: none; } }
 
 /* ---------- CTA de cierre (home) ---------- */
 .cta-band { padding: 56px 0; border-top: 1px solid var(--color-border); background: linear-gradient(135deg, rgba(107,50,32,0.1) 0%, transparent 60%); }
@@ -1116,3 +1158,132 @@ body.busqueda-abierta { overflow: hidden; }
 .legal-empresa p { margin: 0 0 4px; }
 .legal-empresa p:last-child { margin: 0; }
 .dato-pendiente { background: #fff3cd; color: #7a5200; padding: 0 5px; border-radius: 3px; font-weight: 600; }
+
+/* ==========================================================
+   Consolidado: Carrito de Avión (sep 2026)
+   ========================================================== */
+.btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.solo-movil { display: none; }
+@media (max-width: 640px) { .solo-desktop { display: none; } .solo-movil { display: inline; } }
+.announce-avion { display: inline-flex; align-items: center; gap: 8px; }
+.announce-avion svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* Ícono del avión: círculo con borde plateado y contador plateado, para que se distinga a
+   simple vista de la bolsa (carrito de tienda, contador burdeos). */
+.avion-wrap .avion-toggle {
+  width: 34px; height: 34px; justify-content: center; border-radius: 50%;
+  border: 1px solid rgba(236, 233, 238, 0.35); transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.avion-wrap .avion-toggle svg { width: 18px; height: 18px; }
+.avion-wrap .avion-toggle:hover, .avion-wrap .avion-toggle[aria-expanded="true"] { border-color: var(--color-silver); background: rgba(236, 233, 238, 0.1); color: #fff; }
+.avion-badge { background: var(--color-silver-light); color: var(--color-red); top: -7px; right: -8px; box-shadow: 0 0 0 1px var(--color-red); }
+.avion-dropdown { width: 340px; }
+.avion-dropdown-head { gap: 10px; }
+.avion-dropdown-head .avion-title svg { width: 17px; height: 17px; }
+.avion-head-tag { font-size: 0.62rem; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 20px; background: var(--color-red); color: #fff; text-transform: uppercase; }
+#avion-dropdown-lista { overflow-y: auto; max-height: 260px; }
+.avion-empty-sub { display: block; font-size: 0.74rem; margin-top: 6px; color: var(--color-text-faint); }
+.avion-drop-mas { padding: 10px 16px; font-size: 0.76rem; color: var(--color-text-faint); text-align: center; }
+.avion-progreso .progress-label { margin-bottom: 12px; }
+.site-header .avion-dropdown { --color-text: #17140f; --color-text-muted: #4f4736; --color-text-faint: #756b57; --color-border: #e3ddd0; color: var(--color-text); }
+@media (max-width: 480px) { .avion-dropdown { width: calc(100vw - 24px); } }
+
+.badge-consolidado { display: inline-flex; align-items: center; gap: 4px; }
+.badge-consolidado svg { width: 11px; height: 11px; }
+
+/* Tarjeta del Catálogo Consolidado: no es un link (no abre ficha), trae su propia cantidad y
+   botón para sumar al Carrito de Avión. */
+.card-avion { cursor: default; }
+.card-avion:hover { transform: none; }
+.card-avion .product-price-row { align-items: baseline; }
+.avion-precio-nota { font-size: 0.72rem; color: var(--color-text-faint); }
+.avion-add { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 12px; align-items: stretch; }
+.qty-mini { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius); background: var(--color-bg-card); }
+.qty-mini button { background: none; border: none; color: var(--color-text); width: 30px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.qty-mini button:hover { color: var(--color-red); }
+.qty-mini button svg { width: 14px; height: 14px; }
+.qty-mini input { width: 34px; text-align: center; border: none; background: none; color: var(--color-text); font-weight: 600; font-size: 0.9rem; -moz-appearance: textfield; appearance: textfield; }
+.qty-mini input::-webkit-outer-spin-button, .qty-mini input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.btn-avion { padding: 9px 12px; letter-spacing: 0.06em; }
+.btn-avion.agregado { background: var(--color-success); border-color: var(--color-success); }
+.avion-en-carrito { display: flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 0.72rem; color: var(--color-success); font-weight: 600; }
+.avion-en-carrito[hidden] { display: none; }
+.avion-en-carrito svg { width: 13px; height: 13px; }
+@media (max-width: 520px) {
+  .avion-add { grid-template-columns: 1fr; }
+  .qty-mini { justify-content: space-between; }
+  .qty-mini input { flex: 1; }
+  .btn-avion { width: 100%; }
+}
+
+/* Barra fija del Carrito de Avión (catálogo consolidado): siempre a la vista cuánto lleva y
+   cuánto falta para el mínimo. */
+.avion-barra {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 190; background: #17140f; color: #f3efe6;
+  border-top: 2px solid var(--color-red); box-shadow: 0 -8px 30px rgba(0,0,0,0.25);
+  transform: translateY(110%); transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.avion-barra.visible { transform: none; }
+.avion-barra-inner { display: flex; align-items: center; gap: 16px; padding: 12px 24px; max-width: var(--container); margin: 0 auto; }
+.avion-barra-icono { width: 38px; height: 38px; border-radius: 50%; background: var(--color-red); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.avion-barra-icono svg { width: 20px; height: 20px; color: #fff; }
+.avion-barra-texto { flex: 1; min-width: 0; font-size: 0.84rem; line-height: 1.35; }
+.avion-barra-texto strong { color: #fff; }
+.avion-barra-texto .avion-barra-sub { display: block; font-size: 0.74rem; color: #bcb4a3; }
+.avion-barra .btn { flex-shrink: 0; }
+body.con-barra-avion { padding-bottom: 76px; }
+body.con-barra-avion .whatsapp-float { bottom: 92px; }
+body.con-barra-avion .toast-stack { bottom: 92px; }
+@media (max-width: 560px) {
+  .avion-barra-inner { padding: 10px 14px; gap: 10px; }
+  .avion-barra-icono { width: 32px; height: 32px; }
+  .avion-barra .btn { padding: 10px 12px; font-size: 0.68rem; }
+}
+
+/* Página del Carrito de Avión */
+.avion-hero { display: flex; align-items: center; gap: 14px; }
+.avion-hero-icono { width: 48px; height: 48px; border-radius: 50%; background: var(--color-red); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.avion-hero-icono svg { width: 26px; height: 26px; }
+.avion-como { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0 0 28px; padding: 0; list-style: none; counter-reset: paso; }
+.avion-como li { counter-increment: paso; background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 14px 14px 46px; position: relative; font-size: 0.82rem; color: var(--color-text-muted); }
+.avion-como li::before { content: counter(paso); position: absolute; left: 12px; top: 13px; width: 24px; height: 24px; border-radius: 50%; background: var(--color-red); color: #fff; font-weight: 700; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; }
+.avion-como strong { color: var(--color-text); }
+@media (max-width: 900px) { .avion-como { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .avion-como { grid-template-columns: 1fr; } }
+.avion-aviso { background: #fff7e6; border: 1px solid #f0d9a8; color: #6b4b00; border-radius: var(--radius); padding: 12px 14px; font-size: 0.84rem; margin-bottom: 16px; }
+.avion-ok { background: rgba(79, 140, 88, 0.1); border: 1px solid rgba(79, 140, 88, 0.45); color: #2f5f37; border-radius: var(--radius); padding: 14px 16px; font-size: 0.88rem; margin-bottom: 18px; }
+.avion-campana { background: rgba(122, 32, 48, 0.07); border: 1px solid rgba(122, 32, 48, 0.3); border-radius: var(--radius); padding: 12px 14px; font-size: 0.82rem; color: var(--color-text-muted); margin-bottom: 16px; }
+.avion-campana strong { color: var(--color-text); }
+.avion-acciones { display: grid; gap: 10px; }
+.avion-acciones .btn { width: 100%; white-space: normal; text-align: center; }
+.avion-separador { display: flex; align-items: center; gap: 10px; font-size: 0.72rem; color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.08em; margin: 6px 0; }
+.avion-separador::before, .avion-separador::after { content: ''; flex: 1; height: 1px; background: var(--color-border); }
+.cart-row .cr-subtotal { font-size: 0.8rem; color: var(--color-text-muted); margin-top: 4px; }
+.cart-row .cr-qty input { -moz-appearance: textfield; appearance: textfield; }
+.cart-row .cr-qty input::-webkit-outer-spin-button, .cart-row .cr-qty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Encabezado en celulares: con el avión al lado de la bolsa, el logo y los íconos se compactan
+   para que la bolsa y el menú (☰) no se salgan de la pantalla. */
+@media (max-width: 600px) {
+  .header-inner { padding: 12px 14px; gap: 10px; }
+  .brand { gap: 9px; }
+  .brand-icon { width: 34px; height: 34px; }
+  .brand-name { font-size: 1.18rem; }
+  .brand-tagline { font-size: 0.5rem; letter-spacing: 0.16em; }
+  .header-actions { gap: 13px; }
+  .avion-wrap .avion-toggle { width: 30px; height: 30px; }
+  .avion-wrap .avion-toggle svg { width: 16px; height: 16px; }
+}
+@media (max-width: 380px) {
+  .brand-tagline { display: none; }
+  .brand-name { font-size: 1.05rem; }
+  .header-actions { gap: 11px; }
+}
+.avion-barra .btn-outline { color: #fff; border-color: rgba(255, 255, 255, 0.55); }
+.avion-barra .btn-outline:hover { background: rgba(255, 255, 255, 0.1); border-color: #fff; color: #fff; }
+@media (max-width: 350px) {
+  .site-header .brand-icon { display: none; }
+  .header-inner { padding: 10px; }
+  .header-actions { gap: 10px; }
+}
+@media (max-width: 600px) { .announce-bar { font-size: 0.7rem; letter-spacing: 0.04em; padding: 8px 12px; } }

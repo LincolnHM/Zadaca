@@ -306,10 +306,24 @@
       <!-- Consolidados -->
       <section class="admin-section" id="section-consolidados">
         <div class="admin-page-header">
-          <div><h1>Consolidados</h1><div class="sub">Campañas de compra grupal</div></div>
-          <button class="btn btn-primary btn-sm" id="btn-nuevo-consolidado">+ Nueva Campaña</button>
+          <div><h1>Consolidados</h1><div class="sub">Campañas de compra grupal y perfumes del Catálogo Consolidado</div></div>
+          <div class="row-actions">
+            <button class="btn btn-outline btn-sm" id="btn-nuevo-perfume-consolidado">+ Perfume (nombre y precio)</button>
+            <button class="btn btn-primary btn-sm" id="btn-nuevo-consolidado">+ Nueva Campaña</button>
+          </div>
         </div>
+        <p class="form-hint" style="margin:-6px 0 16px;">Los clientes arman su <strong>Carrito de Avión</strong> en el Catálogo Consolidado (mínimo de unidades en Configuración del Sitio). Con una campaña <strong>Abierta</strong> pueden reservar desde la web; si no hay ninguna, envían el pedido por WhatsApp y lo registras en Pedidos → Registrar pedido → Consolidado.</p>
         <div id="consolidados-lista"><div class="admin-empty">Cargando…</div></div>
+
+        <div class="campaign-detail-card" style="margin-top:22px;">
+          <div class="campaign-detail-head">
+            <div>
+              <h3 style="font-size:1.05rem; margin-bottom:4px;">Perfumes que solo se traen por consolidado</h3>
+              <span style="font-size:0.78rem; color:var(--color-text-faint);">Los que agregaste con nombre y precio: salen en el Catálogo Consolidado, no en la tienda.</span>
+            </div>
+          </div>
+          <div id="perfumes-consolidado-lista"><div class="admin-empty">Cargando…</div></div>
+        </div>
       </section>
 
       <!-- Contabilidad -->
@@ -422,24 +436,50 @@
         </table></div>
       </section>
 
-      <!-- Publicidad (popup del inicio) -->
+      <!-- Publicidad: anuncio (popup) al entrar a la página -->
       <section class="admin-section" id="section-publicidad">
-        <div class="admin-page-header"><div><h1>Publicidad</h1><div class="sub">Popup que aparece al entrar a la página de inicio</div></div></div>
-        <form id="form-publicidad" class="form-card" style="max-width:640px;">
-          <label class="filter-option" style="margin-bottom:18px;"><input type="checkbox" name="activo" /> Popup activo (se muestra al cargar el inicio)</label>
-          <div class="form-group"><label>Título</label><input type="text" name="titulo" placeholder="¡Oferta especial!" /></div>
-          <div class="form-group"><label>Mensaje</label><textarea name="mensaje" rows="3" placeholder="Describe la promoción..."></textarea></div>
-          <div class="form-group"><label>Imagen (ruta o URL, opcional)</label><input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" /></div>
+        <div class="admin-page-header"><div><h1>Publicidad</h1><div class="sub">Anuncio que aparece al entrar a la página (título, descripción, fotos y botón)</div></div></div>
+        <form id="form-publicidad" class="form-card" style="max-width:720px;">
+          <label class="filter-option" style="margin-bottom:18px;"><input type="checkbox" name="activo" /> Anuncio activo (se muestra al entrar a la página)</label>
+          <div class="form-group"><label>Título</label><input type="text" name="titulo" maxlength="90" placeholder="¡Nuevo consolidado abierto!" /></div>
+          <div class="form-group"><label>Descripción</label><textarea name="mensaje" rows="4" maxlength="600" placeholder="Describe la promoción, fechas, condiciones..."></textarea></div>
+
+          <div class="form-group">
+            <label>Fotos del anuncio <span class="form-hint" style="display:inline; margin:0;">(hasta 8 — si subes varias se muestran como carrusel)</span></label>
+            <div class="publi-fotos" id="publi-fotos"></div>
+            <div class="publi-subir">
+              <label class="btn btn-outline btn-sm publi-subir-btn">
+                <input type="file" id="publi-archivo" accept="image/*" multiple hidden />
+                + Subir fotos
+              </label>
+              <span class="form-hint" id="publi-subiendo" style="margin:0;"></span>
+            </div>
+            <div class="publi-url">
+              <input type="text" id="publi-url" placeholder="…o pega el link de una foto (https://... o assets/img/...)" />
+              <button type="button" class="btn btn-ghost btn-sm" id="publi-url-agregar">Agregar link</button>
+            </div>
+            <p class="form-hint" style="margin:6px 0 0;">Tip: las fotos verticales (tipo historia) o cuadradas se ven mejor en celular. Se comprimen solas al subirlas.</p>
+          </div>
+
           <div class="form-row">
-            <div class="form-group"><label>Texto del botón</label><input type="text" name="texto_boton" placeholder="Ver catálogo" /></div>
-            <div class="form-group"><label>Link del botón</label><input type="text" name="url_boton" placeholder="catalogo/ o https://..." /></div>
+            <div class="form-group"><label>Texto del botón</label><input type="text" name="texto_boton" maxlength="40" placeholder="Ver catálogo" /></div>
+            <div class="form-group"><label>Link del botón</label><input type="text" name="url_boton" placeholder="catalogo-consolidado/ o https://..." /></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Dónde mostrarlo</label>
+              <select name="mostrar_en"><option value="todas">En todas las páginas (al entrar a la web)</option><option value="inicio">Solo en la página de inicio</option></select>
+            </div>
+            <div class="form-group"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label>Desde (opcional)</label><input type="datetime-local" name="fecha_inicio" /></div>
             <div class="form-group"><label>Hasta (opcional)</label><input type="datetime-local" name="fecha_fin" /></div>
           </div>
-          <p class="form-hint" style="margin:-4px 0 14px;">Se muestra una vez por visita en la página de inicio mientras esté activo (y dentro del rango de fechas, si lo defines). Si cambias el contenido, vuelve a mostrarse aunque sea la misma visita.</p>
-          <button type="submit" class="btn btn-primary">Guardar Publicidad</button>
+          <p class="form-hint" style="margin:-4px 0 14px;">Sale una vez por visita mientras esté activo (y dentro del rango de fechas, si lo defines). Si cambias el contenido, vuelve a salir aunque sea la misma visita. No aparece en el carrito, la cuenta ni las políticas.</p>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="submit" class="btn btn-primary">Guardar Publicidad</button>
+            <button type="button" class="btn btn-ghost" id="btn-vista-previa-publi">Vista previa</button>
+          </div>
         </form>
       </section>
 
@@ -498,7 +538,10 @@
           <h3 style="font-size:0.95rem; margin:24px 0 12px;">Redes sociales</h3>
           <p style="font-size:0.8rem; color:var(--color-text-faint); margin:-6px 0 14px;">Deja en blanco el ícono que aún no tengas — no se muestra en el footer hasta que cargues la URL real.</p>
           <div class="form-group"><label>Instagram</label><input type="url" name="instagram_url" placeholder="https://instagram.com/..." /></div>
-          <div class="form-group"><label>TikTok</label><input type="url" name="tiktok_url" placeholder="https://tiktok.com/@..." /></div>
+          <div class="form-row">
+            <div class="form-group"><label>TikTok (principal)</label><input type="url" name="tiktok_url" placeholder="https://www.tiktok.com/@..." /></div>
+            <div class="form-group"><label>TikTok (segunda cuenta)</label><input type="url" name="tiktok_url_2" placeholder="https://www.tiktok.com/@..." /></div>
+          </div>
           <div class="form-group"><label>Facebook</label><input type="url" name="facebook_url" placeholder="https://facebook.com/..." /></div>
           <button type="submit" class="btn btn-primary" style="margin-top:8px;">Guardar Configuración</button>
         </form>
@@ -555,7 +598,12 @@
           <div class="form-group"><label>Precio Liquidación (S/)</label><input type="number" name="precio_liquidacion" min="0.01" step="0.01" placeholder="Solo si es liquidación" /></div>
           <div class="form-group"><label>Unidad Mínima Liquidación</label><input type="number" name="liquidacion_unidad_minima" min="1" step="1" value="1" /></div>
         </div>
-        <div class="form-group"><label>Imagen (ruta o URL)</label><input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" /></div>
+        <div class="form-group"><label>Imagen (ruta o URL)</label>
+          <div class="publi-url" style="margin-top:0;">
+            <input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" />
+            <label class="btn btn-ghost btn-sm publi-subir-btn" title="Subir una foto desde tu computadora o celular"><input type="file" class="foto-a-campo" accept="image/*" hidden /> Subir foto</label>
+          </div>
+        </div>
         <div class="form-group"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
         <div class="form-group"><label>Notas Olfativas</label><textarea name="notas_olfativas" rows="2" placeholder="Ámbar, Cálido, Dulce, Amaderado..."></textarea></div>
         <div class="form-group"><label>Inspirado en</label><input type="text" name="inspirado_en" placeholder="Ej: Ultra Male de Jean Paul Gaultier" /></div>
@@ -608,7 +656,12 @@
           <div class="form-group"><label>10ml</label><input type="number" name="precio_10ml" min="0.01" step="0.01" /></div>
         </div>
         <div class="form-group"><label>Total frasco (ml)</label><input type="number" name="mililitros" min="1" step="1" value="100" required /></div>
-        <div class="form-group"><label>Imagen (ruta o URL)</label><input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" /></div>
+        <div class="form-group"><label>Imagen (ruta o URL)</label>
+          <div class="publi-url" style="margin-top:0;">
+            <input type="text" name="imagen_url" placeholder="assets/img/perfumes/Ejemplo.png" />
+            <label class="btn btn-ghost btn-sm publi-subir-btn" title="Subir una foto desde tu computadora o celular"><input type="file" class="foto-a-campo" accept="image/*" hidden /> Subir foto</label>
+          </div>
+        </div>
         <div class="form-group"><label>Descripción</label><textarea name="descripcion" rows="2"></textarea></div>
         <div class="form-group"><label>Notas Olfativas</label><textarea name="notas_olfativas" rows="2" placeholder="Ámbar, Cálido, Dulce, Amaderado..."></textarea></div>
         <div class="form-group"><label>Inspirado en</label><input type="text" name="inspirado_en" placeholder="Ej: Ultra Male de Jean Paul Gaultier" /></div>
@@ -818,6 +871,44 @@
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="btn-cancelar-consolidado">Cancelar</button>
           <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Perfume solo por consolidado ───────────────── -->
+  <div class="modal-overlay" id="modal-perfume-consolidado">
+    <div class="modal-box">
+      <h3>Agregar perfume al Catálogo Consolidado</h3>
+      <p class="form-hint" style="margin:-4px 0 16px;">Para perfumes que no están en el catálogo: con nombre y precio ya se pueden pedir por consolidado (no aparecen en la tienda).</p>
+      <form id="form-perfume-consolidado">
+        <div class="form-row">
+          <div class="form-group"><label>Marca *</label><input type="text" name="marca" required list="lista-marcas-consolidado" placeholder="Lattafa" /></div>
+          <div class="form-group"><label>Nombre del perfume *</label><input type="text" name="nombre" required placeholder="Khamrah Qahwa" /></div>
+        </div>
+        <datalist id="lista-marcas-consolidado"></datalist>
+        <div class="form-row">
+          <div class="form-group"><label>Precio consolidado (S/) *</label><input type="number" name="precio" required min="0.01" step="0.01" /></div>
+          <div class="form-group"><label>Mililitros</label><input type="number" name="mililitros" min="1" value="100" /></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Género</label>
+            <select name="genero"><option value="Unisex">Unisex</option><option value="Hombre">Hombre</option><option value="Mujer">Mujer</option></select>
+          </div>
+          <div class="form-group"><label>Tipo de casa</label>
+            <select name="tipo_casa"><option value="">Sin definir</option><option value="Árabe">Árabe</option><option value="Diseñador">Diseñador</option><option value="Nicho">Nicho</option></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Foto (opcional)</label>
+          <div class="publi-subir">
+            <label class="btn btn-outline btn-sm publi-subir-btn"><input type="file" id="perfume-consolidado-foto" accept="image/*" hidden /> Subir foto</label>
+            <span class="form-hint" id="perfume-consolidado-foto-nombre" style="margin:0;">Sin foto (se muestra el ícono genérico)</span>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-perfume-consolidado">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Agregar al consolidado</button>
         </div>
       </form>
     </div>

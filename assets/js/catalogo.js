@@ -402,7 +402,8 @@ function htmlSinResultados(busqueda) {
       <div class="hero-actions">
         ${verTodos ? '<button type="button" class="btn btn-ghost btn-sm" onclick="seleccionarRadio(\'disponibilidad\', \'todos\')">Incluir agotados</button>' : ''}
         <a class="btn btn-ghost btn-sm" href="${SITE_ROOT}decants/${busqueda ? `?q=${encodeURIComponent(busqueda)}` : ''}">Buscar en decants</a>
-        <a class="btn btn-whatsapp btn-sm" href="${enlaceWhatsappConsolidado(busqueda)}" target="_blank" rel="noopener">Pedirlo por consolidado</a>
+        ${CONSOLIDADOS_ACTIVOS ? `<a class="btn btn-primary btn-sm" href="${SITE_ROOT}catalogo-consolidado/${busqueda ? `?busqueda=${encodeURIComponent(busqueda)}` : ''}">${ICONS.plane} Buscar en el consolidado</a>` : ''}
+        <a class="btn btn-whatsapp btn-sm" href="${enlaceWhatsappConsolidado(busqueda)}" target="_blank" rel="noopener">${CONSOLIDADOS_ACTIVOS ? 'Cotizar por WhatsApp' : 'Pedirlo por consolidado'}</a>
       </div>
     </div>`;
 }
