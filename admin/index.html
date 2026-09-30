@@ -367,17 +367,31 @@
         </div>
         <div class="admin-tabs" id="contabilidad-tabs">
           <button class="admin-tab active" data-vista="resumen">Resumen</button>
+          <button class="admin-tab" data-vista="cobrar">Por cobrar <span class="count" id="conta-count-cobrar"></span></button>
+          <button class="admin-tab" data-vista="caja">Caja del día</button>
           <button class="admin-tab" data-vista="ventas">Ventas</button>
           <button class="admin-tab" data-vista="gastos">Gastos</button>
           <button class="admin-tab" data-vista="consolidados" data-consolidado hidden>Consolidados</button>
         </div>
 
         <div id="contabilidad-vista-resumen"><div class="admin-empty">Cargando…</div></div>
+        <div id="contabilidad-vista-cobrar" hidden><div class="admin-empty">Cargando…</div></div>
+        <div id="contabilidad-vista-caja" hidden>
+          <div class="admin-toolbar caja-toolbar">
+            <button type="button" class="btn btn-ghost btn-sm" id="caja-dia-anterior" aria-label="Día anterior">&lsaquo;</button>
+            <input type="date" id="caja-fecha" aria-label="Día" />
+            <button type="button" class="btn btn-ghost btn-sm" id="caja-dia-siguiente" aria-label="Día siguiente">&rsaquo;</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="caja-hoy">Hoy</button>
+            <button type="button" class="btn btn-outline btn-sm" id="caja-imprimir" style="margin-left:auto;">Imprimir cierre de caja</button>
+          </div>
+          <div id="caja-contenido"><div class="admin-empty">Cargando…</div></div>
+        </div>
         <div id="contabilidad-vista-ventas" hidden><div class="admin-empty">Cargando…</div></div>
 
         <div id="contabilidad-vista-gastos" hidden>
           <form id="form-gasto" class="form-card gasto-form">
-            <h3 style="font-size:0.95rem; margin-bottom:14px;">Registrar gasto</h3>
+            <input type="hidden" name="id" />
+            <h3 style="font-size:0.95rem; margin-bottom:14px;" id="gasto-form-titulo">Registrar gasto</h3>
             <div class="form-row-3">
               <div class="form-group"><label>Fecha</label><input type="date" name="fecha" required /></div>
               <div class="form-group"><label>Categoría</label><select name="categoria" id="gasto-categoria"></select></div>
@@ -389,7 +403,20 @@
                 <select name="metodo_pago"><option value="">—</option><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option><option value="Plin">Plin</option><option value="Transferencia_Bancaria">Transferencia</option><option value="Tarjeta">Tarjeta</option></select>
               </div>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm">Guardar gasto</button>
+            <div class="form-row">
+              <div class="form-group"><label>Proveedor (opcional)</label><input type="text" name="proveedor" maxlength="120" list="lista-proveedores" placeholder="A quién se le pagó" /></div>
+              <div class="form-group"><label>Comprobante (opcional)</label>
+                <div class="publi-subir">
+                  <label class="btn btn-ghost btn-sm publi-subir-btn"><input type="file" id="gasto-comprobante" accept="image/*,application/pdf" hidden /> Foto o PDF</label>
+                  <span class="form-hint" id="gasto-comprobante-nombre" style="margin:0;">Boleta, factura o captura del pago</span>
+                </div>
+              </div>
+            </div>
+            <datalist id="lista-proveedores"></datalist>
+            <div class="row-actions">
+              <button type="submit" class="btn btn-primary btn-sm" id="btn-guardar-gasto">Guardar gasto</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="btn-cancelar-edicion-gasto" hidden>Cancelar edición</button>
+            </div>
           </form>
           <div id="gastos-contenido"><div class="admin-empty">Cargando…</div></div>
         </div>
@@ -880,15 +907,46 @@
       <h3>Ingreso de mercadería</h3>
       <p class="form-hint" style="margin:-8px 0 16px;">Suma frascos <strong>cerrados</strong> al stock de la tienda. Busca cada perfume, pon cuántos llegaron y, si cambió, su precio de venta. Se guarda todo junto.</p>
       <form id="form-ingreso">
-        <div class="ingreso-cabecera"><span>Perfume</span><span>Cantidad</span><span>Nuevo precio (opcional)</span><span></span></div>
+        <div class="ingreso-cabecera"><span>Perfume</span><span>Cantidad</span><span>Costo c/u (S/)</span><span>Nuevo precio venta</span><span></span></div>
         <div id="ingreso-filas"></div>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-ingreso-fila">+ Otro perfume</button>
         <p class="form-hint" style="margin:10px 0 0;">¿Un perfume no aparece? Primero créalo en <button type="button" class="btn-link-inline" id="btn-ingreso-crear">Productos → + Agregar Perfume</button> (ahí mismo puedes poner su stock).</p>
-        <div class="form-group" style="margin-top:16px;"><label>Nota (opcional)</label><input type="text" name="nota" maxlength="200" placeholder="Ej: proveedor, N° de guía o factura" /></div>
+        <div class="form-group" style="margin-top:16px;"><label>Nota (opcional)</label><input type="text" name="nota" maxlength="200" placeholder="Ej: N° de guía o factura" /></div>
+        <div class="ingreso-compra" id="ingreso-compra">
+          <label class="filter-option"><input type="checkbox" name="registrar_gasto" id="ingreso-registrar-gasto" /> Registrar esta compra como gasto de <strong>Mercadería</strong> en Contabilidad</label>
+          <div class="form-row" id="ingreso-compra-datos" hidden>
+            <div class="form-group"><label>Pagado con</label>
+              <select name="compra_metodo"><option value="">—</option><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option><option value="Plin">Plin</option><option value="Transferencia_Bancaria">Transferencia</option><option value="Tarjeta">Tarjeta</option></select>
+            </div>
+            <div class="form-group"><label>Proveedor</label><input type="text" name="compra_proveedor" maxlength="120" list="lista-proveedores" placeholder="Opcional" /></div>
+          </div>
+          <p class="form-hint" style="margin:6px 0 0;">Con el costo, el sistema calcula el costo promedio de cada perfume y la ganancia real de cada venta.</p>
+        </div>
         <div class="ingreso-resumen" id="ingreso-resumen"></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="btn-cancelar-ingreso">Cancelar</button>
           <button type="submit" class="btn btn-primary" id="btn-guardar-ingreso">Guardar ingreso</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Modal: Registrar un cobro (Por cobrar) ─────────────── -->
+  <div class="modal-overlay" id="modal-cobro">
+    <div class="modal-box">
+      <h3>Registrar pago</h3>
+      <form id="form-cobro">
+        <input type="hidden" name="id_pedido" />
+        <div class="form-hint" id="cobro-info" style="margin:-8px 0 16px;"></div>
+        <div class="form-row">
+          <div class="form-group"><label>Monto (S/)</label><input type="number" name="monto" min="0.01" step="0.01" required /></div>
+          <div class="form-group"><label>Método</label>
+            <select name="metodo_pago" required><option value="Yape">Yape</option><option value="Plin">Plin</option><option value="Efectivo">Efectivo</option><option value="Transferencia_Bancaria">Transferencia</option><option value="Tarjeta">Tarjeta</option></select>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="btn-cancelar-cobro">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Registrar pago</button>
         </div>
       </form>
     </div>

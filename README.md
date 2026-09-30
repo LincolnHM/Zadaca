@@ -4,6 +4,29 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## Contabilidad con ganancia real (30 sep 2026)
+
+**SQL:** `supabase/migrations/0022_contabilidad_costos_compras.sql` (Supabase → SQL Editor → Run).
+Sin esa migración el panel sigue funcionando, pero sin guardar el costo de cada venta ni el
+proveedor/comprobante de los gastos.
+
+- **Costo de cada venta**: cada línea vendida guarda su costo del momento. Un decant toma el costo
+  por ml de su perfume entero. Al cargar el costo de un perfume por primera vez, sus ventas pasadas
+  sin costo se completan solas.
+- **Resumen**: ventas → costo de lo vendido → ganancia bruta → gastos del negocio → **ganancia
+  neta**. Las compras de mercadería no se restan dos veces: van por el costo. Aparte muestra la
+  **caja** (entró / salió / neto por Yape, Plin, efectivo…) y avisa cuánto de lo vendido todavía
+  no tiene costo cargado.
+- **Por cobrar**: todos los pedidos con saldo, con registrar pago, recordatorio por WhatsApp y
+  filtros de más de 7 y 30 días. También se abre desde el Dashboard.
+- **Caja del día**: cobros y gastos de un día por método de pago, e impresión del cierre de caja.
+- **Gastos**: proveedor, foto o PDF del comprobante (guardado privado), editar, "Repetir" (para
+  gastos fijos como alquiler o sueldos) y filtro por categoría.
+- **Ingreso de mercadería** con costo por unidad: actualiza el **costo promedio** y registra la
+  compra como gasto de Mercadería en el mismo paso.
+- **Productos**: casilla de **Costo** en la lista, con la ganancia por frasco a la vista, y el
+  filtro "Sin costo cargado".
+
 ## Panel: Inventario y Productos más simples (28 sep 2026)
 
 Solo cambia el panel (no hay SQL nuevo).

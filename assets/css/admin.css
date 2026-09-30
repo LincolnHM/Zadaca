@@ -394,6 +394,8 @@ body.admin-body { min-height: 100vh; }
 .publi-fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin: 6px 0 10px; }
 .publi-foto { position: relative; aspect-ratio: 4 / 5; border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; background: var(--color-bg-alt); }
 .publi-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.publi-foto-aviso { display: none; position: absolute; inset: 0; padding: 10px; align-items: center; justify-content: center; text-align: center; font-size: 0.72rem; color: #7a5200; background: #fff3cd; }
+.publi-foto-error .publi-foto-aviso { display: flex; }
 .publi-portada { position: absolute; top: 6px; left: 6px; background: var(--color-red); color: #fff; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 20px; }
 .publi-foto-acciones { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; background: rgba(10, 8, 6, 0.6); }
 .publi-foto-acciones button { flex: 1; background: none; border: none; color: #fff; font-size: 1.1rem; padding: 4px 0; cursor: pointer; }
@@ -584,4 +586,63 @@ input.guardado { border-color: var(--color-success) !important; box-shadow: 0 0 
   .conteo-barra > span { flex: 1 1 100%; font-size: 0.82rem; }
   .conteo-barra .row-actions { width: 100%; flex-wrap: nowrap; }
   .conteo-barra .row-actions .btn { flex: 1; padding: 10px 8px; }
+}
+
+/* ==========================================================
+   Contabilidad: ganancia real, caja, por cobrar (sep 2026)
+   ========================================================== */
+.conta-kpis { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 760px) { .conta-kpis { grid-template-columns: 1fr 1fr; gap: 10px; } .conta-kpis .stat-card { padding: 12px 14px; } .conta-kpis .stat-value { font-size: 1.2rem; } }
+.stat-destacado { border-color: var(--color-success); background: rgba(79, 140, 88, 0.06); }
+.stat-destacado .stat-value { color: var(--color-success); }
+.stat-destacado.warn { border-color: var(--color-danger); background: rgba(176, 71, 58, 0.05); }
+.stat-destacado.warn .stat-value { color: var(--color-danger); }
+.conta-aviso { background: #fff8ea; border: 1px solid #f0d9a8; color: #6b4b00; border-radius: var(--radius); padding: 12px 14px; font-size: 0.82rem; margin: -12px 0 20px; line-height: 1.5; }
+
+/* Estado de resultados en palabras simples */
+.resultado-fila { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--color-border); font-size: 0.86rem; color: var(--color-text-muted); }
+.resultado-fila strong { color: var(--color-text); white-space: nowrap; }
+.resultado-fila.resta strong { color: var(--color-text-muted); font-weight: 600; }
+.resultado-fila.subtotal { font-weight: 600; color: var(--color-text); }
+.resultado-fila.detalle { padding: 3px 0 3px 16px; border-top: none; font-size: 0.78rem; color: var(--color-text-faint); }
+.resultado-fila.total { border-top: 2px solid var(--color-text); font-size: 0.98rem; font-weight: 700; color: var(--color-text); margin-top: 4px; }
+.resultado-fila.total strong { color: var(--color-success); font-size: 1.1rem; }
+.resultado-fila.total.negativo strong { color: var(--color-danger); }
+.caja-tabla { min-width: 0 !important; }
+.caja-tabla td, .caja-tabla th { padding: 8px 12px; }
+.caja-tabla tfoot td { font-weight: 700; color: var(--color-text); border-top: 2px solid var(--color-border); padding: 8px 12px; }
+
+/* Caja del día */
+.caja-toolbar input[type="date"] { background: var(--color-bg-card); border: 1px solid var(--color-border); color: var(--color-text); padding: 9px 12px; border-radius: var(--radius); font-size: 0.85rem; }
+.caja-fecha-texto { font-family: var(--font-heading); font-size: 1.1rem; color: var(--color-text); margin: -6px 0 16px; }
+
+/* Ingreso de mercadería con costo */
+.ingreso-cabecera, .ingreso-fila { grid-template-columns: minmax(0, 1fr) 76px 100px 110px 38px; }
+.ingreso-compra { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; font-size: 0.84rem; }
+.ingreso-compra .form-row { margin-top: 10px; }
+@media (max-width: 640px) {
+  .ingreso-fila { grid-template-columns: 1fr 1fr 1fr 38px; }
+}
+
+/* Productos: costo y ganancia por frasco (etiqueta arriba de cada casilla para no quitarle
+   ancho al nombre del perfume) */
+.tabla-productos td[data-label="Precio (S/)"] { min-width: 290px; }
+.tabla-productos .precio-campo { flex-direction: column; align-items: flex-start; gap: 2px; }
+.prod-ganancia { margin-top: 4px; }
+
+/* Por cobrar y gastos en celular: tarjetas */
+@media (max-width: 760px) {
+  .tabla-cobrar, .tabla-gastos { min-width: 0 !important; }
+  .tabla-cobrar thead, .tabla-gastos thead { display: none; }
+  .tabla-cobrar tbody tr, .tabla-gastos tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 14px; border-bottom: 1px solid var(--color-border); }
+  .tabla-cobrar td, .tabla-gastos td { display: block; padding: 0; border: none; text-align: left !important; }
+  .tabla-cobrar td[data-label]::before, .tabla-gastos td[data-label]::before { content: attr(data-label); display: block; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-faint); margin-bottom: 2px; }
+  .tabla-cobrar td.acciones, .tabla-gastos td.acciones, .tabla-gastos td[data-label="Descripción"] { grid-column: 1 / -1; }
+  .tabla-cobrar .row-actions, .tabla-gastos .row-actions { flex-wrap: wrap; }
+  .tabla-productos td[data-label="Precio (S/)"] { min-width: 0; }
+  .caja-toolbar #caja-imprimir { margin-left: 0 !important; flex-basis: 100%; }
+  #contabilidad-vista-cobrar .stat-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  #contabilidad-vista-cobrar .stat-card, #caja-contenido .stat-card { padding: 10px 12px; }
+  #contabilidad-vista-cobrar .stat-value, #caja-contenido .stat-value { font-size: 1.05rem; }
+  #caja-contenido .stat-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
 }

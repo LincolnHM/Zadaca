@@ -192,8 +192,9 @@ async function cargarDashboard() {
     `;
 
     secundariasMount.innerHTML = `
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(s.cobradoHoy)}</div><div class="stat-label">Cobrado hoy</div></div>
+      <button type="button" class="stat-card stat-click ${s.porCobrar ? 'warn' : ''}" id="dashboard-por-cobrar"><div class="stat-value">${formatoMoneda(s.porCobrar)}</div><div class="stat-label">Por cobrar · ${s.pedidosConSaldo} pedido${s.pedidosConSaldo === 1 ? '' : 's'}</div></button>
       <div class="stat-card"><div class="stat-value">${s.totalPedidos}</div><div class="stat-label">Pedidos Tienda</div></div>
-      <div class="stat-card"><div class="stat-value">${formatoMoneda(s.ingresos)}</div><div class="stat-label">Ingresos Cobrados</div></div>
       <div class="stat-card ${s.pedidosPorDespachar ? 'warn' : ''}"><div class="stat-value">${s.pedidosPorDespachar}</div><div class="stat-label">Pedidos por Despachar</div></div>
       ${CONSOLIDADOS_EN_ADMIN ? `
       <div class="stat-card"><div class="stat-value">${s.consolidadosAbiertos}</div><div class="stat-label">Consolidados Abiertos</div></div>
@@ -202,6 +203,10 @@ async function cargarDashboard() {
       <div class="stat-card ${s.resenasPendientes ? 'warn' : ''}"><div class="stat-value">${s.resenasPendientes}</div><div class="stat-label">Reseñas por Moderar</div></div>
       <div class="stat-card ${s.productosSinMargen ? 'warn' : ''}"><div class="stat-value">${s.productosSinMargen}</div><div class="stat-label">Productos sin Margen Aplicado</div></div>
     `;
+    document.getElementById('dashboard-por-cobrar')?.addEventListener('click', () => {
+      irASeccion('contabilidad');
+      cambiarVistaConta('cobrar');
+    });
   } catch (err) {
     kpiMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
     secundariasMount.innerHTML = '';
@@ -403,6 +408,7 @@ const CHIPS_PRODUCTOS = [
   { id: 'ocultos', label: 'Ocultos en la web', f: (p) => !p.activo },
   { id: 'ocultos-con-stock', label: 'Con stock pero ocultos', f: (p) => !p.activo && tieneStockProducto(p), alerta: true },
   { id: 'sin-foto', label: 'Sin foto', f: (p) => !p.imagen_url && p.activo, alerta: true },
+  { id: 'sin-costo', label: 'Sin costo cargado', f: (p) => tipoProducto(p) === 'tienda' && p.costo_importacion_pen == null },
   { id: 'liquidacion', label: 'En liquidación', f: (p) => p.es_liquidacion, soloSiHay: true },
   { id: 'nuevos', label: 'Marcados Nuevo', f: (p) => p.es_nuevo, soloSiHay: true },
 ];
@@ -563,9 +569,18 @@ function htmlPreciosProducto(p, tipo) {
   return `<div class="prod-precios">
       ${inputPrecio('precio_tienda_regular', Number(p.precio_tienda_regular), 'Tienda')}
       ${CONSOLIDADOS_EN_ADMIN ? inputPrecio('precio_consolidado_fijo', Number(p.precio_consolidado_fijo), 'Consolidado') : ''}
+      ${inputPrecio('costo_importacion_pen', p.costo_importacion_pen == null ? null : Number(p.costo_importacion_pen), 'Costo', { opcional: true })}
     </div>
+    <div class="celda-sub prod-ganancia">${htmlGananciaProducto(p)}</div>
     ${descuento > 0 ? `<div class="celda-sub">−${descuento}% en tienda → ${formatoMoneda(precioFinal(p.precio_tienda_regular, descuento))}</div>` : ''}
     ${p.es_liquidacion && p.precio_liquidacion ? `<div class="celda-sub">Liquidación: ${formatoMoneda(p.precio_liquidacion)}</div>` : ''}`;
+}
+
+// Ganancia por frasco vendido en tienda (precio final − costo), para ver de un vistazo qué deja.
+function htmlGananciaProducto(p) {
+  if (p.costo_importacion_pen == null) return 'Sin costo: carga cuánto te cuesta para ver la ganancia';
+  const ganancia = precioVentaTienda(p) - Number(p.costo_importacion_pen);
+  return `Ganas <strong class="${ganancia < 0 ? 'texto-alerta' : ''}">${formatoMoneda(ganancia)}</strong> por frasco (${porcentaje(ganancia, precioVentaTienda(p))})`;
 }
 
 function htmlStockProducto(p, tipo) {
@@ -616,6 +631,19 @@ async function manejarCambioProducto(e) {
   const original = p[campo] == null ? '' : Number(p[campo]);
   const revertir = (mensaje) => { input.value = original; if (mensaje) mostrarToast(mensaje, 'error'); };
   const valor = input.value === '' ? null : Number(input.value);
+  if (campo === 'costo_importacion_pen') {
+    if (valor != null && !(valor >= 0)) return revertir('El costo no puede ser negativo');
+    try {
+      await actualizarProducto(p.id, { costo_importacion_pen: valor });
+      p.costo_importacion_pen = valor;
+      input.closest('tr').querySelector('.prod-ganancia').innerHTML = htmlGananciaProducto(p);
+      marcarGuardado(input);
+      mostrarToast(valor == null ? `${p.nombre}: costo borrado` : `${p.nombre}: costo guardado (sus ventas sin costo se completaron)`);
+    } catch (err) {
+      revertir(err.message);
+    }
+    return;
+  }
   if (valor != null && !(valor > 0)) return revertir('El precio debe ser mayor a 0');
   const cambios = { margen_aplicado: true };
 
@@ -649,6 +677,8 @@ async function manejarCambioProducto(e) {
     const otro = fila.querySelector('[data-campo="precio_consolidado_fijo"]');
     if (otro && otro !== input && cambios.precio_consolidado_fijo != null) otro.value = cambios.precio_consolidado_fijo;
     marcarGuardado(input);
+    const ganancia = fila.querySelector('.prod-ganancia');
+    if (ganancia) ganancia.innerHTML = htmlGananciaProducto(p);
     mostrarToast(`${p.nombre}: precio guardado`);
   } catch (err) {
     revertir(err.message);
@@ -2290,6 +2320,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('form-vincular')?.addEventListener('submit', guardarVinculo);
 
   document.getElementById('btn-ingreso-mercaderia')?.addEventListener('click', abrirModalIngreso);
+  document.getElementById('ingreso-registrar-gasto')?.addEventListener('change', (e) => { e.target.dataset.tocado = '1'; actualizarResumenIngreso(); });
   document.getElementById('btn-dashboard-stock-bajo')?.addEventListener('click', () => abrirInventarioBuscando('', 'bajo'));
   document.getElementById('btn-ingreso-fila')?.addEventListener('click', () => agregarFilaIngreso(true));
   document.getElementById('btn-cancelar-ingreso')?.addEventListener('click', () => cerrarModal('modal-ingreso'));
@@ -2594,6 +2625,9 @@ async function abrirModalIngreso() {
     agregarFilaIngreso(false);
     agregarFilaIngreso(false);
     agregarFilaIngreso(false);
+    const chk = document.getElementById('ingreso-registrar-gasto');
+    chk.checked = false;
+    delete chk.dataset.tocado;
     INGRESO_LIMPIAR = false;
   }
   actualizarResumenIngreso();
@@ -2616,6 +2650,7 @@ function agregarFilaIngreso(enfocar) {
       <div class="ingreso-info celda-sub"></div>
     </div>
     <input type="number" class="ingreso-cantidad" min="1" step="1" inputmode="numeric" placeholder="0" aria-label="Cantidad que llegó" />
+    <input type="number" class="ingreso-costo" min="0" step="0.01" inputmode="decimal" placeholder="—" aria-label="Costo por unidad (cuánto te costó cada frasco)" />
     <input type="number" class="ingreso-precio" min="0.01" step="0.01" inputmode="decimal" placeholder="Igual" aria-label="Nuevo precio de venta (opcional)" />
     <button type="button" class="btn btn-ghost btn-sm ingreso-quitar" aria-label="Quitar fila">&times;</button>
     <label class="ingreso-publicar" hidden><input type="checkbox" class="ingreso-chk-publicar" /> Publicar en la web (ahora está oculto)</label>
@@ -2675,8 +2710,9 @@ function elegirProductoIngreso(fila, id) {
   fila.dataset.id = String(id);
   fila.querySelector('.ingreso-producto').value = `${p.marca} — ${p.nombre} (${p.mililitros} ml)`;
   fila.querySelector('.autocomplete-list').hidden = true;
-  fila.querySelector('.ingreso-info').textContent = `Ahora: ${p.cerrados} cerrado${p.cerrados === 1 ? '' : 's'} · precio ${formatoMoneda(precioVentaTienda(p))}`;
+  fila.querySelector('.ingreso-info').textContent = `Ahora: ${p.cerrados} cerrado${p.cerrados === 1 ? '' : 's'} · precio ${formatoMoneda(precioVentaTienda(p))}${p.costo_importacion_pen != null ? ` · costo ${formatoMoneda(p.costo_importacion_pen)}` : ' · sin costo'}`;
   fila.querySelector('.ingreso-precio').placeholder = String(Number(p.precio_tienda_regular));
+  fila.querySelector('.ingreso-costo').placeholder = p.costo_importacion_pen != null ? String(Number(p.costo_importacion_pen)) : '—';
   const publicar = fila.querySelector('.ingreso-publicar');
   publicar.hidden = p.activo && p.estado !== 'Bajo_Pedido';
   publicar.querySelector('input').checked = false;
@@ -2690,6 +2726,7 @@ function leerFilasIngreso() {
     id: fila.dataset.id ? Number(fila.dataset.id) : null,
     texto: fila.querySelector('.ingreso-producto').value.trim(),
     cantidad: fila.querySelector('.ingreso-cantidad').value === '' ? null : Number(fila.querySelector('.ingreso-cantidad').value),
+    costo: fila.querySelector('.ingreso-costo').value === '' ? null : Number(fila.querySelector('.ingreso-costo').value),
     precio: fila.querySelector('.ingreso-precio').value === '' ? null : Number(fila.querySelector('.ingreso-precio').value),
     publicar: !fila.querySelector('.ingreso-publicar').hidden && fila.querySelector('.ingreso-chk-publicar').checked,
   }));
@@ -2698,8 +2735,15 @@ function leerFilasIngreso() {
 function actualizarResumenIngreso() {
   const validas = leerFilasIngreso().filter((f) => f.id && f.cantidad > 0);
   const frascos = validas.reduce((acc, f) => acc + f.cantidad, 0);
+  const compra = validas.reduce((acc, f) => acc + (f.costo != null && f.costo >= 0 ? f.cantidad * f.costo : 0), 0);
+  const perfumes = new Set(validas.map((f) => f.id)).size;
+  // Apenas se escribe algún costo, se marca sola la opción de registrar la compra (si el admin no
+  // la tocó a mano).
+  const chk = document.getElementById('ingreso-registrar-gasto');
+  if (chk && !chk.dataset.tocado) chk.checked = compra > 0;
+  document.getElementById('ingreso-compra-datos').hidden = !chk?.checked;
   document.getElementById('ingreso-resumen').innerHTML = validas.length
-    ? `Se van a sumar <strong>${frascos} frasco${frascos === 1 ? '' : 's'}</strong> en <strong>${new Set(validas.map((f) => f.id)).size} perfume${validas.length === 1 ? '' : 's'}</strong>.`
+    ? `Se van a sumar <strong>${frascos} frasco${frascos === 1 ? '' : 's'}</strong> en <strong>${perfumes} perfume${perfumes === 1 ? '' : 's'}</strong>.${compra ? ` Total de la compra: <strong>${formatoMoneda(compra)}</strong>${chk?.checked ? ' (se registra como gasto de Mercadería)' : ''}.` : ''}`
     : 'Elige un perfume y escribe la cantidad que llegó. Tip: Enter en la cantidad pasa al siguiente.';
 }
 
@@ -2713,16 +2757,52 @@ async function guardarIngreso(e) {
     if (!f.id) { f.fila.classList.add('con-error'); return mostrarToast(`"${f.texto || 'Fila sin perfume'}": elige el perfume de la lista`, 'error'); }
     if (!(f.cantidad > 0) || !Number.isInteger(f.cantidad)) { f.fila.classList.add('con-error'); return mostrarToast('Revisa las cantidades: deben ser números enteros mayores a 0', 'error'); }
     if (f.precio != null && !(f.precio > 0)) { f.fila.classList.add('con-error'); return mostrarToast('Revisa los precios: deben ser mayores a 0', 'error'); }
+    if (f.costo != null && !(f.costo >= 0)) { f.fila.classList.add('con-error'); return mostrarToast('Revisa los costos: no pueden ser negativos', 'error'); }
   }
   // El mismo perfume en dos filas se suma en una sola.
   const porId = new Map();
   filas.forEach((f) => {
     const previo = porId.get(f.id);
-    if (previo) { previo.cantidad += f.cantidad; previo.precio = f.precio ?? previo.precio; previo.publicar = previo.publicar || f.publicar; previo.filas.push(f.fila); }
+    if (previo) {
+      // Mismo perfume en dos filas: se suman y el costo queda como promedio de ambas.
+      if (f.costo != null || previo.costo != null) {
+        const c1 = previo.costo ?? f.costo;
+        const c2 = f.costo ?? previo.costo;
+        previo.costo = Math.round(((previo.cantidad * c1) + (f.cantidad * c2)) / (previo.cantidad + f.cantidad) * 100) / 100;
+      }
+      previo.cantidad += f.cantidad;
+      previo.precio = f.precio ?? previo.precio;
+      previo.publicar = previo.publicar || f.publicar;
+      previo.filas.push(f.fila);
+    }
     else porId.set(f.id, { ...f, filas: [f.fila] });
   });
   const boton = document.getElementById('btn-guardar-ingreso');
+  const registrarGasto = document.getElementById('ingreso-registrar-gasto').checked;
+  const form = e.target;
   boton.disabled = true;
+  boton.textContent = 'Guardando…';
+  try {
+    const items = [...porId.values()].map((it) => ({ id_producto: it.id, cantidad: it.cantidad, costo_unitario: it.costo, precio_venta: it.precio, publicar: it.publicar }));
+    const gasto = registrarGasto ? { fecha: fechaInputHoy(), metodo_pago: form.compra_metodo.value || null, proveedor: form.compra_proveedor.value.trim() || null } : null;
+    const { totalCompra } = await registrarIngresoMercaderia(items, nota, gasto);
+    const frascosTotal = items.reduce((acc, it) => acc + it.cantidad, 0);
+    mostrarToast(`Ingreso guardado: ${frascosTotal} frasco${frascosTotal === 1 ? '' : 's'} en ${items.length} perfume${items.length === 1 ? '' : 's'}${gasto && totalCompra ? ` · gasto de ${formatoMoneda(totalCompra)} registrado` : ''}`);
+    INGRESO_LIMPIAR = true;
+    cerrarModal('modal-ingreso');
+    boton.disabled = false;
+    boton.textContent = 'Guardar ingreso';
+    await cargarInventario();
+    actualizarBadgesNav();
+    return;
+  } catch (err) {
+    if (!err.faltaMigracion) {
+      boton.disabled = false;
+      boton.textContent = 'Guardar ingreso';
+      return mostrarToast(err.message, 'error');
+    }
+    mostrarToast('Para guardar costos y el gasto de la compra falta correr la migración 0022 en Supabase. Se guardan solo las cantidades y precios.', 'error');
+  }
   let hechos = 0;
   let frascos = 0;
   for (const item of porId.values()) {
@@ -3333,12 +3413,19 @@ async function cargarPerfumesSoloConsolidado() {
 
 /* ================= CONTABILIDAD ================= */
 
-// Tres cifras distintas, para no mezclarlas:
-//  - Ventas: lo que se vendió (monto de los pedidos no anulados, del día en que se hizo el pedido).
-//  - Cobrado: la plata que entró (pagos aprobados, del día en que se pagaron) -- es lo que se
-//    compara contra los gastos para la utilidad de caja.
-//  - Por cobrar: saldo pendiente de los pedidos del período.
+// Cómo se calcula (lo mismo que se le explica al admin en pantalla):
+//  - Ventas: lo que se vendió (pedidos no anulados, del día en que se hicieron).
+//  - Costo de lo vendido: lo que costó la mercadería de esas ventas (costo guardado en cada
+//    venta, ver migración 0022). Las ventas sin costo cargado no entran en la ganancia (se
+//    avisa cuánto falta).
+//  - Ganancia bruta = ventas con costo − su costo.
+//  - Gastos del negocio: todos los gastos MENOS las compras de mercadería (esa plata ya está en
+//    el costo de lo vendido; contarla dos veces achicaría la ganancia).
+//  - Ganancia neta = ganancia bruta − gastos del negocio.
+//  - Caja: lo que entró (pagos cobrados) y lo que salió (todos los gastos pagados), por método.
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const VISTAS_CONTA = ['resumen', 'cobrar', 'caja', 'ventas', 'gastos', 'consolidados'];
+const CATEGORIA_MERCADERIA = 'Mercadería';
 let CONTA_DATOS = null;
 let CONTA_ANIO_CARGADO = null;
 let contaVista = 'resumen';
@@ -3347,20 +3434,37 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('contabilidad-anio')?.addEventListener('change', () => cargarContabilidad());
   document.getElementById('contabilidad-mes')?.addEventListener('change', () => renderVistaContabilidad());
   document.querySelectorAll('#contabilidad-tabs .admin-tab').forEach((tab) => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('#contabilidad-tabs .admin-tab').forEach((b) => b.classList.toggle('active', b === tab));
-      contaVista = tab.dataset.vista;
-      ['resumen', 'ventas', 'gastos', 'consolidados'].forEach((v) => {
-        document.getElementById(`contabilidad-vista-${v}`).hidden = v !== contaVista;
-      });
-      if (contaVista === 'consolidados') cargarContabilidadConsolidados();
-      else renderVistaContabilidad();
-    });
+    tab.addEventListener('click', () => cambiarVistaConta(tab.dataset.vista));
   });
   const categoria = document.getElementById('gasto-categoria');
   if (categoria) categoria.innerHTML = CATEGORIAS_GASTO.map((c) => `<option value="${c}">${c}</option>`).join('');
   document.getElementById('form-gasto')?.addEventListener('submit', guardarGasto);
+  document.getElementById('btn-cancelar-edicion-gasto')?.addEventListener('click', () => limpiarFormularioGasto());
+  document.getElementById('gasto-comprobante')?.addEventListener('change', (e) => {
+    document.getElementById('gasto-comprobante-nombre').textContent = e.target.files[0]?.name || 'Boleta, factura o captura del pago';
+  });
+  document.getElementById('gastos-contenido')?.addEventListener('click', manejarClickGastos);
+
+  document.getElementById('caja-fecha')?.addEventListener('change', (e) => { if (e.target.value) { CAJA_FECHA = e.target.value; cargarCaja(); } });
+  document.getElementById('caja-dia-anterior')?.addEventListener('click', () => moverDiaCaja(-1));
+  document.getElementById('caja-dia-siguiente')?.addEventListener('click', () => moverDiaCaja(1));
+  document.getElementById('caja-hoy')?.addEventListener('click', () => { CAJA_FECHA = fechaInputHoy(); cargarCaja(); });
+  document.getElementById('caja-imprimir')?.addEventListener('click', imprimirCierreCaja);
+
+  document.getElementById('contabilidad-vista-cobrar')?.addEventListener('click', manejarClickPorCobrar);
+  document.getElementById('btn-cancelar-cobro')?.addEventListener('click', () => cerrarModal('modal-cobro'));
+  document.getElementById('form-cobro')?.addEventListener('submit', guardarCobro);
 });
+
+function cambiarVistaConta(vista) {
+  contaVista = vista;
+  document.querySelectorAll('#contabilidad-tabs .admin-tab').forEach((b) => b.classList.toggle('active', b.dataset.vista === vista));
+  VISTAS_CONTA.forEach((v) => { document.getElementById(`contabilidad-vista-${v}`).hidden = v !== vista; });
+  if (vista === 'consolidados') cargarContabilidadConsolidados();
+  else if (vista === 'cobrar') cargarPorCobrar();
+  else if (vista === 'caja') cargarCaja();
+  else renderVistaContabilidad();
+}
 
 async function cargarContabilidad() {
   const selAnio = document.getElementById('contabilidad-anio');
@@ -3374,10 +3478,13 @@ async function cargarContabilidad() {
   const anio = Number(selAnio.value) || anioActual;
   const mount = document.getElementById('contabilidad-vista-resumen');
   if (CONTA_ANIO_CARGADO !== anio) mount.innerHTML = '<div class="admin-empty">Cargando…</div>';
+  actualizarContadorPorCobrar();
   try {
     CONTA_DATOS = await obtenerDatosContabilidad(anio);
     CONTA_ANIO_CARGADO = anio;
     if (contaVista === 'consolidados') cargarContabilidadConsolidados();
+    else if (contaVista === 'cobrar') cargarPorCobrar();
+    else if (contaVista === 'caja') cargarCaja();
     else renderVistaContabilidad();
   } catch (err) {
     mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
@@ -3398,6 +3505,20 @@ function enPeriodo(fecha, mes) {
   return fecha && (mes == null || fecha.getMonth() === mes);
 }
 
+// Costo de una línea vendida: el guardado en la venta (migración 0022). Sin esa migración, el
+// costo actual del perfume entero. null = no se sabe.
+function costoLineaVenta(i) {
+  if (i.costo_unitario != null) return Number(i.costo_unitario) * i.cantidad;
+  if ('costo_unitario' in i) return null;
+  const prod = i.perfumes;
+  if (prod && !prod.es_decant && prod.costo_importacion_pen != null) return Number(prod.costo_importacion_pen) * i.cantidad;
+  return null;
+}
+
+function porcentaje(parte, total) {
+  return total ? `${Math.round((parte / total) * 100)}%` : '—';
+}
+
 // Todo el cálculo de un período (mes o año) a partir de CONTA_DATOS.
 function calcularPeriodoConta(mes) {
   const { pedidos, pagos, gastos } = CONTA_DATOS;
@@ -3411,29 +3532,44 @@ function calcularPeriodoConta(mes) {
   const cobrado = pagosPeriodo.reduce((acc, pg) => acc + Number(pg.monto), 0);
   const porCobrar = activos.reduce((acc, p) => acc + Number(p.monto_saldo_pendiente), 0);
   const totalGastos = gastosPeriodo.reduce((acc, g) => acc + Number(g.monto), 0);
+  const comprasMercaderia = gastosPeriodo.filter((g) => g.categoria === CATEGORIA_MERCADERIA).reduce((acc, g) => acc + Number(g.monto), 0);
+  const gastosNegocio = totalGastos - comprasMercaderia;
 
-  let ventasEnteros = 0;
-  let ventasDecants = 0;
-  let costoEnteros = 0;
-  let ventasEnterosConCosto = 0;
+  const tipos = {
+    enteros: { ventas: 0, ventasConCosto: 0, costo: 0 },
+    decants: { ventas: 0, ventasConCosto: 0, costo: 0 },
+    libres: { ventas: 0, ventasConCosto: 0, costo: 0 },
+  };
+  const sinCosto = new Map();
   const porProducto = new Map();
   activos.forEach((p) => (p.detalle_pedido || []).forEach((i) => {
-    const prod = i.perfumes || {};
+    const prod = i.perfumes || null;
     const subtotal = Number(i.subtotal || 0);
-    if (prod.es_decant) ventasDecants += subtotal;
-    else {
-      ventasEnteros += subtotal;
-      if (prod.costo_importacion_pen) {
-        costoEnteros += Number(prod.costo_importacion_pen) * i.cantidad;
-        ventasEnterosConCosto += subtotal;
-      }
+    const costo = costoLineaVenta(i);
+    const tipo = !prod ? tipos.libres : prod.es_decant ? tipos.decants : tipos.enteros;
+    tipo.ventas += subtotal;
+    const nombre = prod ? `${prod.marca || ''} — ${prod.nombre || ''}${prod.es_decant ? ` (decant ${i.talla_ml} ml)` : ''}` : `${i.descripcion_libre || 'Producto libre'} (libre)`;
+    if (costo != null) {
+      tipo.ventasConCosto += subtotal;
+      tipo.costo += costo;
+    } else {
+      const s = sinCosto.get(nombre) || { unidades: 0, monto: 0 };
+      s.unidades += i.cantidad;
+      s.monto += subtotal;
+      sinCosto.set(nombre, s);
     }
-    const clave = prod.id ? `${prod.id}-${prod.es_decant ? i.talla_ml : 0}` : `libre-${(i.descripcion_libre || '').trim().toLowerCase()}`;
-    if (!porProducto.has(clave)) porProducto.set(clave, { nombre: prod.id ? `${prod.marca || ''} — ${prod.nombre || ''}${prod.es_decant ? ` (decant ${i.talla_ml}ml)` : ''}` : `${i.descripcion_libre || 'Producto libre'} (libre)`, unidades: 0, monto: 0 });
+    const clave = prod ? `${prod.id}-${prod.es_decant ? i.talla_ml : 0}` : `libre-${(i.descripcion_libre || '').trim().toLowerCase()}`;
+    if (!porProducto.has(clave)) porProducto.set(clave, { nombre, unidades: 0, monto: 0, ganancia: 0, conCosto: true });
     const entrada = porProducto.get(clave);
     entrada.unidades += i.cantidad;
     entrada.monto += subtotal;
+    if (costo != null) entrada.ganancia += subtotal - costo;
+    else entrada.conCosto = false;
   }));
+
+  const ventasConCosto = tipos.enteros.ventasConCosto + tipos.decants.ventasConCosto + tipos.libres.ventasConCosto;
+  const costoVendido = tipos.enteros.costo + tipos.decants.costo + tipos.libres.costo;
+  const gananciaBruta = ventasConCosto - costoVendido;
 
   const agrupar = (lista, clave, valor) => {
     const mapa = new Map();
@@ -3449,22 +3585,42 @@ function calcularPeriodoConta(mes) {
 
   return {
     pedidosPeriodo, activos, anulados, pagosPeriodo, gastosPeriodo,
-    ventas, cobrado, porCobrar, totalGastos,
-    utilidad: cobrado - totalGastos,
+    ventas, cobrado, porCobrar, totalGastos, comprasMercaderia, gastosNegocio,
+    ventasConCosto, costoVendido, gananciaBruta,
+    ventasSinCosto: ventas - ventasConCosto,
+    sinCosto: [...sinCosto.entries()].sort((a, b) => b[1].monto - a[1].monto),
+    gananciaNeta: gananciaBruta - gastosNegocio,
+    cajaNeta: cobrado - totalGastos,
     ticket: activos.length ? ventas / activos.length : 0,
-    ventasEnteros, ventasDecants, costoEnteros, ventasEnterosConCosto,
+    tipos,
     porCanal: agrupar(activos, (p) => etiquetaCanal(p.canal), (p) => Number(p.monto_total)),
-    porMetodo: agrupar(pagosPeriodo, (pg) => METODOS_PAGO_LABEL[pg.metodo_pago] || pg.metodo_pago || 'Sin método', (pg) => Number(pg.monto)),
+    porCategoriaNegocio: agrupar(gastosPeriodo.filter((g) => g.categoria !== CATEGORIA_MERCADERIA), (g) => g.categoria, (g) => Number(g.monto)),
     porCategoria: agrupar(gastosPeriodo, (g) => g.categoria, (g) => Number(g.monto)),
+    caja: cajaPorMetodo(pagosPeriodo, gastosPeriodo),
     topProductos: [...porProducto.values()].sort((a, b) => b.unidades - a.unidades || b.monto - a.monto).slice(0, 10),
   };
+}
+
+// Entró / salió / neto por método de pago (efectivo, Yape, Plin...).
+function cajaPorMetodo(pagos, gastos) {
+  const mapa = new Map();
+  const fila = (metodo) => {
+    const k = METODOS_PAGO_LABEL[metodo] || metodo || 'Método no indicado';
+    if (!mapa.has(k)) mapa.set(k, { entro: 0, salio: 0 });
+    return mapa.get(k);
+  };
+  pagos.forEach((pg) => { fila(pg.metodo_pago).entro += Number(pg.monto); });
+  gastos.forEach((g) => { fila(g.metodo_pago).salio += Number(g.monto); });
+  return [...mapa.entries()].sort((a, b) => (b[1].entro + b[1].salio) - (a[1].entro + a[1].salio));
 }
 
 function renderVistaContabilidad() {
   if (!CONTA_DATOS) return;
   if (contaVista === 'ventas') return renderVentasConta();
   if (contaVista === 'gastos') return renderGastosConta();
-  return renderResumenConta();
+  if (contaVista === 'resumen') return renderResumenConta();
+  if (contaVista === 'cobrar') return renderPorCobrar();
+  if (contaVista === 'caja') return cargarCaja();
 }
 
 function tablaDesglose(titulo, filas, etiquetaCantidad) {
@@ -3481,6 +3637,17 @@ function tablaDesglose(titulo, filas, etiquetaCantidad) {
     </div>`;
 }
 
+function htmlTablaCaja(caja) {
+  if (!caja.length) return '<div class="admin-empty" style="padding:16px;">Sin movimientos de caja.</div>';
+  const total = caja.reduce((acc, [, v]) => ({ entro: acc.entro + v.entro, salio: acc.salio + v.salio }), { entro: 0, salio: 0 });
+  return `
+    <table class="data-table caja-tabla">
+      <thead><tr><th>Método</th><th class="num">Entró</th><th class="num">Salió</th><th class="num">Neto</th></tr></thead>
+      <tbody>${caja.map(([metodo, v]) => `<tr><td>${escapeHtml(metodo)}</td><td class="num">${v.entro ? formatoMoneda(v.entro) : '—'}</td><td class="num">${v.salio ? formatoMoneda(v.salio) : '—'}</td><td class="num ${v.entro - v.salio < 0 ? 'texto-alerta' : ''}"><strong>${formatoMoneda(v.entro - v.salio)}</strong></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">${formatoMoneda(total.entro)}</td><td class="num">${formatoMoneda(total.salio)}</td><td class="num">${formatoMoneda(total.entro - total.salio)}</td></tr></tfoot>
+    </table>`;
+}
+
 function renderResumenConta() {
   const mount = document.getElementById('contabilidad-vista-resumen');
   const mes = mesSeleccionadoConta();
@@ -3488,16 +3655,49 @@ function renderResumenConta() {
   const r = calcularPeriodoConta(mes);
   const periodo = mes == null ? `${anio}` : `${MESES[mes]} ${anio}`;
   const meses = MESES.map((_, m) => ({ m, ...calcularPeriodoConta(m) }));
-  const margen = r.ventasEnterosConCosto - r.costoEnteros;
+  const total = calcularPeriodoConta(null);
+  // En la tabla solo los meses con algún movimiento (y el elegido): 12 filas de "—" no dicen nada.
+  const mesesConMovimiento = meses.filter((x) => x.pedidosPeriodo.length || x.cobrado || x.totalGastos || x.m === mes);
+  const margen = porcentaje(r.gananciaBruta, r.ventasConCosto);
+  const lineaTipo = (etiqueta, t) => (t.ventas ? `
+    <div class="desglose-fila"><span>${etiqueta} <span class="celda-sub">vendido ${formatoMoneda(t.ventas)}${t.ventas - t.ventasConCosto > 0.009 ? ` · ${formatoMoneda(t.ventas - t.ventasConCosto)} sin costo` : ''}</span></span>
+      <strong>${t.ventasConCosto ? `${formatoMoneda(t.ventasConCosto - t.costo)} <span class="celda-sub">ganancia (${porcentaje(t.ventasConCosto - t.costo, t.ventasConCosto)})</span>` : '<span class="celda-sub">sin costo</span>'}</strong></div>` : '');
 
   mount.innerHTML = `
-    <div class="stat-grid">
-      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.ventas)}</div><div class="stat-label">Ventas ${escapeHtml(periodo)} · ${r.activos.length} pedido${r.activos.length === 1 ? '' : 's'}</div></div>
-      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.cobrado)}</div><div class="stat-label">Cobrado (entró a caja)</div></div>
-      <div class="stat-card ${r.porCobrar ? 'warn' : ''}"><div class="stat-value">${formatoMoneda(r.porCobrar)}</div><div class="stat-label">Por cobrar</div></div>
-      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.totalGastos)}</div><div class="stat-label">Gastos</div></div>
-      <div class="stat-card ${r.utilidad < 0 ? 'warn' : ''}"><div class="stat-value">${formatoMoneda(r.utilidad)}</div><div class="stat-label">Utilidad (cobrado − gastos)</div></div>
-      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.ticket)}</div><div class="stat-label">Ticket promedio</div></div>
+    <div class="stat-grid conta-kpis">
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.ventas)}</div><div class="stat-label">Ventas · ${r.activos.length} pedido${r.activos.length === 1 ? '' : 's'}</div><div class="stat-sub">ticket promedio ${formatoMoneda(r.ticket)}</div></div>
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.gananciaBruta)}</div><div class="stat-label">Ganancia bruta</div><div class="stat-sub">margen ${margen} sobre lo vendido</div></div>
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.gastosNegocio)}</div><div class="stat-label">Gastos del negocio</div><div class="stat-sub">sin contar compras de mercadería</div></div>
+      <div class="stat-card stat-destacado ${r.gananciaNeta < 0 ? 'warn' : ''}"><div class="stat-value">${formatoMoneda(r.gananciaNeta)}</div><div class="stat-label">Ganancia neta</div><div class="stat-sub">lo que realmente ganaste en ${escapeHtml(periodo)}</div></div>
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(r.cobrado)}</div><div class="stat-label">Cobrado</div><div class="stat-sub">plata que entró a caja</div></div>
+      <button type="button" class="stat-card stat-click ${r.porCobrar ? 'warn' : ''}" data-ir-vista="cobrar"><div class="stat-value">${formatoMoneda(r.porCobrar)}</div><div class="stat-label">Por cobrar</div><div class="stat-sub">de los pedidos de ${escapeHtml(periodo)} · ver lista</div></button>
+    </div>
+
+    ${r.ventasSinCosto > 0.009 ? `
+    <div class="conta-aviso">
+      <strong>La ganancia está incompleta:</strong> ${formatoMoneda(r.ventasSinCosto)} de lo vendido (${porcentaje(r.ventasSinCosto, r.ventas)}) no tiene costo cargado, así que no entra en la ganancia.
+      ${r.sinCosto.length ? `Los que más pesan: ${r.sinCosto.slice(0, 4).map(([n, v]) => `${escapeHtml(n)} (${formatoMoneda(v.monto)})`).join(', ')}.` : ''}
+      <button type="button" class="btn-link-inline" data-ir-sin-costo>Cargar costos en Productos</button> — al guardar un costo, sus ventas pasadas se completan solas.
+    </div>` : ''}
+
+    <div class="dashboard-panels">
+      <div class="dashboard-panel">
+        <div class="dashboard-panel-head"><h3>¿Cuánto ganaste? — ${escapeHtml(periodo)}</h3></div>
+        <div class="resultado-fila"><span>Ventas${r.ventasSinCosto > 0.009 ? ' <span class="celda-sub">(con costo cargado)</span>' : ''}</span><strong>${formatoMoneda(r.ventasConCosto)}</strong></div>
+        <div class="resultado-fila resta"><span>− Costo de lo vendido</span><strong>${formatoMoneda(r.costoVendido)}</strong></div>
+        <div class="resultado-fila subtotal"><span>= Ganancia bruta <span class="celda-sub">margen ${margen}</span></span><strong>${formatoMoneda(r.gananciaBruta)}</strong></div>
+        <div class="resultado-fila resta"><span>− Gastos del negocio</span><strong>${formatoMoneda(r.gastosNegocio)}</strong></div>
+        ${r.porCategoriaNegocio.map(([c, v]) => `<div class="resultado-fila detalle"><span>${escapeHtml(c)}</span><span>${formatoMoneda(v.monto)}</span></div>`).join('')}
+        <div class="resultado-fila total ${r.gananciaNeta < 0 ? 'negativo' : ''}"><span>= Ganancia neta</span><strong>${formatoMoneda(r.gananciaNeta)}</strong></div>
+        <p class="form-hint" style="margin:10px 0 0;">Las compras de mercadería (${formatoMoneda(r.comprasMercaderia)}) no se restan acá: su costo ya está en el "costo de lo vendido" a medida que se vende.</p>
+      </div>
+      <div class="dashboard-panel">
+        <div class="dashboard-panel-head"><h3>¿Cuánta plata entró y salió? — ${escapeHtml(periodo)}</h3></div>
+        <div class="resultado-fila"><span>Entró (pagos cobrados)</span><strong>${formatoMoneda(r.cobrado)}</strong></div>
+        <div class="resultado-fila resta"><span>− Salió (todos los gastos, incluida mercadería)</span><strong>${formatoMoneda(r.totalGastos)}</strong></div>
+        <div class="resultado-fila total ${r.cajaNeta < 0 ? 'negativo' : ''}"><span>= Movimiento de caja</span><strong>${formatoMoneda(r.cajaNeta)}</strong></div>
+        <div class="admin-table-wrap" style="margin-top:12px;">${htmlTablaCaja(r.caja)}</div>
+      </div>
     </div>
 
     <div class="dashboard-panel" style="margin-bottom:24px;">
@@ -3506,42 +3706,38 @@ function renderResumenConta() {
     </div>
 
     <div class="admin-table-wrap" style="margin-bottom:24px;"><table class="data-table conta-tabla">
-      <thead><tr><th>Mes</th><th class="num">Pedidos</th><th class="num">Ventas</th><th class="num">Cobrado</th><th class="num">Gastos</th><th class="num">Utilidad</th><th class="num">Por cobrar</th></tr></thead>
+      <thead><tr><th>Mes</th><th class="num">Pedidos</th><th class="num">Ventas</th><th class="num">Ganancia bruta</th><th class="num">Gastos negocio</th><th class="num">Ganancia neta</th><th class="num">Cobrado</th><th class="num">Por cobrar</th></tr></thead>
       <tbody>
-        ${meses.map((x) => `
+        ${mesesConMovimiento.map((x) => `
           <tr class="fila-mes ${mes === x.m ? 'fila-activa' : ''}" data-mes="${x.m}">
             <td>${MESES[x.m]}</td>
             <td class="num">${x.activos.length || '—'}</td>
             <td class="num">${x.ventas ? formatoMoneda(x.ventas) : '—'}</td>
+            <td class="num">${x.ventasConCosto ? formatoMoneda(x.gananciaBruta) : '—'}</td>
+            <td class="num">${x.gastosNegocio ? formatoMoneda(x.gastosNegocio) : '—'}</td>
+            <td class="num ${x.gananciaNeta < 0 ? 'texto-alerta' : ''}">${x.ventas || x.gastosNegocio ? `<strong>${formatoMoneda(x.gananciaNeta)}</strong>` : '—'}</td>
             <td class="num">${x.cobrado ? formatoMoneda(x.cobrado) : '—'}</td>
-            <td class="num">${x.totalGastos ? formatoMoneda(x.totalGastos) : '—'}</td>
-            <td class="num ${x.utilidad < 0 ? 'texto-alerta' : ''}">${x.cobrado || x.totalGastos ? formatoMoneda(x.utilidad) : '—'}</td>
             <td class="num">${x.porCobrar ? formatoMoneda(x.porCobrar) : '—'}</td>
           </tr>`).join('')}
       </tbody>
-      <tfoot>
-        ${(() => { const t = calcularPeriodoConta(null); return `<tr><td>Total ${anio}</td><td class="num">${t.activos.length}</td><td class="num">${formatoMoneda(t.ventas)}</td><td class="num">${formatoMoneda(t.cobrado)}</td><td class="num">${formatoMoneda(t.totalGastos)}</td><td class="num">${formatoMoneda(t.utilidad)}</td><td class="num">${formatoMoneda(t.porCobrar)}</td></tr>`; })()}
-      </tfoot>
+      <tfoot><tr><td>Total ${anio}</td><td class="num">${total.activos.length}</td><td class="num">${formatoMoneda(total.ventas)}</td><td class="num">${formatoMoneda(total.gananciaBruta)}</td><td class="num">${formatoMoneda(total.gastosNegocio)}</td><td class="num">${formatoMoneda(total.gananciaNeta)}</td><td class="num">${formatoMoneda(total.cobrado)}</td><td class="num">${formatoMoneda(total.porCobrar)}</td></tr></tfoot>
     </table></div>
-    <p class="form-hint" style="margin:-14px 0 24px;">Toca un mes para ver su detalle. Los pedidos anulados no suman en ventas.</p>
+    <p class="form-hint" style="margin:-14px 0 24px;">Toca un mes para ver su detalle (se muestran solo los meses con movimiento). Los pedidos anulados no suman.</p>
 
     <div class="dashboard-panels">
       ${tablaDesglose(`Ventas por canal — ${escapeHtml(periodo)}`, r.porCanal, 'pedidos')}
-      ${tablaDesglose(`Cobrado por método de pago — ${escapeHtml(periodo)}`, r.porMetodo, 'pagos')}
-    </div>
-
-    <div class="dashboard-panels">
       <div class="dashboard-panel">
-        <div class="dashboard-panel-head"><h3>Qué se vendió — ${escapeHtml(periodo)}</h3></div>
-        <div class="desglose-fila"><span>Perfumes enteros</span><strong>${formatoMoneda(r.ventasEnteros)}</strong></div>
-        <div class="desglose-fila"><span>Decants</span><strong>${formatoMoneda(r.ventasDecants)}</strong></div>
-        ${r.ventasEnterosConCosto ? `<div class="desglose-fila"><span>Margen estimado en enteros <span class="celda-sub">(venta − costo de importación registrado)</span></span><strong>${formatoMoneda(margen)}</strong></div>` : ''}
+        <div class="dashboard-panel-head"><h3>Qué se vendió y cuánto dejó — ${escapeHtml(periodo)}</h3></div>
+        ${lineaTipo('Perfumes enteros', r.tipos.enteros)}
+        ${lineaTipo('Decants', r.tipos.decants)}
+        ${lineaTipo('Productos libres (encargos)', r.tipos.libres)}
+        ${!r.ventas ? '<div class="admin-empty" style="padding:20px;">Sin ventas en este período.</div>' : ''}
         ${r.anulados.length ? `<div class="desglose-fila"><span class="texto-alerta">Pedidos anulados</span><strong>${r.anulados.length} · ${formatoMoneda(r.anulados.reduce((acc, p) => acc + Number(p.monto_total), 0))}</strong></div>` : ''}
       </div>
-      <div class="dashboard-panel">
-        <div class="dashboard-panel-head"><h3>Más vendidos — ${escapeHtml(periodo)}</h3></div>
-        ${r.topProductos.length ? r.topProductos.map((p, i) => `<div class="desglose-fila"><span>${i + 1}. ${escapeHtml(p.nombre)}</span><strong>${p.unidades} und. · ${formatoMoneda(p.monto)}</strong></div>`).join('') : '<div class="admin-empty" style="padding:20px;">Sin ventas en este período.</div>'}
-      </div>
+    </div>
+    <div class="dashboard-panel" style="margin-bottom:24px;">
+      <div class="dashboard-panel-head"><h3>Más vendidos — ${escapeHtml(periodo)}</h3></div>
+      ${r.topProductos.length ? r.topProductos.map((p, i) => `<div class="desglose-fila"><span>${i + 1}. ${escapeHtml(p.nombre)} <span class="celda-sub">${p.unidades} und.</span></span><strong>${formatoMoneda(p.monto)} <span class="celda-sub">${p.conCosto ? `ganancia ${formatoMoneda(p.ganancia)}` : 'sin costo'}</span></strong></div>`).join('') : '<div class="admin-empty" style="padding:20px;">Sin ventas en este período.</div>'}
     </div>
   `;
 
@@ -3550,7 +3746,17 @@ function renderResumenConta() {
     sel.value = sel.value === fila.dataset.mes ? '' : fila.dataset.mes;
     renderVistaContabilidad();
   }));
+  mount.querySelector('[data-ir-vista="cobrar"]')?.addEventListener('click', () => cambiarVistaConta('cobrar'));
+  mount.querySelector('[data-ir-sin-costo]')?.addEventListener('click', abrirProductosSinCosto);
   renderGraficoContabilidad(meses);
+}
+
+function abrirProductosSinCosto() {
+  productosTipo = 'tienda';
+  productosChip = 'sin-costo';
+  const busqueda = document.getElementById('productos-busqueda');
+  if (busqueda) busqueda.value = '';
+  irASeccion('productos');
 }
 
 function renderGraficoContabilidad(meses) {
@@ -3563,10 +3769,10 @@ function renderGraficoContabilidad(meses) {
     data: {
       labels: MESES.map((m) => m.slice(0, 3)),
       datasets: [
-        { type: 'bar', label: 'Ventas', data: meses.map((x) => x.ventas), backgroundColor: 'rgba(188,186,194,0.6)', borderRadius: 3, maxBarThickness: 18, order: 3 },
-        { type: 'bar', label: 'Cobrado', data: meses.map((x) => x.cobrado), backgroundColor: '#7a2030', borderRadius: 3, maxBarThickness: 18, order: 2 },
-        { type: 'bar', label: 'Gastos', data: meses.map((x) => x.totalGastos), backgroundColor: '#d29a3a', borderRadius: 3, maxBarThickness: 18, order: 4 },
-        { type: 'line', label: 'Utilidad', data: meses.map((x) => x.utilidad), borderColor: '#4f8c58', backgroundColor: '#4f8c58', tension: 0, pointRadius: 3, order: 1 },
+        { type: 'bar', label: 'Ventas', data: meses.map((x) => x.ventas), backgroundColor: 'rgba(188,186,194,0.7)', borderRadius: 3, maxBarThickness: 18, order: 3 },
+        { type: 'bar', label: 'Gastos del negocio', data: meses.map((x) => x.gastosNegocio), backgroundColor: '#d29a3a', borderRadius: 3, maxBarThickness: 18, order: 4 },
+        { type: 'line', label: 'Ganancia neta', data: meses.map((x) => x.gananciaNeta), borderColor: '#4f8c58', backgroundColor: '#4f8c58', tension: 0, pointRadius: 3, order: 1 },
+        { type: 'line', label: 'Cobrado', data: meses.map((x) => x.cobrado), borderColor: '#7a2030', backgroundColor: '#7a2030', borderDash: [5, 4], tension: 0, pointRadius: 2, order: 2 },
       ],
     },
     options: {
@@ -3585,6 +3791,19 @@ function renderGraficoContabilidad(meses) {
   });
 }
 
+/* ---------- Ventas ---------- */
+
+function gananciaPedido(p) {
+  let costo = 0;
+  let completo = true;
+  (p.detalle_pedido || []).forEach((i) => {
+    const c = costoLineaVenta(i);
+    if (c == null) completo = false;
+    else costo += c;
+  });
+  return { costo, completo, ganancia: Number(p.monto_total) - costo };
+}
+
 function renderVentasConta() {
   const mount = document.getElementById('contabilidad-vista-ventas');
   const mes = mesSeleccionadoConta();
@@ -3593,96 +3812,401 @@ function renderVentasConta() {
   const pedidos = [...r.pedidosPeriodo].sort((a, b) => b.id - a.id);
   mount.innerHTML = `
     <div class="admin-toolbar">
-      <span>${pedidos.length} pedido(s) en ${escapeHtml(periodo)} · Ventas ${formatoMoneda(r.ventas)} · Por cobrar ${formatoMoneda(r.porCobrar)}</span>
+      <span>${pedidos.length} pedido(s) en ${escapeHtml(periodo)} · Ventas ${formatoMoneda(r.ventas)} · Ganancia bruta ${formatoMoneda(r.gananciaBruta)} · Por cobrar ${formatoMoneda(r.porCobrar)}</span>
       <button class="btn btn-outline btn-sm" id="btn-exportar-ventas" style="margin-left:auto;">Exportar a Excel</button>
     </div>
     <div class="admin-table-wrap"><table class="data-table">
-      <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Canal</th><th class="num">Total</th><th class="num">Pagado</th><th class="num">Saldo</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Pedido</th><th>Cliente</th><th>Canal</th><th class="num">Total</th><th class="num">Ganancia</th><th class="num">Saldo</th><th>Estado</th></tr></thead>
       <tbody>
-        ${pedidos.length ? pedidos.map((p) => `
+        ${pedidos.length ? pedidos.map((p) => {
+          const g = gananciaPedido(p);
+          return `
           <tr class="${p.cancelado ? 'fila-anulada' : ''} fila-click" data-id="${p.id}">
             <td>${fechaCortaEs(p.fecha_creacion)}</td>
             <td>#${p.id}</td>
             <td>${escapeHtml(p.cliente)}</td>
             <td>${escapeHtml(etiquetaCanal(p.canal))}</td>
             <td class="num">${formatoMoneda(p.monto_total)}</td>
-            <td class="num">${formatoMoneda(p.monto_adelanto_pagado)}</td>
-            <td class="num">${Number(p.monto_saldo_pendiente) ? formatoMoneda(p.monto_saldo_pendiente) : '—'}</td>
+            <td class="num">${p.cancelado ? '—' : g.completo ? formatoMoneda(g.ganancia) : `<span class="celda-sub" title="Hay productos sin costo cargado">sin costo</span>`}</td>
+            <td class="num">${Number(p.monto_saldo_pendiente) && !p.cancelado ? `<strong class="texto-alerta">${formatoMoneda(p.monto_saldo_pendiente)}</strong>` : '—'}</td>
             <td>${p.cancelado ? '<span class="status-tag tag-anulado">Anulado</span>' : `<span class="status-tag ${claseEstadoPago(p.estado_pago)}">${escapeHtml(p.estado_pago)}</span>`}</td>
-          </tr>`).join('') : '<tr><td colspan="8" class="admin-empty">Sin pedidos en este período.</td></tr>'}
+          </tr>`;
+        }).join('') : '<tr><td colspan="8" class="admin-empty">Sin pedidos en este período.</td></tr>'}
       </tbody>
     </table></div>
   `;
   mount.querySelectorAll('.fila-click').forEach((fila) => fila.addEventListener('click', () => abrirDetallePedido(Number(fila.dataset.id))));
-  document.getElementById('btn-exportar-ventas').addEventListener('click', () => exportarVentasExcel(pedidos, r.pagosPeriodo, r.gastosPeriodo, periodo));
+  document.getElementById('btn-exportar-ventas').addEventListener('click', () => exportarVentasExcel(pedidos, r, periodo));
 }
 
-function exportarVentasExcel(pedidos, pagos, gastos, periodo) {
+function exportarVentasExcel(pedidos, r, periodo) {
   if (!window.XLSX) return mostrarToast('No cargó la librería de Excel — revisa tu conexión y recarga', 'error');
   const libro = XLSX.utils.book_new();
-  const hojaVentas = XLSX.utils.json_to_sheet(sanitizarFilasExcel(pedidos.map((p) => ({
-    Fecha: fechaCortaEs(p.fecha_creacion),
-    'N° Pedido': p.id,
-    Cliente: p.cliente,
-    DNI: p.cliente_dni || '',
-    Celular: p.cliente_telefono || '',
-    Canal: etiquetaCanal(p.canal),
-    Productos: (p.detalle_pedido || []).map((i) => `${i.cantidad}x ${i.perfumes ? `${i.perfumes.marca} ${i.perfumes.nombre}${i.perfumes.es_decant ? ` ${i.talla_ml}ml` : ''}` : i.descripcion_libre}`).join(' | '),
-    Total: Number(p.monto_total),
-    Pagado: Number(p.monto_adelanto_pagado),
-    Saldo: Number(p.monto_saldo_pendiente),
-    Estado: p.cancelado ? 'Anulado' : p.estado_pago,
-  }))));
-  hojaVentas['!cols'] = [{ wch: 11 }, { wch: 9 }, { wch: 24 }, { wch: 11 }, { wch: 12 }, { wch: 10 }, { wch: 50 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 11 }];
+  const resumen = [
+    { Concepto: 'Ventas', Monto: r.ventas },
+    { Concepto: 'Ventas sin costo cargado', Monto: r.ventasSinCosto },
+    { Concepto: 'Costo de lo vendido', Monto: r.costoVendido },
+    { Concepto: 'Ganancia bruta', Monto: r.gananciaBruta },
+    ...r.porCategoriaNegocio.map(([c, v]) => ({ Concepto: `Gasto: ${c}`, Monto: v.monto })),
+    { Concepto: 'Gastos del negocio', Monto: r.gastosNegocio },
+    { Concepto: 'Ganancia neta', Monto: r.gananciaNeta },
+    { Concepto: 'Compras de mercadería', Monto: r.comprasMercaderia },
+    { Concepto: 'Cobrado', Monto: r.cobrado },
+    { Concepto: 'Movimiento de caja (cobrado − todos los gastos)', Monto: r.cajaNeta },
+    { Concepto: 'Por cobrar', Monto: r.porCobrar },
+  ].map((f) => ({ ...f, Monto: Number(f.Monto.toFixed(2)) }));
+  const hojaResumen = XLSX.utils.json_to_sheet(resumen);
+  hojaResumen['!cols'] = [{ wch: 46 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
+  const hojaVentas = XLSX.utils.json_to_sheet(sanitizarFilasExcel(pedidos.map((p) => {
+    const g = gananciaPedido(p);
+    return {
+      Fecha: fechaCortaEs(p.fecha_creacion),
+      'N° Pedido': p.id,
+      Cliente: p.cliente,
+      DNI: p.cliente_dni || '',
+      Celular: p.cliente_telefono || '',
+      Canal: etiquetaCanal(p.canal),
+      Productos: (p.detalle_pedido || []).map((i) => `${i.cantidad}x ${i.perfumes ? `${i.perfumes.marca} ${i.perfumes.nombre}${i.perfumes.es_decant ? ` ${i.talla_ml}ml` : ''}` : i.descripcion_libre}`).join(' | '),
+      Total: Number(p.monto_total),
+      Costo: p.cancelado || !g.completo ? '' : Number(g.costo.toFixed(2)),
+      Ganancia: p.cancelado || !g.completo ? '' : Number(g.ganancia.toFixed(2)),
+      Pagado: Number(p.monto_adelanto_pagado),
+      Saldo: Number(p.monto_saldo_pendiente),
+      Estado: p.cancelado ? 'Anulado' : p.estado_pago,
+    };
+  })));
+  hojaVentas['!cols'] = [{ wch: 11 }, { wch: 9 }, { wch: 24 }, { wch: 11 }, { wch: 12 }, { wch: 10 }, { wch: 50 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 11 }];
   XLSX.utils.book_append_sheet(libro, hojaVentas, 'Ventas');
-  const hojaPagos = XLSX.utils.json_to_sheet(pagos.map((pg) => ({ Fecha: fechaCortaEs(pg.fecha_pago), 'N° Pedido': pg.id_pedido, Método: METODOS_PAGO_LABEL[pg.metodo_pago] || pg.metodo_pago || '', Monto: Number(pg.monto) })));
+  const hojaPagos = XLSX.utils.json_to_sheet(r.pagosPeriodo.map((pg) => ({ Fecha: fechaCortaEs(pg.fecha_pago), 'N° Pedido': pg.id_pedido, Método: METODOS_PAGO_LABEL[pg.metodo_pago] || pg.metodo_pago || '', Monto: Number(pg.monto) })));
   XLSX.utils.book_append_sheet(libro, hojaPagos, 'Cobros');
-  const hojaGastos = XLSX.utils.json_to_sheet(sanitizarFilasExcel(gastos.map((g) => ({ Fecha: fechaCortaEs(g.fecha), Categoría: g.categoria, Descripción: g.descripcion, 'Pagado con': METODOS_PAGO_LABEL[g.metodo_pago] || g.metodo_pago || '', Monto: Number(g.monto) }))));
+  const hojaGastos = XLSX.utils.json_to_sheet(sanitizarFilasExcel(r.gastosPeriodo.map((g) => ({ Fecha: fechaCortaEs(g.fecha), Categoría: g.categoria, Descripción: g.descripcion, Proveedor: g.proveedor || '', 'Pagado con': METODOS_PAGO_LABEL[g.metodo_pago] || g.metodo_pago || '', Monto: Number(g.monto) }))));
   XLSX.utils.book_append_sheet(libro, hojaGastos, 'Gastos');
   XLSX.writeFile(libro, `contabilidad-${periodo.toLowerCase().replace(/\s+/g, '-')}.xlsx`);
 }
+
+/* ---------- Por cobrar ---------- */
+
+let POR_COBRAR = [];
+let porCobrarFiltro = 'todos';
+
+function diasDesde(fecha) {
+  const f = fechaDB(fecha);
+  return f ? Math.max(0, Math.floor((Date.now() - f.getTime()) / 86400000)) : 0;
+}
+
+async function actualizarContadorPorCobrar() {
+  try {
+    POR_COBRAR = await obtenerCuentasPorCobrar();
+    const el = document.getElementById('conta-count-cobrar');
+    if (el) el.textContent = POR_COBRAR.length ? `(${POR_COBRAR.length})` : '';
+  } catch { /* no es crítico */ }
+}
+
+async function cargarPorCobrar() {
+  const mount = document.getElementById('contabilidad-vista-cobrar');
+  if (!POR_COBRAR.length) mount.innerHTML = '<div class="admin-empty">Cargando…</div>';
+  try {
+    POR_COBRAR = await obtenerCuentasPorCobrar();
+    document.getElementById('conta-count-cobrar').textContent = POR_COBRAR.length ? `(${POR_COBRAR.length})` : '';
+    renderPorCobrar();
+  } catch (err) {
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function mensajeCobro(p) {
+  return `Hola ${primerNombre(p.cliente)}! Te escribimos de Maison Zadaca por tu pedido #${p.id} del ${fechaCortaEs(p.fecha_creacion)}: queda un saldo pendiente de ${formatoMoneda(p.monto_saldo_pendiente)}. Puedes pagarlo por Yape o Plin al ${formatoWhatsapp()} y enviarnos la captura por aquí. ¡Gracias!`;
+}
+
+function renderPorCobrar() {
+  const mount = document.getElementById('contabilidad-vista-cobrar');
+  const total = POR_COBRAR.reduce((acc, p) => acc + Number(p.monto_saldo_pendiente), 0);
+  const filtros = [
+    { id: 'todos', label: 'Todos', f: () => true },
+    { id: '7', label: 'Más de 7 días', f: (p) => diasDesde(p.fecha_creacion) > 7 },
+    { id: '30', label: 'Más de 30 días', f: (p) => diasDesde(p.fecha_creacion) > 30 },
+  ];
+  const filtro = filtros.find((f) => f.id === porCobrarFiltro) || filtros[0];
+  const lista = POR_COBRAR.filter(filtro.f);
+  const masAntiguo = POR_COBRAR.length ? diasDesde(POR_COBRAR[0].fecha_creacion) : 0;
+  mount.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card ${total ? 'warn' : ''}"><div class="stat-value">${formatoMoneda(total)}</div><div class="stat-label">Te deben en total</div></div>
+      <div class="stat-card"><div class="stat-value">${POR_COBRAR.length}</div><div class="stat-label">Pedidos con saldo</div></div>
+      <div class="stat-card"><div class="stat-value">${POR_COBRAR.length ? `${masAntiguo} día${masAntiguo === 1 ? '' : 's'}` : '—'}</div><div class="stat-label">El más antiguo</div></div>
+    </div>
+    <div class="chips-filtro">${filtros.map((f) => `<button type="button" class="chip-filtro${f.id === porCobrarFiltro ? ' activo' : ''}" data-filtro-cobrar="${f.id}">${f.label} <span class="n">${POR_COBRAR.filter(f.f).length}</span></button>`).join('')}</div>
+    <div class="admin-table-wrap"><table class="data-table tabla-cobrar">
+      <thead><tr><th>Pedido</th><th>Cliente</th><th class="num">Total</th><th class="num">Pagado</th><th class="num">Saldo</th><th></th></tr></thead>
+      <tbody>
+        ${lista.length ? lista.map((p) => {
+          const dias = diasDesde(p.fecha_creacion);
+          const wa = enlaceWhatsappCliente(p.telefono, mensajeCobro(p));
+          return `
+          <tr data-id="${p.id}">
+            <td data-label="Pedido"><strong>#${p.id}</strong> <span class="celda-sub">${fechaCortaEs(p.fecha_creacion)}</span><div class="celda-sub ${dias > 30 ? 'texto-alerta' : ''}">hace ${dias} día${dias === 1 ? '' : 's'}</div></td>
+            <td data-label="Cliente">${escapeHtml(p.cliente)}<div class="celda-sub">${escapeHtml(p.telefono || 'sin celular')}</div></td>
+            <td class="num" data-label="Total">${formatoMoneda(p.monto_total)}</td>
+            <td class="num" data-label="Pagado">${formatoMoneda(p.monto_adelanto_pagado)}</td>
+            <td class="num" data-label="Saldo"><strong class="texto-alerta">${formatoMoneda(p.monto_saldo_pendiente)}</strong></td>
+            <td class="acciones"><div class="row-actions">
+              <button type="button" class="btn btn-primary btn-sm" data-accion="cobrar">Registrar pago</button>
+              ${wa ? `<a class="btn btn-whatsapp btn-sm" href="${wa}" target="_blank" rel="noopener" title="Recordarle el saldo por WhatsApp">WhatsApp</a>` : ''}
+              <button type="button" class="btn btn-ghost btn-sm" data-accion="ver">Ver</button>
+            </div></td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="6" class="admin-empty">${POR_COBRAR.length ? 'Nada con este filtro.' : '¡Nadie te debe! Todos los pedidos están pagados.'}</td></tr>`}
+      </tbody>
+    </table></div>
+  `;
+}
+
+function manejarClickPorCobrar(e) {
+  const chip = e.target.closest('[data-filtro-cobrar]');
+  if (chip) { porCobrarFiltro = chip.dataset.filtroCobrar; renderPorCobrar(); return; }
+  const boton = e.target.closest('[data-accion]');
+  if (!boton) return;
+  const p = POR_COBRAR.find((x) => x.id === Number(boton.closest('tr').dataset.id));
+  if (!p) return;
+  if (boton.dataset.accion === 'ver') abrirDetallePedido(p.id);
+  if (boton.dataset.accion === 'cobrar') abrirModalCobro(p);
+}
+
+function abrirModalCobro(p) {
+  const form = document.getElementById('form-cobro');
+  form.reset();
+  form.id_pedido.value = p.id;
+  form.monto.value = Number(p.monto_saldo_pendiente).toFixed(2);
+  form.monto.max = Number(p.monto_saldo_pendiente);
+  document.getElementById('cobro-info').innerHTML = `Pedido <strong>#${p.id}</strong> de <strong>${escapeHtml(p.cliente)}</strong> · total ${formatoMoneda(p.monto_total)} · saldo <strong>${formatoMoneda(p.monto_saldo_pendiente)}</strong>`;
+  abrirModal('modal-cobro');
+  form.monto.focus();
+}
+
+async function guardarCobro(e) {
+  e.preventDefault();
+  const form = e.target;
+  const id = Number(form.id_pedido.value);
+  const p = POR_COBRAR.find((x) => x.id === id);
+  const monto = Math.round(Number(form.monto.value) * 100) / 100;
+  if (!(monto > 0)) return mostrarToast('Ingresa un monto válido', 'error');
+  if (p && monto > Number(p.monto_saldo_pendiente) + 0.001) return mostrarToast(`El monto es mayor al saldo (${formatoMoneda(p.monto_saldo_pendiente)})`, 'error');
+  const boton = form.querySelector('button[type="submit"]');
+  boton.disabled = true;
+  try {
+    await registrarPago(id, { monto, metodo_pago: form.metodo_pago.value, tipo_pago: p && monto >= Number(p.monto_saldo_pendiente) ? 'Saldo_Final' : 'Abono_Parcial' });
+    cerrarModal('modal-cobro');
+    mostrarToast(p && monto >= Number(p.monto_saldo_pendiente) ? `Pedido #${id} pagado por completo` : `Pago de ${formatoMoneda(monto)} registrado`);
+    await cargarPorCobrar();
+    CONTA_DATOS = await obtenerDatosContabilidad(CONTA_ANIO_CARGADO);
+    actualizarBadgesNav();
+  } catch (err) {
+    mostrarToast(err.message, 'error');
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+/* ---------- Caja del día ---------- */
+
+let CAJA_FECHA = null;
+let CAJA_DATOS = null;
+
+function moverDiaCaja(delta) {
+  const [a, m, d] = (CAJA_FECHA || fechaInputHoy()).split('-').map(Number);
+  const f = new Date(a, m - 1, d + delta);
+  CAJA_FECHA = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+  cargarCaja();
+}
+
+function textoFechaCaja(fecha) {
+  const [a, m, d] = fecha.split('-').map(Number);
+  const texto = new Date(a, m - 1, d).toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+async function cargarCaja() {
+  if (!CAJA_FECHA) CAJA_FECHA = fechaInputHoy();
+  document.getElementById('caja-fecha').value = CAJA_FECHA;
+  const mount = document.getElementById('caja-contenido');
+  mount.innerHTML = '<div class="admin-empty">Cargando…</div>';
+  try {
+    CAJA_DATOS = await obtenerCajaDelDia(CAJA_FECHA);
+    renderCaja();
+  } catch (err) {
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderCaja() {
+  const { pagos, gastos, pedidos } = CAJA_DATOS;
+  const mount = document.getElementById('caja-contenido');
+  const entro = pagos.reduce((acc, pg) => acc + Number(pg.monto), 0);
+  const salio = gastos.reduce((acc, g) => acc + Number(g.monto), 0);
+  const ventas = pedidos.reduce((acc, p) => acc + Number(p.monto_total), 0);
+  const hora = (f) => fechaDB(f)?.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) || '';
+  mount.innerHTML = `
+    <p class="caja-fecha-texto">${escapeHtml(textoFechaCaja(CAJA_FECHA))}</p>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(ventas)}</div><div class="stat-label">Ventas del día · ${pedidos.length} pedido${pedidos.length === 1 ? '' : 's'}</div></div>
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(entro)}</div><div class="stat-label">Entró (cobros)</div></div>
+      <div class="stat-card"><div class="stat-value">${formatoMoneda(salio)}</div><div class="stat-label">Salió (gastos)</div></div>
+      <div class="stat-card stat-destacado ${entro - salio < 0 ? 'warn' : ''}"><div class="stat-value">${formatoMoneda(entro - salio)}</div><div class="stat-label">Neto del día</div></div>
+    </div>
+    <div class="dashboard-panel" style="margin-bottom:16px;">
+      <div class="dashboard-panel-head"><h3>Por método de pago</h3></div>
+      <p class="form-hint" style="margin:0 0 8px;">Para cuadrar: el "Neto" de Efectivo es lo que debería haber de más (o de menos) en la caja al cerrar; el de Yape/Plin, lo que debe verse en la app.</p>
+      <div class="admin-table-wrap">${htmlTablaCaja(cajaPorMetodo(pagos, gastos))}</div>
+    </div>
+    <div class="dashboard-panels">
+      <div class="dashboard-panel">
+        <div class="dashboard-panel-head"><h3>Cobros del día</h3></div>
+        ${pagos.length ? pagos.map((pg) => `<div class="desglose-fila"><span>${hora(pg.fecha_pago)} · Pedido #${pg.id_pedido} · ${escapeHtml(pg.cliente)} <span class="celda-sub">${escapeHtml(METODOS_PAGO_LABEL[pg.metodo_pago] || pg.metodo_pago || '')}</span></span><strong>${formatoMoneda(pg.monto)}</strong></div>`).join('') : '<div class="admin-empty" style="padding:16px;">Sin cobros este día.</div>'}
+      </div>
+      <div class="dashboard-panel">
+        <div class="dashboard-panel-head"><h3>Gastos del día</h3></div>
+        ${gastos.length ? gastos.map((g) => `<div class="desglose-fila"><span>${escapeHtml(g.categoria)} · ${escapeHtml(g.descripcion)} <span class="celda-sub">${escapeHtml(METODOS_PAGO_LABEL[g.metodo_pago] || g.metodo_pago || 'sin método')}</span></span><strong>${formatoMoneda(g.monto)}</strong></div>`).join('') : '<div class="admin-empty" style="padding:16px;">Sin gastos este día.</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function imprimirCierreCaja() {
+  if (!CAJA_DATOS) return;
+  const { pagos, gastos, pedidos } = CAJA_DATOS;
+  const entro = pagos.reduce((acc, pg) => acc + Number(pg.monto), 0);
+  const salio = gastos.reduce((acc, g) => acc + Number(g.monto), 0);
+  const ventas = pedidos.reduce((acc, p) => acc + Number(p.monto_total), 0);
+  const ventana = window.open('', '_blank');
+  if (!ventana) return mostrarToast('El navegador bloqueó la ventana de impresión — permite ventanas emergentes', 'error');
+  const filasMetodo = cajaPorMetodo(pagos, gastos).map(([m, v]) => `<tr><td>${escapeHtml(m)}</td><td class="n">${formatoMoneda(v.entro)}</td><td class="n">${formatoMoneda(v.salio)}</td><td class="n"><b>${formatoMoneda(v.entro - v.salio)}</b></td><td></td></tr>`).join('');
+  ventana.document.write(`<!doctype html><html lang="es"><head><meta charset="UTF-8" /><title>Cierre de caja — ${escapeHtml(CAJA_FECHA)}</title>
+    <style>body{font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111}h1{font-size:1.1rem;margin:0 0 2px}.meta{font-size:.8rem;color:#555;margin-bottom:14px}table{width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:16px}th,td{border:1px solid #aaa;padding:6px 8px;text-align:left}th{background:#eee;font-size:.7rem;text-transform:uppercase}td.n{text-align:right}.tot{font-size:.95rem;margin:4px 0}.firma{margin-top:40px;display:flex;gap:40px}.firma div{flex:1;border-top:1px solid #333;padding-top:4px;font-size:.75rem;text-align:center}</style>
+  </head><body>
+    <h1>Cierre de caja — Maison Zadaca</h1>
+    <div class="meta">${escapeHtml(textoFechaCaja(CAJA_FECHA))} · impreso el ${new Date().toLocaleString('es-PE')}</div>
+    <p class="tot">Ventas del día: <b>${formatoMoneda(ventas)}</b> (${pedidos.length} pedidos)</p>
+    <p class="tot">Entró: <b>${formatoMoneda(entro)}</b> · Salió: <b>${formatoMoneda(salio)}</b> · Neto: <b>${formatoMoneda(entro - salio)}</b></p>
+    <table><thead><tr><th>Método</th><th>Entró</th><th>Salió</th><th>Neto</th><th>Contado / verificado</th></tr></thead><tbody>${filasMetodo || '<tr><td colspan="5">Sin movimientos</td></tr>'}</tbody></table>
+    <table><thead><tr><th>Cobros</th><th>Cliente</th><th>Método</th><th>Monto</th></tr></thead><tbody>${pagos.map((pg) => `<tr><td>Pedido #${pg.id_pedido}</td><td>${escapeHtml(pg.cliente)}</td><td>${escapeHtml(METODOS_PAGO_LABEL[pg.metodo_pago] || pg.metodo_pago || '')}</td><td class="n">${formatoMoneda(pg.monto)}</td></tr>`).join('') || '<tr><td colspan="4">Sin cobros</td></tr>'}</tbody></table>
+    <table><thead><tr><th>Gastos</th><th>Descripción</th><th>Método</th><th>Monto</th></tr></thead><tbody>${gastos.map((g) => `<tr><td>${escapeHtml(g.categoria)}</td><td>${escapeHtml(g.descripcion)}</td><td>${escapeHtml(METODOS_PAGO_LABEL[g.metodo_pago] || g.metodo_pago || '')}</td><td class="n">${formatoMoneda(g.monto)}</td></tr>`).join('') || '<tr><td colspan="4">Sin gastos</td></tr>'}</tbody></table>
+    <div class="firma"><div>Entregó</div><div>Recibió</div></div>
+    <script>window.onload = function () { window.print(); };<\/script>
+  </body></html>`);
+  ventana.document.close();
+}
+
+/* ---------- Gastos ---------- */
+
+let gastosFiltroCategoria = '';
 
 function renderGastosConta() {
   const mount = document.getElementById('gastos-contenido');
   const mes = mesSeleccionadoConta();
   const r = calcularPeriodoConta(mes);
   const periodo = mes == null ? `${CONTA_ANIO_CARGADO}` : `${MESES[mes]} ${CONTA_ANIO_CARGADO}`;
-  const gastos = [...r.gastosPeriodo].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || b.id - a.id);
+  const todos = [...r.gastosPeriodo].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || b.id - a.id);
+  const gastos = gastosFiltroCategoria ? todos.filter((g) => g.categoria === gastosFiltroCategoria) : todos;
+  const categorias = r.porCategoria.map(([c, v]) => ({ c, n: v.cantidad }));
+  // Sugerencias de proveedor (los ya usados) para escribirlos igual siempre.
+  const proveedores = [...new Set(CONTA_DATOS.gastos.map((g) => g.proveedor).filter(Boolean))].sort();
+  document.getElementById('lista-proveedores').innerHTML = proveedores.map((pv) => `<option value="${escapeHtml(pv)}"></option>`).join('');
   mount.innerHTML = `
     <div class="dashboard-panels">
       ${tablaDesglose(`Gastos por categoría — ${escapeHtml(periodo)}`, r.porCategoria, 'registros')}
       <div class="dashboard-panel">
         <div class="dashboard-panel-head"><h3>Total ${escapeHtml(periodo)}</h3></div>
-        <div class="desglose-fila"><span>Gastos</span><strong>${formatoMoneda(r.totalGastos)}</strong></div>
-        <div class="desglose-fila"><span>Cobrado</span><strong>${formatoMoneda(r.cobrado)}</strong></div>
-        <div class="desglose-fila"><span>Utilidad</span><strong class="${r.utilidad < 0 ? 'texto-alerta' : ''}">${formatoMoneda(r.utilidad)}</strong></div>
+        <div class="desglose-fila"><span>Gastos del negocio <span class="celda-sub">sin mercadería</span></span><strong>${formatoMoneda(r.gastosNegocio)}</strong></div>
+        <div class="desglose-fila"><span>Compras de mercadería</span><strong>${formatoMoneda(r.comprasMercaderia)}</strong></div>
+        <div class="desglose-fila"><span>Todo lo que salió</span><strong>${formatoMoneda(r.totalGastos)}</strong></div>
+        <div class="desglose-fila"><span>Ganancia neta del período</span><strong class="${r.gananciaNeta < 0 ? 'texto-alerta' : ''}">${formatoMoneda(r.gananciaNeta)}</strong></div>
       </div>
     </div>
-    <div class="admin-table-wrap"><table class="data-table">
+    ${categorias.length > 1 ? `<div class="chips-filtro"><button type="button" class="chip-filtro${!gastosFiltroCategoria ? ' activo' : ''}" data-cat="">Todas <span class="n">${todos.length}</span></button>${categorias.map(({ c, n }) => `<button type="button" class="chip-filtro${gastosFiltroCategoria === c ? ' activo' : ''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)} <span class="n">${n}</span></button>`).join('')}</div>` : ''}
+    <div class="admin-table-wrap"><table class="data-table tabla-gastos">
       <thead><tr><th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Pagado con</th><th class="num">Monto</th><th></th></tr></thead>
       <tbody>
         ${gastos.length ? gastos.map((g) => `
           <tr data-id="${g.id}">
-            <td>${fechaCortaEs(g.fecha)}</td>
-            <td><span class="status-tag">${escapeHtml(g.categoria)}</span></td>
-            <td>${escapeHtml(g.descripcion)}</td>
-            <td>${escapeHtml(METODOS_PAGO_LABEL[g.metodo_pago] || g.metodo_pago || '—')}</td>
-            <td class="num">${formatoMoneda(g.monto)}</td>
-            <td><button class="btn btn-ghost btn-sm btn-eliminar-gasto">Eliminar</button></td>
+            <td data-label="Fecha">${fechaCortaEs(g.fecha)}</td>
+            <td data-label="Categoría"><span class="status-tag">${escapeHtml(g.categoria)}</span></td>
+            <td data-label="Descripción">${escapeHtml(g.descripcion)}${g.proveedor ? `<div class="celda-sub">${escapeHtml(g.proveedor)}</div>` : ''}${g.comprobante_path ? `<div><button type="button" class="btn-link-inline" data-accion="comprobante">Ver comprobante</button></div>` : ''}</td>
+            <td data-label="Pagado con">${escapeHtml(METODOS_PAGO_LABEL[g.metodo_pago] || g.metodo_pago || '—')}</td>
+            <td class="num" data-label="Monto"><strong>${formatoMoneda(g.monto)}</strong></td>
+            <td class="acciones"><div class="row-actions">
+              <button type="button" class="btn btn-ghost btn-sm" data-accion="editar">Editar</button>
+              <button type="button" class="btn btn-ghost btn-sm" data-accion="repetir" title="Copiar este gasto con fecha de hoy (ej. alquiler, sueldos)">Repetir</button>
+              <button type="button" class="btn btn-ghost btn-sm btn-icono-peligro" data-accion="eliminar" title="Eliminar" aria-label="Eliminar gasto">${ICONO_BORRAR}</button>
+            </div></td>
           </tr>`).join('') : `<tr><td colspan="6" class="admin-empty">Sin gastos registrados en ${escapeHtml(periodo)}.</td></tr>`}
       </tbody>
     </table></div>
   `;
-  mount.querySelectorAll('.btn-eliminar-gasto').forEach((btn) => btn.addEventListener('click', async () => {
-    if (!confirm('¿Eliminar este gasto?')) return;
+}
+
+function gastoPorId(id) {
+  return CONTA_DATOS?.gastos.find((g) => g.id === id);
+}
+
+async function manejarClickGastos(e) {
+  const chip = e.target.closest('[data-cat]');
+  if (chip) { gastosFiltroCategoria = chip.dataset.cat; renderGastosConta(); return; }
+  const boton = e.target.closest('[data-accion]');
+  if (!boton) return;
+  const g = gastoPorId(Number(boton.closest('tr').dataset.id));
+  if (!g) return;
+  if (boton.dataset.accion === 'editar') llenarFormularioGasto(g, true);
+  if (boton.dataset.accion === 'repetir') llenarFormularioGasto(g, false);
+  if (boton.dataset.accion === 'comprobante') {
     try {
-      await eliminarGasto(Number(btn.closest('tr').dataset.id));
+      window.open(await urlComprobanteGasto(g.comprobante_path), '_blank', 'noopener');
+    } catch (err) {
+      mostrarToast(err.message, 'error');
+    }
+  }
+  if (boton.dataset.accion === 'eliminar') {
+    if (!confirm(`¿Eliminar el gasto "${g.descripcion}" de ${formatoMoneda(g.monto)}?`)) return;
+    try {
+      await eliminarGasto(g.id);
+      await borrarComprobanteGasto(g.comprobante_path);
       mostrarToast('Gasto eliminado');
       cargarContabilidad();
     } catch (err) {
       mostrarToast(err.message, 'error');
     }
-  }));
+  }
+}
+
+// editar=true: corrige ese mismo gasto. editar=false: "Repetir" (lo copia con fecha de hoy).
+function llenarFormularioGasto(g, editar) {
+  const form = document.getElementById('form-gasto');
+  form.id.value = editar ? g.id : '';
+  form.fecha.value = editar ? String(g.fecha).slice(0, 10) : fechaInputHoy();
+  form.categoria.value = g.categoria;
+  form.monto.value = Number(g.monto);
+  form.descripcion.value = g.descripcion;
+  form.metodo_pago.value = g.metodo_pago || '';
+  form.proveedor.value = g.proveedor || '';
+  document.getElementById('gasto-comprobante').value = '';
+  document.getElementById('gasto-comprobante-nombre').textContent = editar && g.comprobante_path ? 'Ya tiene comprobante (elige otro para reemplazarlo)' : 'Boleta, factura o captura del pago';
+  document.getElementById('gasto-form-titulo').textContent = editar ? `Editar gasto del ${fechaCortaEs(g.fecha)}` : 'Registrar gasto (copia)';
+  document.getElementById('btn-guardar-gasto').textContent = editar ? 'Guardar cambios' : 'Guardar gasto';
+  document.getElementById('btn-cancelar-edicion-gasto').hidden = false;
+  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  form.monto.focus({ preventScroll: true });
+}
+
+function limpiarFormularioGasto() {
+  const form = document.getElementById('form-gasto');
+  const fecha = form.fecha.value;
+  form.reset();
+  form.id.value = '';
+  form.fecha.value = fecha || fechaInputHoy();
+  document.getElementById('gasto-comprobante-nombre').textContent = 'Boleta, factura o captura del pago';
+  document.getElementById('gasto-form-titulo').textContent = 'Registrar gasto';
+  document.getElementById('btn-guardar-gasto').textContent = 'Guardar gasto';
+  document.getElementById('btn-cancelar-edicion-gasto').hidden = true;
 }
 
 async function guardarGasto(e) {
@@ -3691,17 +4215,26 @@ async function guardarGasto(e) {
   const datos = Object.fromEntries(new FormData(form));
   const monto = Number(datos.monto);
   if (!monto || monto <= 0) return mostrarToast('Ingresa un monto válido', 'error');
+  const id = datos.id ? Number(datos.id) : null;
+  const anterior = id ? gastoPorId(id) : null;
+  const archivo = document.getElementById('gasto-comprobante').files[0];
+  const boton = document.getElementById('btn-guardar-gasto');
+  boton.disabled = true;
   try {
-    await crearGasto({
+    const gasto = {
       fecha: datos.fecha,
       categoria: datos.categoria,
       descripcion: datos.descripcion.trim(),
       monto,
       metodo_pago: datos.metodo_pago || null,
-    });
-    mostrarToast('Gasto registrado');
-    form.descripcion.value = '';
-    form.monto.value = '';
+      proveedor: (datos.proveedor || '').trim() || null,
+    };
+    if (archivo) gasto.comprobante_path = await subirComprobanteGasto(archivo);
+    if (id) await actualizarGasto(id, gasto);
+    else await crearGasto(gasto);
+    if (id && archivo && anterior?.comprobante_path) borrarComprobanteGasto(anterior.comprobante_path);
+    mostrarToast(id ? 'Gasto actualizado' : 'Gasto registrado');
+    limpiarFormularioGasto();
     const anioGasto = Number(String(datos.fecha).slice(0, 4));
     if (anioGasto !== Number(document.getElementById('contabilidad-anio').value)) {
       const sel = document.getElementById('contabilidad-anio');
@@ -3710,6 +4243,8 @@ async function guardarGasto(e) {
     cargarContabilidad();
   } catch (err) {
     mostrarToast(err.message, 'error');
+  } finally {
+    boton.disabled = false;
   }
 }
 
@@ -4361,7 +4896,8 @@ function renderFotosPublicidad() {
   if (!PUBLI_FOTOS.length) { mount.innerHTML = '<p class="form-hint" style="margin:0 0 8px;">Todavía no hay fotos.</p>'; return; }
   mount.innerHTML = PUBLI_FOTOS.map((url, i) => `
     <div class="publi-foto" data-i="${i}">
-      <img src="${escapeHtml(urlSegura(url) || '')}" alt="Foto ${i + 1}" />
+      <img src="${escapeHtml(urlSegura(url) || '')}" alt="Foto ${i + 1}" onerror="this.closest('.publi-foto').classList.add('publi-foto-error')" />
+      <span class="publi-foto-aviso">No se pudo mostrar esta foto: quítala y vuelve a subirla</span>
       ${i === 0 ? '<span class="publi-portada">Portada</span>' : ''}
       <div class="publi-foto-acciones">
         <button type="button" data-accion="izq" title="Mover a la izquierda" ${i === 0 ? 'disabled' : ''}>&#8249;</button>

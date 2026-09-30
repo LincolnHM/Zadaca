@@ -20,19 +20,21 @@ async function obtenerEstadisticasDashboard() {
   // Tienda Directa"): si sumaran también los de Consolidado, el número no cuadraría con lo
   // que el admin ve al hacer clic en "Ver todos" desde acá.
   // Los pedidos anulados (cancelado=true) no cuentan en ninguna cifra de venta del dashboard.
-  const [pedidos, pedidosHoy, pagosSemana, pedidosPorConfirmar, consolidados, reservasPendientes, cotizacionesPendientes, resenasPendientes, stockBajo, productosSinMargen, porDespachar, reclamos] = await Promise.all([
+  const [pedidos, pedidosHoy, pagosSemana, pedidosPorConfirmar, consolidados, reservasPendientes, cotizacionesPendientes, resenasPendientes, stockBajo, productosSinMargen, porDespachar, reclamos, saldos] = await Promise.all([
     supabaseClient.from('pedidos').select('monto_adelanto_pagado', { count: 'exact' }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false),
     supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).gte('fecha_creacion', inicioHoy.toISOString()),
-    supabaseClient.from('pagos').select('monto').eq('estado_pago', 'Aprobado').gte('fecha_pago', inicioSemana.toISOString()),
+    supabaseClient.from('pagos').select('monto, fecha_pago').eq('estado_pago', 'Aprobado').gte('fecha_pago', inicioSemana.toISOString()),
     supabaseClient.from('pedidos').select('id', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).in('estado_pago', ['Pendiente', 'Parcial']),
     supabaseClient.from('consolidados').select('id', { count: 'exact' }).eq('estado', 'Abierto'),
     supabaseClient.from('detalle_consolidado').select('id', { count: 'exact' }).eq('estado_item', 'Reservado'),
     supabaseClient.from('solicitudes_cotizacion').select('id', { count: 'exact' }).eq('estado', 'Pendiente'),
     supabaseClient.from('resenas').select('id', { count: 'exact' }).eq('aprobado', false),
     obtenerStockBajoDashboard(1000),
-    supabaseClient.from('perfumes').select('id', { count: 'exact' }).eq('margen_aplicado', false),
+    supabaseClient.from('perfumes').select('id', { count: 'exact', head: true }).eq('margen_aplicado', false).eq('activo', true),
     supabaseClient.from('pedidos').select('id, envios!inner(estado_envio)', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).eq('envios.estado_envio', 'Preparando'),
     supabaseClient.from('libro_reclamaciones').select('id', { count: 'exact', head: true }).neq('estado', 'Respondido'),
+    // Lo que te deben (todos los pedidos vigentes con saldo, tienda y consolidado).
+    supabaseClient.from('pedidos').select('monto_saldo_pendiente').eq('cancelado', false).gt('monto_saldo_pendiente', 0),
   ]);
 
   // Suma lo realmente cobrado (monto_adelanto_pagado), no monto_total filtrado a "Completado"
@@ -41,6 +43,8 @@ async function obtenerEstadisticasDashboard() {
   const ingresos = (pedidos.data || []).reduce((acc, p) => acc + Number(p.monto_adelanto_pagado || 0), 0);
 
   const ingresosSemana = (pagosSemana.data || []).reduce((acc, p) => acc + Number(p.monto), 0);
+  const cobradoHoy = (pagosSemana.data || []).filter((p) => fechaDB(p.fecha_pago) >= inicioHoy).reduce((acc, p) => acc + Number(p.monto), 0);
+  const porCobrar = (saldos.data || []).reduce((acc, p) => acc + Number(p.monto_saldo_pendiente), 0);
 
   const productosStockBajo = stockBajo.length;
 
@@ -58,6 +62,9 @@ async function obtenerEstadisticasDashboard() {
     resenasPendientes: resenasPendientes.count || 0,
     productosStockBajo,
     productosSinMargen: productosSinMargen.count || 0,
+    cobradoHoy,
+    porCobrar,
+    pedidosConSaldo: (saldos.data || []).length,
   };
 }
 
@@ -611,13 +618,17 @@ async function obtenerDatosContabilidad(anio) {
   const hastaUtc = new Date(anio + 1, 0, 1).toISOString();
   const desde = `${anio}-01-01`;
   const hasta = `${anio + 1}-01-01`;
+  const camposPedido = (conCosto) => `id, fecha_creacion, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, canal, tipo_pedido, cancelado, cliente_nombre, cliente_dni, cliente_telefono, perfiles(nombres, apellidos), detalle_pedido(cantidad, subtotal, talla_ml, descripcion_libre${conCosto ? ', costo_unitario' : ''}, perfumes(id, nombre, marca, es_decant, costo_importacion_pen))`;
+  const traerPedidos = (conCosto) => seleccionarTodo(() => supabaseClient
+    .from('pedidos')
+    .select(camposPedido(conCosto))
+    .gte('fecha_creacion', desdeUtc)
+    .lt('fecha_creacion', hastaUtc)
+    .order('id'));
   const [pedidos, pagos, gastos] = await Promise.all([
-    seleccionarTodo(() => supabaseClient
-      .from('pedidos')
-      .select('id, fecha_creacion, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, canal, tipo_pedido, cancelado, cliente_nombre, cliente_dni, cliente_telefono, perfiles(nombres, apellidos), detalle_pedido(cantidad, subtotal, talla_ml, descripcion_libre, perfumes(id, nombre, marca, es_decant, costo_importacion_pen))')
-      .gte('fecha_creacion', desdeUtc)
-      .lt('fecha_creacion', hastaUtc)
-      .order('id')),
+    // costo_unitario (costo guardado en cada venta) existe desde la migración 0022; si todavía no
+    // se corrió, se usa el costo actual del perfume como antes.
+    traerPedidos(true).catch((err) => (/costo_unitario/.test(err.message) ? traerPedidos(false) : Promise.reject(err))),
     seleccionarTodo(() => supabaseClient
       .from('pagos')
       .select('id, monto, metodo_pago, fecha_pago, id_pedido')
@@ -639,8 +650,107 @@ async function obtenerDatosContabilidad(anio) {
 const CATEGORIAS_GASTO = ['Mercadería', 'Envíos', 'Empaques', 'Publicidad', 'Alquiler', 'Servicios', 'Sueldos', 'Impuestos', 'Otros'];
 
 async function crearGasto(gasto) {
-  const { error } = await supabaseClient.from('gastos').insert(gasto);
+  const { error } = await supabaseClient.from('gastos').insert(limpiarCamposGasto(gasto));
+  if (error) throw new Error(traducirErrorGasto(error));
+}
+
+async function actualizarGasto(id, gasto) {
+  const { error } = await supabaseClient.from('gastos').update(limpiarCamposGasto(gasto, true)).eq('id', id);
+  if (error) throw new Error(traducirErrorGasto(error));
+}
+
+// proveedor / comprobante son de la migración 0022: si vienen vacíos no se mandan al crear, así un
+// gasto simple se sigue guardando aunque la migración todavía no se haya corrido.
+function limpiarCamposGasto(gasto, esEdicion = false) {
+  const datos = { ...gasto };
+  ['proveedor', 'comprobante_path'].forEach((c) => {
+    if (!datos[c]) {
+      if (esEdicion && c === 'proveedor' && c in datos) datos[c] = null;
+      else delete datos[c];
+    }
+  });
+  return datos;
+}
+
+function traducirErrorGasto(error) {
+  return /proveedor|comprobante_path/.test(error.message) ? 'Falta correr la migración 0022 en Supabase (proveedor y comprobante de gastos).' : error.message;
+}
+
+// Comprobantes de gastos: bucket PRIVADO (migración 0022). Se guarda la ruta, y para verlos se
+// pide un link temporal (1 hora) -- nadie fuera del panel puede abrirlos.
+const BUCKET_COMPROBANTES = 'comprobantes';
+
+async function subirComprobanteGasto(file) {
+  const esPdf = file.type === 'application/pdf';
+  const archivo = esPdf ? file : await comprimirImagen(file);
+  if (archivo.size > 5 * 1024 * 1024) throw new Error('El comprobante pesa más de 5 MB: usa una foto más liviana.');
+  const ext = esPdf ? 'pdf' : (({ 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' })[archivo.type] || 'jpg');
+  const hoy = new Date();
+  const ruta = `${hoy.getFullYear()}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabaseClient.storage.from(BUCKET_COMPROBANTES).upload(ruta, archivo, { contentType: archivo.type, upsert: false });
+  if (error) throw new Error(/bucket not found/i.test(error.message) ? 'Falta crear el espacio de comprobantes: corre la migración 0022 en Supabase.' : traducirErrorStorage(error));
+  return ruta;
+}
+
+async function urlComprobanteGasto(ruta) {
+  const { data, error } = await supabaseClient.storage.from(BUCKET_COMPROBANTES).createSignedUrl(ruta, 3600);
   if (error) throw new Error(error.message);
+  return data.signedUrl;
+}
+
+async function borrarComprobanteGasto(ruta) {
+  if (!ruta) return;
+  await supabaseClient.storage.from(BUCKET_COMPROBANTES).remove([ruta]).catch(() => {});
+}
+
+// Cuentas por cobrar: todos los pedidos vigentes con saldo, de cualquier fecha (lo más antiguo
+// primero: es lo que más urge cobrar).
+async function obtenerCuentasPorCobrar() {
+  const filas = await seleccionarTodo(() => supabaseClient
+    .from('pedidos')
+    .select('id, fecha_creacion, monto_total, monto_adelanto_pagado, monto_saldo_pendiente, estado_pago, canal, tipo_pedido, cliente_nombre, cliente_telefono, perfiles(nombres, apellidos, telefono)')
+    .eq('cancelado', false)
+    .gt('monto_saldo_pendiente', 0)
+    .order('fecha_creacion', { ascending: true })
+    .order('id', { ascending: true }));
+  return filas.map((p) => ({ ...p, cliente: nombreClientePedido(p), telefono: p.cliente_telefono || p.perfiles?.telefono || '' }));
+}
+
+// Caja de un día (fecha local "YYYY-MM-DD"): lo que entró (pagos), lo que salió (gastos) y las
+// ventas registradas ese día.
+async function obtenerCajaDelDia(fecha) {
+  const [a, m, d] = fecha.split('-').map(Number);
+  const desde = new Date(a, m - 1, d).toISOString();
+  const hasta = new Date(a, m - 1, d + 1).toISOString();
+  const [pagos, gastos, pedidos] = await Promise.all([
+    supabaseClient.from('pagos')
+      .select('id, monto, metodo_pago, fecha_pago, id_pedido, pedidos(cliente_nombre, perfiles(nombres, apellidos))')
+      .eq('estado_pago', 'Aprobado').gte('fecha_pago', desde).lt('fecha_pago', hasta).order('fecha_pago'),
+    supabaseClient.from('gastos').select('*').eq('fecha', fecha).order('id'),
+    supabaseClient.from('pedidos')
+      .select('id, monto_total, canal, cancelado, cliente_nombre, perfiles(nombres, apellidos)')
+      .gte('fecha_creacion', desde).lt('fecha_creacion', hasta).order('id'),
+  ]);
+  const error = pagos.error || gastos.error || pedidos.error;
+  if (error) throw new Error(error.message);
+  return {
+    pagos: (pagos.data || []).map((pg) => ({ ...pg, cliente: pg.pedidos ? nombreClientePedido(pg.pedidos) : '—' })),
+    gastos: gastos.data || [],
+    pedidos: (pedidos.data || []).filter((p) => !p.cancelado).map((p) => ({ ...p, cliente: nombreClientePedido(p) })),
+  };
+}
+
+// Ingreso de mercadería en una sola operación (migración 0022): stock, costo promedio, precio,
+// publicar y el gasto de la compra. Devuelve el total de la compra.
+async function registrarIngresoMercaderia(items, nota, gasto) {
+  const { data, error } = await supabaseClient.rpc('registrar_ingreso_mercaderia', { p_items: items, p_nota: nota, p_gasto: gasto });
+  if (error) {
+    const err = new Error(error.message);
+    err.faltaMigracion = /registrar_ingreso_mercaderia|could not find the function|PGRST202/i.test(`${error.message} ${error.code}`);
+    throw err;
+  }
+  const total = (data || []).find((f) => f.id_producto == null);
+  return { totalCompra: Number(total?.total_compra || 0) };
 }
 
 async function eliminarGasto(id) {
@@ -1056,27 +1166,92 @@ async function actualizarPublicidad(data) {
 
 const BUCKET_IMAGENES = 'imagenes';
 
-// Achica la foto en el navegador antes de subirla (lado mayor 1600 px, WebP): una foto de
+// Achica la foto en el navegador antes de subirla (lado mayor 1600 px, WebP o JPEG): una foto de
 // celular de 4-8 MB queda en ~200-400 KB, carga rápido en el anuncio y no llena el Storage.
 // Los GIF se suben tal cual (perderían la animación).
+//
+// La foto se lee con un <img> normal y no con createImageBitmap(): en algunos celulares (sobre
+// todo iPhone/Safari) createImageBitmap entregaba la imagen vacía y se subía una foto en BLANCO
+// sin ningún error; además <img> respeta la orientación de la foto (no sale girada). Si aun así
+// el dibujo sale vacío, se sube la foto original en vez de una en blanco.
+const TIPOS_IMAGEN_ACEPTADOS = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+
+function leerImagen(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => resolve({ img, liberar: () => URL.revokeObjectURL(url) });
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo leer la imagen')); };
+    img.src = url;
+  });
+}
+
+// true si el dibujo quedó vacío (todo transparente): pasa cuando el navegador no pudo pintar la foto.
+function canvasVacio(canvas) {
+  const ctx = canvas.getContext('2d');
+  for (let fy = 1; fy <= 4; fy++) {
+    for (let fx = 1; fx <= 4; fx++) {
+      const x = Math.min(canvas.width - 1, Math.floor((canvas.width * fx) / 5));
+      const y = Math.min(canvas.height - 1, Math.floor((canvas.height * fy) / 5));
+      if (ctx.getImageData(x, y, 1, 1).data[3] !== 0) return false;
+    }
+  }
+  return true;
+}
+
+function originalSubible(file) {
+  if (!TIPOS_IMAGEN_ACEPTADOS.includes(file.type)) {
+    if (/heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name || '')) {
+      throw new Error('Esa foto está en formato HEIC (iPhone). Envíatela por WhatsApp o cámbiala a JPG y vuelve a subirla (en el iPhone: Ajustes → Cámara → Formatos → Más compatible).');
+    }
+    throw new Error('Ese formato de imagen no se puede subir: usa JPG, PNG o WebP.');
+  }
+  return file;
+}
+
 async function comprimirImagen(file, { maxLado = 1600, calidad = 0.86 } = {}) {
-  if (!file || !file.type.startsWith('image/')) throw new Error('El archivo no es una imagen');
+  if (!file || !(file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name || ''))) throw new Error('El archivo no es una imagen');
   if (file.type === 'image/gif') return file;
-  let bitmap;
-  try { bitmap = await createImageBitmap(file); } catch { return file; }
-  const escala = Math.min(1, maxLado / Math.max(bitmap.width, bitmap.height));
-  if (escala === 1 && file.size <= 450 * 1024) return file;
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * escala);
-  canvas.height = Math.round(bitmap.height * escala);
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const aBlob = (tipo) => new Promise((r) => canvas.toBlob(r, tipo, calidad));
-  let blob = await aBlob('image/webp');
-  // Safari viejo no sabe codificar WebP (devuelve PNG, más pesado): ahí se usa JPEG.
-  if (!blob || blob.type !== 'image/webp') blob = await aBlob('image/jpeg');
-  if (!blob || blob.size >= file.size) return file;
-  const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
-  return new File([blob], `${(file.name || 'foto').replace(/\.[^.]+$/, '')}.${ext}`, { type: blob.type });
+  let lectura;
+  try {
+    lectura = await leerImagen(file);
+  } catch {
+    return originalSubible(file);
+  }
+  const { img, liberar } = lectura;
+  try {
+    const ancho = img.naturalWidth;
+    const alto = img.naturalHeight;
+    if (!ancho || !alto) return originalSubible(file);
+    const escala = Math.min(1, maxLado / Math.max(ancho, alto));
+    if (escala === 1 && file.size <= 450 * 1024 && TIPOS_IMAGEN_ACEPTADOS.includes(file.type)) return file;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(ancho * escala));
+    canvas.height = Math.max(1, Math.round(alto * escala));
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    if (canvasVacio(canvas)) return originalSubible(file);
+    const aBlob = (tipo) => new Promise((r) => canvas.toBlob(r, tipo, calidad));
+    let blob = await aBlob('image/webp');
+    // Safari viejo no sabe codificar WebP (devuelve PNG, más pesado): ahí se usa JPEG con fondo
+    // blanco (el JPEG no tiene transparencia y lo transparente saldría negro).
+    if (!blob || blob.type !== 'image/webp') {
+      const fondo = document.createElement('canvas');
+      fondo.width = canvas.width;
+      fondo.height = canvas.height;
+      const ctxFondo = fondo.getContext('2d');
+      ctxFondo.fillStyle = '#ffffff';
+      ctxFondo.fillRect(0, 0, fondo.width, fondo.height);
+      ctxFondo.drawImage(canvas, 0, 0);
+      blob = await new Promise((r) => fondo.toBlob(r, 'image/jpeg', calidad));
+    }
+    if (!blob || !blob.size) return originalSubible(file);
+    if (blob.size >= file.size && TIPOS_IMAGEN_ACEPTADOS.includes(file.type)) return file;
+    const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
+    return new File([blob], `${(file.name || 'foto').replace(/\.[^.]+$/, '')}.${ext}`, { type: blob.type });
+  } finally {
+    liberar();
+  }
 }
 
 function traducirErrorStorage(error) {
@@ -1084,6 +1259,7 @@ function traducirErrorStorage(error) {
   if (/bucket not found/i.test(m)) return 'Falta crear el espacio de fotos: corre la migración 0020 en Supabase (ver README).';
   if (/row-level security|unauthorized|403|permission/i.test(m)) return 'Tu cuenta no tiene permiso para subir fotos (tiene que ser administrador).';
   if (/payload too large|size/i.test(m)) return 'La foto es demasiado pesada (máximo 5 MB).';
+  if (/mime|content.type|not supported/i.test(m)) return 'Ese formato de imagen no se puede subir: usa JPG, PNG o WebP.';
   return m;
 }
 
