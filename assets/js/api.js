@@ -1350,6 +1350,8 @@ function publicidadVigente(promo, ahora = new Date()) {
 // admin para la "Vista previa"). Con varias fotos arma un carrusel: flechas, puntos, deslizar
 // con el dedo y avance automático (salvo "reducir movimiento"). Se cierra con la X, tocando
 // afuera o con Escape; alCerrar() se llama una sola vez (también si se toca el botón del anuncio).
+const ANUNCIO_ANCHO_MAX = 1200;
+
 function mostrarPublicidadPopup(promo, { alCerrar } = {}) {
   document.querySelector('.promo-popup-overlay')?.remove();
   const imagenes = imagenesPublicidad(promo).map(fuenteImagenSegura).filter(Boolean);
@@ -1383,6 +1385,57 @@ function mostrarPublicidadPopup(promo, { alCerrar } = {}) {
   `;
   document.body.appendChild(overlay);
   document.body.classList.add('popup-abierto');
+
+  // Tamaño adaptativo: la caja toma la forma de la portada (sin franjas vacías) y crece hasta
+  // donde entra en la pantalla: grande en computadora, a todo el ancho en celular y, con el
+  // celular echado, foto y texto lado a lado. Se recalcula si cambia el tamaño de la ventana.
+  const caja = overlay.querySelector('.promo-popup-box');
+  const carrusel = overlay.querySelector('.promo-carrusel');
+  const cuerpo = overlay.querySelector('.promo-popup-body');
+  let proporcion = 0;
+  function ajustarTamano() {
+    if (!carrusel || !proporcion) return;
+    const estilo = getComputedStyle(overlay);
+    const anchoDisp = overlay.clientWidth - parseFloat(estilo.paddingLeft) - parseFloat(estilo.paddingRight);
+    // Se descuenta el borde de la caja (y 2 px de margen por redondeo) para que nunca aparezca scroll.
+    const altoDisp = overlay.clientHeight - parseFloat(estilo.paddingTop) - parseFloat(estilo.paddingBottom) - (caja.offsetHeight - caja.clientHeight) - 2;
+    const ladoALado = !!cuerpo && window.innerHeight <= 560 && window.innerWidth > window.innerHeight;
+    caja.classList.add('ajustado');
+    caja.classList.toggle('lado-a-lado', ladoALado);
+    let altoFoto;
+    if (ladoALado) {
+      const anchoTexto = Math.min(320, anchoDisp * 0.42);
+      const anchoFoto = Math.min(anchoDisp - anchoTexto, altoDisp * proporcion);
+      altoFoto = Math.min(altoDisp, anchoFoto / proporcion);
+      carrusel.style.width = `${anchoFoto}px`;
+      caja.style.width = `${anchoFoto + anchoTexto}px`;
+    } else {
+      carrusel.style.width = '';
+      // El alto del texto depende del ancho (cuántas líneas ocupa): se mide dos veces.
+      let ancho = Math.min(anchoDisp, ANUNCIO_ANCHO_MAX);
+      for (let vuelta = 0; vuelta < 2; vuelta++) {
+        caja.style.width = `${ancho}px`;
+        const altoTexto = cuerpo ? cuerpo.offsetHeight : 0;
+        ancho = Math.max(Math.min(anchoDisp, 300), Math.min(anchoDisp, ANUNCIO_ANCHO_MAX, (altoDisp - altoTexto) * proporcion));
+      }
+      caja.style.width = `${ancho}px`;
+      altoFoto = Math.max(160, Math.min(ancho / proporcion, altoDisp - (cuerpo ? cuerpo.offsetHeight : 0)));
+    }
+    carrusel.style.setProperty('--alto-foto', `${Math.round(altoFoto)}px`);
+  }
+  const portada = overlay.querySelector('.promo-slide img');
+  const medirPortada = () => {
+    if (!portada?.naturalWidth) return;
+    // Fotos extremas (muy altas o muy anchas) se limitan y se muestran completas dentro.
+    proporcion = Math.min(2.4, Math.max(0.5, portada.naturalWidth / portada.naturalHeight));
+    ajustarTamano();
+  };
+  if (portada) {
+    if (portada.complete) medirPortada();
+    else portada.addEventListener('load', medirPortada, { once: true });
+  }
+  window.addEventListener('resize', ajustarTamano);
+
   const focoAnterior = document.activeElement;
   const cerrarBtn = overlay.querySelector('.promo-popup-close');
   cerrarBtn.focus({ preventScroll: true });
@@ -1424,6 +1477,7 @@ function mostrarPublicidadPopup(promo, { alCerrar } = {}) {
     if (cerrado) return;
     cerrado = true;
     detenerAuto();
+    window.removeEventListener('resize', ajustarTamano);
     overlay.remove();
     document.body.classList.remove('popup-abierto');
     document.removeEventListener('keydown', alEscapar);

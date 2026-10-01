@@ -38,6 +38,9 @@ que en el proyecto MICHT. No tienen link al Storage, así que ningún bloqueador
 - Solo se aceptan imágenes reales (PNG, JPG, WebP, GIF, AVIF). SVG y cualquier otro contenido se
   rechazan.
 - Si una foto no entrara ni comprimida, se sube al Storage como respaldo (carpeta `vitrina/`).
+- **Tamaño adaptativo**: la caja toma la forma de la foto de portada (sin franjas vacías) y crece
+  hasta donde entra en la pantalla. En PC llega hasta 1200 px de ancho, en celular ocupa todo el
+  ancho y, con el celular echado, foto y texto van lado a lado. Nunca hay que deslizar.
 
 Además:
 - La **×** de una foto ya guardada solo la saca de la lista. El archivo se borra del Storage al

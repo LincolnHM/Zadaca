@@ -793,14 +793,19 @@ body.popup-abierto { overflow: hidden; }
   .promo-popup-body h3 { font-size: 1.15rem; }
   .promo-popup-body p { font-size: 0.86rem; }
 }
+/* Tamaño adaptativo (ver ajustarTamano en mostrarPublicidadPopup): el JS fija el ancho de la caja
+   y el alto de la foto (--alto-foto) según la forma de la portada y el tamaño de la pantalla. */
+.promo-popup-box.ajustado { max-width: none; }
+.promo-popup-box.ajustado .promo-slide { height: var(--alto-foto); }
+.promo-popup-box.ajustado .promo-popup-body h3 { font-size: clamp(1.15rem, 0.9rem + 0.9vw, 1.7rem); }
 /* Celular en horizontal: foto y texto lado a lado para que entre todo sin deslizar. */
 @media (max-height: 560px) and (orientation: landscape) {
   .promo-popup-overlay { padding: 10px; }
-  .promo-popup-box.con-fotos { flex-direction: row; max-width: 760px; max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
-  .promo-popup-box.con-fotos .promo-carrusel { width: 50%; }
-  .promo-popup-box.con-fotos .promo-slide { height: calc(100vh - 22px); height: calc(100dvh - 22px); }
-  .promo-popup-box.con-fotos .promo-popup-body { flex: 1; align-self: center; max-height: 100%; overflow-y: auto; padding: 20px 22px; }
+  .promo-popup-box { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); }
 }
+.promo-popup-box.lado-a-lado { flex-direction: row; }
+.promo-popup-box.lado-a-lado .promo-carrusel { flex: none; }
+.promo-popup-box.lado-a-lado .promo-popup-body { flex: 1; align-self: center; max-height: 100%; overflow-y: auto; padding: 20px 22px; }
 @media (prefers-reduced-motion: reduce) { .promo-popup-box { animation: none; } .promo-track { transition: none; } }
 
 /* ---------- CTA de cierre (home) ---------- */
