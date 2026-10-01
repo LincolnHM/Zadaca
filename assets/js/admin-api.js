@@ -1263,8 +1263,14 @@ function traducirErrorStorage(error) {
   return m;
 }
 
+// Carpeta de las fotos del anuncio. NO puede llamarse "publicidad" (ni "anuncios", "ads",
+// "banners"...): EasyList trae la regla "/publicidad/*" y todo bloqueador de anuncios (uBlock,
+// AdBlock, Brave, Opera) esconde cualquier foto con esa ruta. La foto se subía bien pero en esos
+// navegadores salía en blanco, en el panel y en el anuncio de la tienda.
+const CARPETA_FOTOS_ANUNCIO = 'vitrina';
+
 // Sube una foto al bucket público y devuelve su URL (sirve directo en imagen_url / anuncio).
-async function subirImagen(file, carpeta = 'publicidad') {
+async function subirImagen(file, carpeta = CARPETA_FOTOS_ANUNCIO) {
   const archivo = await comprimirImagen(file);
   if (archivo.size > 5 * 1024 * 1024) throw new Error('La foto pesa más de 5 MB incluso comprimida: usa una más liviana.');
   const ext = ({ 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/avif': 'avif' })[archivo.type] || 'jpg';
@@ -1281,6 +1287,31 @@ async function borrarImagenSubida(url) {
   if (!url || !url.includes(marca)) return;
   const ruta = decodeURIComponent(url.split(marca)[1].split('?')[0]);
   await supabaseClient.storage.from(BUCKET_IMAGENES).remove([ruta]).catch(() => {});
+}
+
+// Copia a la carpeta nueva las fotos del anuncio que quedaron en "publicidad/" (las bloqueadas).
+// Devuelve la lista con las URLs nuevas; la que no se pudo copiar queda igual.
+async function moverFotosAnuncioBloqueadas(urls) {
+  const marca = `/storage/v1/object/public/${BUCKET_IMAGENES}/publicidad/`;
+  let cambio = false;
+  const nuevas = [];
+  for (const url of urls) {
+    if (!url || !url.includes(marca)) { nuevas.push(url); continue; }
+    const nombre = decodeURIComponent(url.split(marca)[1].split('?')[0]);
+    const destino = `${CARPETA_FOTOS_ANUNCIO}/${nombre}`;
+    const { error } = await supabaseClient.storage.from(BUCKET_IMAGENES).copy(`publicidad/${nombre}`, destino);
+    // "already exists": otra pestaña del panel ya la copió.
+    if (error && !/exist|duplicate/i.test(error.message)) { nuevas.push(url); continue; }
+    nuevas.push(supabaseClient.storage.from(BUCKET_IMAGENES).getPublicUrl(destino).data.publicUrl);
+    cambio = true;
+  }
+  return { urls: nuevas, cambio };
+}
+
+// Guarda solo las fotos del anuncio (sin tocar título, fechas ni si está activo).
+async function actualizarFotosPublicidad(imagenes) {
+  const { error } = await supabaseClient.from('publicidad_popup').update({ imagenes, imagen_url: imagenes[0] || null }).eq('id', 1);
+  if (error) throw new Error(error.message);
 }
 
 /* ================= PERFUMES SOLO POR CONSOLIDADO ================= */

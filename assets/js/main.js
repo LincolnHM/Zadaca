@@ -43,6 +43,8 @@ const NAV_LINKS = [
   { href: 'catalogo-consolidado/', label: 'Consolidado', soloConsolidados: true },
   { href: 'decants/', label: 'Decants' },
   { href: 'liquidaciones/', label: 'Liquidaciones' },
+  // Maizon Zadaca Courier (USA → Perú): sección aparte con sus propios colores (courier/).
+  { href: 'courier/', label: 'Courier USA', clase: 'nav-courier' },
   { href: 'contacto/', label: 'Contacto' },
 ].filter((l) => !l.soloConsolidados || CONSOLIDADOS_ACTIVOS);
 
@@ -421,7 +423,7 @@ function renderHeaderEstatico(activo) {
         </a>
         <div class="nav-backdrop" id="nav-backdrop" hidden></div>
         <nav class="main-nav" id="main-nav">
-          ${NAV_LINKS.map((l) => `<a href="${SITE_ROOT}${l.href}" class="${activo === l.href ? 'active' : ''}">${l.label}</a>`).join('')}
+          ${NAV_LINKS.map((l) => `<a href="${SITE_ROOT}${l.href}" class="${[activo === l.href ? 'active' : '', l.clase || ''].join(' ').trim()}">${l.clase === 'nav-courier' ? ICONS.plane : ''}${l.label}</a>`).join('')}
         </nav>
         <div class="header-actions">
           <button type="button" class="icon-btn search-toggle" id="search-toggle" aria-label="Buscar perfumes" aria-expanded="false">${ICONS.search}</button>
@@ -939,6 +941,7 @@ function renderFooter() {
             <a href="${SITE_ROOT}contacto/">Solicitar cotización</a>
             <a href="${SITE_ROOT}contacto/">Contacto</a>
             <a href="${SITE_ROOT}cuenta/">Mi cuenta</a>
+            <a href="${SITE_ROOT}courier/">Courier USA → Perú</a>
           </div>
           <div class="footer-col">
             <h4>Ayuda</h4>

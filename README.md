@@ -4,6 +4,30 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## Maizon Zadaca Courier (USA → Perú) y fotos del anuncio (1 oct 2026)
+
+**Courier** en `courier/`, armado a partir de los wireframes de Claude Design (ronda 3). Es una
+sección aparte con sus propios colores (azul y naranja del logo) y su propio menú. Se entra desde
+el menú "Courier USA", desde la franja azul del inicio y desde el pie de página.
+
+- Páginas: inicio, cómo funciona (Yo compro / Compren por mí), tarifas con calculadora, crear
+  casillero, compramos por ti, tiendas recomendadas, ayuda (preguntas y contacto) y productos
+  prohibidos con las condiciones del servicio.
+- **Todo termina en WhatsApp**: el casillero y "compramos por ti" arman el mensaje con los datos y
+  abren el chat. La web no guarda nada, así que no hace falta ninguna migración.
+- La tarifa (US$9), el número de WhatsApp y el tope sin impuestos (US$200, regla de SUNAT para
+  courier) están en un solo lugar: `CX` al inicio de `assets/js/courier.js`.
+- Imágenes en `assets/img/courier/` (recortes del afiche y del logo).
+- **Pendiente de confirmar** con datos reales: la dirección de Miami (hoy se envía por WhatsApp),
+  el límite de tamaño o peso de la tarifa plana, la comisión de "compramos por ti" y la lista de
+  prohibidos y condiciones (están escritas como referencia).
+
+**Fotos del anuncio que salían en blanco**: se guardaban en la carpeta `publicidad/` del
+Storage, y EasyList (la lista de uBlock, AdBlock, Brave y Opera) bloquea toda imagen con
+`/publicidad/` en la ruta. La foto se subía bien, pero quien tenía bloqueador no la veía. Ahora
+se guardan en `vitrina/`, y al abrir Publicidad en el panel las fotos viejas se copian solas ahí.
+No uses carpetas ni archivos llamados `publicidad`, `anuncio`, `ads` o `banner`.
+
 ## Contabilidad con ganancia real (30 sep 2026)
 
 **SQL:** `supabase/migrations/0022_contabilidad_costos_compras.sql` (Supabase → SQL Editor → Run).

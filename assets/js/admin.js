@@ -4882,7 +4882,7 @@ async function subirFotosPublicidad(archivos) {
   for (let i = 0; i < lote.length; i++) {
     estado.textContent = `Subiendo foto ${i + 1} de ${lote.length}…`;
     try {
-      PUBLI_FOTOS.push(await subirImagen(lote[i], 'publicidad'));
+      PUBLI_FOTOS.push(await subirImagen(lote[i], CARPETA_FOTOS_ANUNCIO));
       renderFotosPublicidad();
     } catch (err) {
       mostrarToast(err.message, 'error');
@@ -4923,8 +4923,26 @@ async function cargarPublicidad() {
     form.fecha_fin.value = p.fecha_fin ? p.fecha_fin.slice(0, 16) : '';
     PUBLI_FOTOS = imagenesPublicidad(p);
     renderFotosPublicidad();
+    rescatarFotosAnuncio([...PUBLI_FOTOS]);
   } catch (err) {
     mostrarToast(err.message, 'error');
+  }
+}
+
+// Las fotos subidas antes a la carpeta "publicidad/" no se veían con bloqueador de anuncios (ver
+// CARPETA_FOTOS_ANUNCIO): se copian solas a la carpeta nueva y se guardan en el anuncio, sin
+// tener que volver a subirlas. Si algo falla, todo queda como estaba.
+async function rescatarFotosAnuncio(actuales) {
+  try {
+    const { urls, cambio } = await moverFotosAnuncioBloqueadas(actuales);
+    if (!cambio) return;
+    await actualizarFotosPublicidad(urls);
+    PUBLI_FOTOS = PUBLI_FOTOS.map((u) => (actuales.includes(u) ? urls[actuales.indexOf(u)] : u));
+    renderFotosPublicidad();
+    actuales.forEach((u, i) => { if (urls[i] !== u) borrarImagenSubida(u); });
+    mostrarToast('Listo: arreglé las fotos del anuncio para que se vean en todos los navegadores');
+  } catch {
+    // Se reintenta la próxima vez que se abra Publicidad.
   }
 }
 
