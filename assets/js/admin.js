@@ -4807,6 +4807,10 @@ async function cargarConfiguracion() {
 // Fotos del anuncio en el orden en que se muestran (la primera es la portada). Se suben al
 // Storage apenas se eligen (ver subirImagen en admin-api.js) y se guardan como lista de URLs.
 let PUBLI_FOTOS = [];
+// Fotos tal como están guardadas en el anuncio publicado. Una foto quitada con la × se borra del
+// Storage recién al guardar: si se borrara al instante y no se guarda, el anuncio publicado
+// quedaría apuntando a una foto que ya no existe.
+let PUBLI_FOTOS_GUARDADAS = [];
 
 document.addEventListener('DOMContentLoaded', () => {
   const form = document.getElementById('form-publicidad');
@@ -4818,6 +4822,9 @@ document.addEventListener('DOMContentLoaded', () => {
     boton.disabled = true;
     try {
       await actualizarPublicidad(data);
+      const quitadas = PUBLI_FOTOS_GUARDADAS.filter((u) => !data.imagenes.includes(u));
+      PUBLI_FOTOS_GUARDADAS = [...data.imagenes];
+      quitadas.forEach((u) => borrarImagenSubida(u));
       mostrarToast(data.activo ? 'Anuncio guardado y activo' : 'Anuncio guardado (está desactivado)');
     } catch (err) {
       mostrarToast(err.message, 'error');
@@ -4846,7 +4853,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const i = Number(btn.closest('.publi-foto').dataset.i);
     if (btn.dataset.accion === 'quitar') {
       const [quitada] = PUBLI_FOTOS.splice(i, 1);
-      borrarImagenSubida(quitada);
+      // Una foto que nunca se guardó en el anuncio se puede borrar ya; la guardada, al guardar.
+      if (!PUBLI_FOTOS_GUARDADAS.includes(quitada) && !PUBLI_FOTOS.includes(quitada)) borrarImagenSubida(quitada);
     }
     if (btn.dataset.accion === 'izq' && i > 0) [PUBLI_FOTOS[i - 1], PUBLI_FOTOS[i]] = [PUBLI_FOTOS[i], PUBLI_FOTOS[i - 1]];
     if (btn.dataset.accion === 'der' && i < PUBLI_FOTOS.length - 1) [PUBLI_FOTOS[i + 1], PUBLI_FOTOS[i]] = [PUBLI_FOTOS[i], PUBLI_FOTOS[i + 1]];
@@ -4867,8 +4875,9 @@ function datosFormularioPublicidad() {
   data.fecha_fin = data.fecha_fin ? new Date(data.fecha_fin).toISOString() : null;
   ['titulo', 'mensaje', 'texto_boton', 'url_boton'].forEach((campo) => { data[campo] = (data[campo] || '').trim() || null; });
   data.imagenes = [...PUBLI_FOTOS];
-  // imagen_url (la foto única de antes) queda con la portada, por compatibilidad.
-  data.imagen_url = PUBLI_FOTOS[0] || null;
+  // imagen_url (la foto única de antes) queda con la portada, por compatibilidad. Si la portada
+  // está guardada como texto no se repite ahí (pesaría el doble).
+  data.imagen_url = PUBLI_FOTOS[0] && !PUBLI_FOTOS[0].startsWith('data:') ? PUBLI_FOTOS[0] : null;
   data.mostrar_en = data.mostrar_en === 'inicio' ? 'inicio' : 'todas';
   return data;
 }
@@ -4880,9 +4889,22 @@ async function subirFotosPublicidad(archivos) {
   const lote = archivos.slice(0, espacio);
   if (archivos.length > espacio) mostrarToast(`Solo se agregaron ${espacio} foto${espacio === 1 ? '' : 's'} (máximo 8)`, 'error');
   for (let i = 0; i < lote.length; i++) {
-    estado.textContent = `Subiendo foto ${i + 1} de ${lote.length}…`;
+    estado.textContent = `Preparando foto ${i + 1} de ${lote.length}…`;
     try {
-      PUBLI_FOTOS.push(await subirImagen(lote[i], CARPETA_FOTOS_ANUNCIO));
+      // Como en MICHT: la foto queda guardada dentro del anuncio (sin link que bloquear). Solo si
+      // ni achicada entra (un GIF muy pesado, por ejemplo) se sube al Storage.
+      const texto = await fotoAnuncioComoTexto(lote[i]);
+      if (texto) {
+        const pesoActual = PUBLI_FOTOS.filter((u) => u.startsWith('data:')).reduce((s, u) => s + u.length, 0);
+        if (pesoActual + texto.length > FOTOS_ANUNCIO_MAX_TEXTO) {
+          mostrarToast('Ya no entran más fotos en el anuncio: quita alguna o usa menos fotos.', 'error');
+          break;
+        }
+        PUBLI_FOTOS.push(texto);
+        if (lote[i].type === 'image/gif' && !texto.startsWith('data:image/gif')) mostrarToast('El GIF pesaba mucho: se guardó como imagen fija (sin animación).');
+      } else {
+        PUBLI_FOTOS.push(await subirImagen(lote[i], CARPETA_FOTOS_ANUNCIO));
+      }
       renderFotosPublicidad();
     } catch (err) {
       mostrarToast(err.message, 'error');
@@ -4896,8 +4918,8 @@ function renderFotosPublicidad() {
   if (!PUBLI_FOTOS.length) { mount.innerHTML = '<p class="form-hint" style="margin:0 0 8px;">Todavía no hay fotos.</p>'; return; }
   mount.innerHTML = PUBLI_FOTOS.map((url, i) => `
     <div class="publi-foto" data-i="${i}">
-      <img src="${escapeHtml(urlSegura(url) || '')}" alt="Foto ${i + 1}" onerror="this.closest('.publi-foto').classList.add('publi-foto-error')" />
-      <span class="publi-foto-aviso">No se pudo mostrar esta foto: quítala y vuelve a subirla</span>
+      <img src="${escapeHtml(fuenteImagenSegura(url) || '')}" alt="Foto ${i + 1}" onerror="fotoPublicidadNoCarga(this)" />
+      <span class="publi-foto-aviso" role="status"></span>
       ${i === 0 ? '<span class="publi-portada">Portada</span>' : ''}
       <div class="publi-foto-acciones">
         <button type="button" data-accion="izq" title="Mover a la izquierda" ${i === 0 ? 'disabled' : ''}>&#8249;</button>
@@ -4905,6 +4927,29 @@ function renderFotosPublicidad() {
         <button type="button" data-accion="der" title="Mover a la derecha" ${i === PUBLI_FOTOS.length - 1 ? 'disabled' : ''}>&#8250;</button>
       </div>
     </div>`).join('');
+}
+
+// Miniatura que no carga: se averigua si la foto existe (entonces es este navegador el que no la
+// muestra, casi siempre un bloqueador de anuncios, y NO hay que quitarla) o si de verdad falta.
+async function fotoPublicidadNoCarga(img) {
+  const caja = img.closest('.publi-foto');
+  if (!caja || caja.dataset.revisada) return;
+  caja.dataset.revisada = '1';
+  caja.classList.add('publi-foto-error');
+  const aviso = caja.querySelector('.publi-foto-aviso');
+  aviso.textContent = 'Revisando la foto…';
+  const estado = await estadoFotoStorage(img.src);
+  if (estado === 'existe') {
+    caja.classList.add('publi-foto-bloqueada');
+    aviso.textContent = 'Foto guardada bien. Tu navegador no la muestra (¿bloqueador de anuncios?). No la quites.';
+  } else if (estado === 'no-existe') {
+    aviso.textContent = 'Esta foto ya no existe: quítala y súbela de nuevo.';
+  } else if (estado === 'sin-comprobar') {
+    caja.classList.add('publi-foto-bloqueada');
+    aviso.textContent = 'No se pudo revisar la foto. Si usas un bloqueador de anuncios, desactívalo aquí y recarga.';
+  } else {
+    aviso.textContent = 'No se pudo mostrar esta foto: revisa el link o súbela de nuevo.';
+  }
 }
 
 async function cargarPublicidad() {
@@ -4922,6 +4967,7 @@ async function cargarPublicidad() {
     form.fecha_inicio.value = p.fecha_inicio ? p.fecha_inicio.slice(0, 16) : '';
     form.fecha_fin.value = p.fecha_fin ? p.fecha_fin.slice(0, 16) : '';
     PUBLI_FOTOS = imagenesPublicidad(p);
+    PUBLI_FOTOS_GUARDADAS = [...PUBLI_FOTOS];
     renderFotosPublicidad();
     rescatarFotosAnuncio([...PUBLI_FOTOS]);
   } catch (err) {
@@ -4931,15 +4977,16 @@ async function cargarPublicidad() {
 
 // Las fotos subidas antes a la carpeta "publicidad/" no se veían con bloqueador de anuncios (ver
 // CARPETA_FOTOS_ANUNCIO): se copian solas a la carpeta nueva y se guardan en el anuncio, sin
-// tener que volver a subirlas. Si algo falla, todo queda como estaba.
+// tener que volver a subirlas. La copia se comprueba antes de cambiar nada y la original no se
+// borra. Si algo falla, todo queda como estaba.
 async function rescatarFotosAnuncio(actuales) {
   try {
     const { urls, cambio } = await moverFotosAnuncioBloqueadas(actuales);
     if (!cambio) return;
     await actualizarFotosPublicidad(urls);
     PUBLI_FOTOS = PUBLI_FOTOS.map((u) => (actuales.includes(u) ? urls[actuales.indexOf(u)] : u));
+    PUBLI_FOTOS_GUARDADAS = [...urls];
     renderFotosPublicidad();
-    actuales.forEach((u, i) => { if (urls[i] !== u) borrarImagenSubida(u); });
     mostrarToast('Listo: arreglé las fotos del anuncio para que se vean en todos los navegadores');
   } catch {
     // Se reintenta la próxima vez que se abra Publicidad.

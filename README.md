@@ -28,6 +28,28 @@ Storage, y EasyList (la lista de uBlock, AdBlock, Brave y Opera) bloquea toda im
 se guardan en `vitrina/`, y al abrir Publicidad en el panel las fotos viejas se copian solas ahí.
 No uses carpetas ni archivos llamados `publicidad`, `anuncio`, `ads` o `banner`.
 
+**Ahora las fotos del anuncio van guardadas dentro del anuncio**, como texto (data URL), igual
+que en el proyecto MICHT. No tienen link al Storage, así que ningún bloqueador las puede frenar.
+- Cada foto se comprime hasta que entre en 300 KB (una foto de celular de 3 MB queda en unos
+  170-240 KB), y todas juntas no pasan de ~2,5 MB.
+- Un GIF liviano queda animado. Uno pesado se guarda como imagen fija.
+- La tienda pide las fotos **solo** cuando va a mostrar el anuncio: si está apagado, vencido o el
+  cliente ya lo vio en esa visita, no las descarga.
+- Solo se aceptan imágenes reales (PNG, JPG, WebP, GIF, AVIF). SVG y cualquier otro contenido se
+  rechazan.
+- Si una foto no entrara ni comprimida, se sube al Storage como respaldo (carpeta `vitrina/`).
+
+Además:
+- La **×** de una foto ya guardada solo la saca de la lista. El archivo se borra del Storage al
+  tocar "Guardar Publicidad", así el anuncio publicado nunca apunta a una foto borrada.
+- El rescate de fotos viejas comprueba que la copia exista antes de cambiar nada, y no borra la
+  original.
+- Si una miniatura del panel no se ve, el panel revisa por qué. Si la foto existe, avisa que es
+  el navegador (bloqueador de anuncios) y que no hay que quitarla. Si falta de verdad, pide
+  subirla de nuevo.
+- En la tienda, el anuncio carga primero sus fotos y muestra solo las que cargaron. Nunca sale
+  un cuadro vacío: si ninguna carga, se ve solo el texto, y si tampoco hay texto, no sale.
+
 ## Contabilidad con ganancia real (30 sep 2026)
 
 **SQL:** `supabase/migrations/0022_contabilidad_costos_compras.sql` (Supabase → SQL Editor → Run).

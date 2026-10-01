@@ -1157,6 +1157,7 @@ async function obtenerPublicidadAdmin() {
 async function actualizarPublicidad(data) {
   const { error } = await supabaseClient.from('publicidad_popup').update({ ...data, actualizado_en: new Date().toISOString() }).eq('id', 1);
   if (error) {
+    if (/too large|payload|413/i.test(error.message)) throw new Error('Las fotos del anuncio pesan demasiado juntas: quita alguna y vuelve a guardar.');
     if (/imagenes|mostrar_en/.test(error.message)) throw new Error('Falta correr la migración 0020 en Supabase (fotos del anuncio). Ver README.');
     throw new Error(error.message);
   }
@@ -1209,9 +1210,10 @@ function originalSubible(file) {
   return file;
 }
 
-async function comprimirImagen(file, { maxLado = 1600, calidad = 0.86 } = {}) {
+// forzar: siempre achica y recodifica (aunque la original ya sea liviana o pese menos).
+async function comprimirImagen(file, { maxLado = 1600, calidad = 0.86, forzar = false } = {}) {
   if (!file || !(file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name || ''))) throw new Error('El archivo no es una imagen');
-  if (file.type === 'image/gif') return file;
+  if (file.type === 'image/gif' && !forzar) return file;
   let lectura;
   try {
     lectura = await leerImagen(file);
@@ -1224,7 +1226,7 @@ async function comprimirImagen(file, { maxLado = 1600, calidad = 0.86 } = {}) {
     const alto = img.naturalHeight;
     if (!ancho || !alto) return originalSubible(file);
     const escala = Math.min(1, maxLado / Math.max(ancho, alto));
-    if (escala === 1 && file.size <= 450 * 1024 && TIPOS_IMAGEN_ACEPTADOS.includes(file.type)) return file;
+    if (!forzar && escala === 1 && file.size <= 450 * 1024 && TIPOS_IMAGEN_ACEPTADOS.includes(file.type)) return file;
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(ancho * escala));
     canvas.height = Math.max(1, Math.round(alto * escala));
@@ -1246,12 +1248,40 @@ async function comprimirImagen(file, { maxLado = 1600, calidad = 0.86 } = {}) {
       blob = await new Promise((r) => fondo.toBlob(r, 'image/jpeg', calidad));
     }
     if (!blob || !blob.size) return originalSubible(file);
-    if (blob.size >= file.size && TIPOS_IMAGEN_ACEPTADOS.includes(file.type)) return file;
+    if (!forzar && blob.size >= file.size && TIPOS_IMAGEN_ACEPTADOS.includes(file.type)) return file;
     const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
     return new File([blob], `${(file.name || 'foto').replace(/\.[^.]+$/, '')}.${ext}`, { type: blob.type });
   } finally {
     liberar();
   }
+}
+
+// Fotos del anuncio guardadas como texto DENTRO del anuncio (data URL), como en MICHT: no tienen
+// link al Storage, así que ningún bloqueador de anuncios las puede frenar y salen siempre. Para
+// que el anuncio no pese, cada foto se achica hasta que entre en FOTO_ANUNCIO_MAX_BYTES.
+const FOTO_ANUNCIO_MAX_BYTES = 300 * 1024;
+// Tope de todas las fotos juntas (como texto), para que guardar y abrir el anuncio siga rápido.
+const FOTOS_ANUNCIO_MAX_TEXTO = 2_500_000;
+
+function leerComoDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const lector = new FileReader();
+    lector.onload = () => resolve(lector.result);
+    lector.onerror = () => reject(new Error('No se pudo leer la foto'));
+    lector.readAsDataURL(blob);
+  });
+}
+
+// Devuelve la foto como data URL, o null si ni achicándola entra (ahí se sube al Storage).
+// Un GIF liviano queda animado; uno pesado se guarda como imagen fija (su primer cuadro).
+async function fotoAnuncioComoTexto(file) {
+  if (!file || !(file.type.startsWith('image/') || /\.(heic|heif)$/i.test(file.name || ''))) throw new Error('El archivo no es una imagen');
+  if (file.type === 'image/gif' && file.size <= FOTO_ANUNCIO_MAX_BYTES) return leerComoDataUrl(file);
+  for (const [maxLado, calidad] of [[1200, 0.82], [1080, 0.74], [960, 0.66], [800, 0.6]]) {
+    const archivo = await comprimirImagen(file, { maxLado, calidad, forzar: true });
+    if (archivo.size <= FOTO_ANUNCIO_MAX_BYTES) return leerComoDataUrl(archivo);
+  }
+  return null;
 }
 
 function traducirErrorStorage(error) {
@@ -1289,8 +1319,24 @@ async function borrarImagenSubida(url) {
   await supabaseClient.storage.from(BUCKET_IMAGENES).remove([ruta]).catch(() => {});
 }
 
+// ¿La foto existe en nuestro Storage? Se pide con fetch: los bloqueadores de anuncios frenan las
+// <img> con rutas sospechosas, pero normalmente no estas consultas, así que sirve para saber si
+// una foto que no se ve falta de verdad o la está escondiendo el navegador.
+// Devuelve 'existe', 'no-existe', 'sin-comprobar' (la consulta tampoco salió) o 'externa'.
+async function estadoFotoStorage(url) {
+  if (!url || !url.includes(`/storage/v1/object/public/${BUCKET_IMAGENES}/`)) return 'externa';
+  let r;
+  try {
+    r = await fetch(url, { cache: 'no-store' });
+  } catch {
+    return 'sin-comprobar';
+  }
+  return r.ok && (r.headers.get('content-type') || '').startsWith('image/') ? 'existe' : 'no-existe';
+}
+
 // Copia a la carpeta nueva las fotos del anuncio que quedaron en "publicidad/" (las bloqueadas).
-// Devuelve la lista con las URLs nuevas; la que no se pudo copiar queda igual.
+// Devuelve la lista con las URLs nuevas; la que no se pudo copiar (o cuya copia no se puede
+// comprobar) queda igual. La original no se borra.
 async function moverFotosAnuncioBloqueadas(urls) {
   const marca = `/storage/v1/object/public/${BUCKET_IMAGENES}/publicidad/`;
   let cambio = false;
@@ -1302,7 +1348,9 @@ async function moverFotosAnuncioBloqueadas(urls) {
     const { error } = await supabaseClient.storage.from(BUCKET_IMAGENES).copy(`publicidad/${nombre}`, destino);
     // "already exists": otra pestaña del panel ya la copió.
     if (error && !/exist|duplicate/i.test(error.message)) { nuevas.push(url); continue; }
-    nuevas.push(supabaseClient.storage.from(BUCKET_IMAGENES).getPublicUrl(destino).data.publicUrl);
+    const nueva = supabaseClient.storage.from(BUCKET_IMAGENES).getPublicUrl(destino).data.publicUrl;
+    if ((await estadoFotoStorage(nueva)) !== 'existe') { nuevas.push(url); continue; }
+    nuevas.push(nueva);
     cambio = true;
   }
   return { urls: nuevas, cambio };

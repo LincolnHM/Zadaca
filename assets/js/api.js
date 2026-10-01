@@ -1279,15 +1279,37 @@ function aplicarPlaceholdersConfiguracion(texto, cfg) {
 // Popup de publicidad del inicio (ver migración 0013) -- fila única, editable desde el panel
 // admin (Publicidad). maybeSingle + swallow de error: es un adorno opcional, si la tabla no
 // existe todavía (sitio sin migrar) o falla la consulta, la home no debe romperse por esto.
+// Datos del anuncio SIN las fotos: las fotos pueden venir guardadas como texto dentro del anuncio
+// (ver fotoAnuncioComoTexto en admin-api.js) y pesar cientos de KB, así que se piden aparte con
+// obtenerFotosPublicidad() solo cuando el anuncio de verdad se va a mostrar.
 async function obtenerPublicidadPopup() {
   if (!SUPABASE_CONFIGURADO) return null;
   try {
-    const { data, error } = await supabaseClient.from('publicidad_popup').select('*').eq('id', 1).maybeSingle();
+    const { data, error } = await supabaseClient.from('publicidad_popup')
+      .select('id, activo, titulo, mensaje, texto_boton, url_boton, fecha_inicio, fecha_fin, actualizado_en, mostrar_en')
+      .eq('id', 1).maybeSingle();
     if (error) return null;
     return data;
   } catch {
     return null;
   }
+}
+
+async function obtenerFotosPublicidad() {
+  try {
+    const { data, error } = await supabaseClient.from('publicidad_popup').select('imagenes, imagen_url').eq('id', 1).maybeSingle();
+    return error || !data ? [] : imagenesPublicidad(data);
+  } catch {
+    return [];
+  }
+}
+
+// src seguro para una foto: un link http(s) o una foto guardada como texto (data URL de una
+// imagen común; SVG no, porque puede traer código).
+function fuenteImagenSegura(valor) {
+  const texto = String(valor || '').trim();
+  if (/^data:image\/(png|jpeg|webp|gif|avif);base64,[A-Za-z0-9+/]+={0,2}$/.test(texto)) return texto;
+  return urlSegura(texto);
 }
 
 // Fotos del anuncio: la lista "imagenes" (migración 0020) o, si la base todavía no la tiene, la
@@ -1298,12 +1320,30 @@ function imagenesPublicidad(promo) {
   return lista.slice(0, 8);
 }
 
-function publicidadVigente(promo, ahora = new Date()) {
-  if (!promo || !promo.activo) return false;
-  if (!promo.titulo && !promo.mensaje && !imagenesPublicidad(promo).length) return false;
+// Precarga las fotos del anuncio y devuelve solo las que cargan, en el mismo orden. Así el
+// anuncio nunca sale con un cuadro vacío si una foto falta, tarda demasiado o el navegador no la
+// muestra: se ve con las fotos que sí cargaron, o solo con el texto.
+function fotosQueCargan(urls, msMax = 8000) {
+  return Promise.all(urls.map((url) => new Promise((resolve) => {
+    const img = new Image();
+    const terminar = (ok) => { clearTimeout(reloj); resolve(ok ? url : null); };
+    const reloj = setTimeout(() => terminar(false), msMax);
+    img.onload = () => terminar(img.naturalWidth > 0);
+    img.onerror = () => terminar(false);
+    img.src = url;
+  }))).then((lista) => lista.filter(Boolean));
+}
+
+function publicidadEnFechas(promo, ahora = new Date()) {
   if (promo.fecha_inicio && ahora < new Date(promo.fecha_inicio)) return false;
   if (promo.fecha_fin && ahora > new Date(promo.fecha_fin)) return false;
   return true;
+}
+
+function publicidadVigente(promo, ahora = new Date()) {
+  if (!promo || !promo.activo) return false;
+  if (!promo.titulo && !promo.mensaje && !imagenesPublicidad(promo).length) return false;
+  return publicidadEnFechas(promo, ahora);
 }
 
 // Dibuja el anuncio encima de la página (lo usa main.js al cargar cualquier página y el panel
@@ -1312,7 +1352,7 @@ function publicidadVigente(promo, ahora = new Date()) {
 // afuera o con Escape; alCerrar() se llama una sola vez (también si se toca el botón del anuncio).
 function mostrarPublicidadPopup(promo, { alCerrar } = {}) {
   document.querySelector('.promo-popup-overlay')?.remove();
-  const imagenes = imagenesPublicidad(promo).map(urlSegura).filter(Boolean);
+  const imagenes = imagenesPublicidad(promo).map(fuenteImagenSegura).filter(Boolean);
   const varias = imagenes.length > 1;
   const enlaceBoton = promo.texto_boton && promo.url_boton ? urlSegura(promo.url_boton) : null;
   const overlay = document.createElement('div');

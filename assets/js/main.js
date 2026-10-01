@@ -79,13 +79,17 @@ async function cargarPublicidadPopup() {
     const seccion = window.location.pathname.split('/').filter(Boolean)[0] || '';
     if (PAGINAS_SIN_ANUNCIO.includes(seccion)) return;
     const promo = await obtenerPublicidadPopup();
-    if (!publicidadVigente(promo)) return;
+    if (!promo?.activo || !publicidadEnFechas(promo)) return;
     if (promo.mostrar_en === 'inicio' && seccion !== '') return;
     const clave = `promo-popup-visto-${promo.actualizado_en}`;
     try {
       if (sessionStorage.getItem(clave)) return;
     } catch { /* sessionStorage bloqueado (modo privado, etc.) -- se muestra igual */ }
-    mostrarPublicidadPopup(promo, {
+    // Las fotos se piden recién ahora (pueden pesar) y solo se muestran las que cargan.
+    const fotos = await fotosQueCargan((await obtenerFotosPublicidad()).map(fuenteImagenSegura).filter(Boolean));
+    const anuncio = { ...promo, imagenes: fotos, imagen_url: null };
+    if (!publicidadVigente(anuncio)) return;
+    mostrarPublicidadPopup(anuncio, {
       alCerrar: () => { try { sessionStorage.setItem(clave, '1'); } catch { /* no pasa nada si no se puede recordar */ } },
     });
   } catch (err) {
