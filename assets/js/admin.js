@@ -2297,6 +2297,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('movimientos-periodo')?.addEventListener('change', cargarMovimientos);
   document.getElementById('btn-movimientos-quitar-filtro')?.addEventListener('click', () => { MOVIMIENTOS_FILTRO = null; cargarMovimientos(); });
   document.getElementById('btn-exportar-inventario')?.addEventListener('click', exportarInventarioExcel);
+  document.getElementById('btn-importar-inventario')?.addEventListener('click', () => document.getElementById('input-importar-inventario').click());
+  document.getElementById('input-importar-inventario')?.addEventListener('change', importarInventarioExcel);
   document.getElementById('btn-imprimir-conteo')?.addEventListener('click', imprimirHojaConteo);
 
   const tbody = document.getElementById('inventario-tbody');
@@ -3007,9 +3009,11 @@ async function cargarMovimientos() {
 
 function exportarInventarioExcel() {
   if (!window.XLSX) return mostrarToast('No cargó la librería de Excel — revisa tu conexión y recarga', 'error');
-  const lineas = lineasInventarioFiltradas();
-  if (!lineas.length) return mostrarToast('No hay perfumes en esta vista para exportar', 'error');
+  // Siempre todo el inventario (no solo lo filtrado), para poder corregirlo y volver a subirlo.
+  const lineas = INVENTARIO_LINEAS;
+  if (!lineas.length) return mostrarToast('Todavía no carga el inventario — espera un momento', 'error');
   const filas = lineas.map((l) => ({
+    'Código': l.clave,
     Marca: l.marca,
     Perfume: l.nombre,
     'ml por frasco': l.tienda?.mililitros ?? l.decant?.mililitros ?? '',
@@ -3023,10 +3027,69 @@ function exportarInventarioExcel() {
     'Visible en web': l.activo ? 'Sí' : 'No',
   }));
   const hoja = XLSX.utils.json_to_sheet(sanitizarFilasExcel(filas));
-  hoja['!cols'] = [{ wch: 18 }, { wch: 34 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 13 }];
+  hoja['!cols'] = [{ wch: 9 }, { wch: 18 }, { wch: 34 }, { wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 16 }, { wch: 16 }, { wch: 13 }];
   const libro = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(libro, hoja, 'Inventario');
   XLSX.writeFile(libro, `inventario-maison-zadaca-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
+// Sube el Excel descargado (ya corregido) y carga sus números en el modo conteo: el admin ve
+// resaltado lo que cambia y recién se guarda con "Guardar conteo". Busca cada fila por Código
+// y, si no lo tiene (Excel hecho a mano), por Marca + Perfume.
+async function importarInventarioExcel(e) {
+  const archivo = e.target.files?.[0];
+  e.target.value = '';
+  if (!archivo) return;
+  if (!window.XLSX) return mostrarToast('No cargó la librería de Excel — revisa tu conexión y recarga', 'error');
+  try {
+    if (!INVENTARIO_LINEAS?.length) await cargarInventario();
+    const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array' });
+    const filas = XLSX.utils.sheet_to_json(libro.Sheets[libro.SheetNames[0]], { defval: '' });
+    if (!filas.length) return mostrarToast('El Excel está vacío', 'error');
+    const col = (fila, ...nombres) => {
+      const k = Object.keys(fila).find((c) => nombres.includes(normalizarBusqueda(c)));
+      return k == null ? '' : fila[k];
+    };
+    const porClave = new Map(INVENTARIO_LINEAS.map((l) => [l.clave, l]));
+    const porNombre = new Map(INVENTARIO_LINEAS.map((l) => [normalizarBusqueda(`${l.marca} ${l.nombre}`), l]));
+    const numero = (v) => (v === '' || v == null ? null : Number(String(v).replace(',', '.')));
+    const noEncontrados = [];
+    let invalidos = 0;
+    CAMBIOS_CONTEO.clear();
+    filas.forEach((fila) => {
+      const clave = String(col(fila, 'codigo')).trim();
+      const marca = col(fila, 'marca');
+      const nombre = col(fila, 'perfume', 'nombre');
+      const l = porClave.get(clave) || porNombre.get(normalizarBusqueda(`${marca} ${nombre}`));
+      if (!l) { if (clave || nombre) noEncontrados.push(`${marca} ${nombre}`.trim() || clave); return; }
+      const cambios = {};
+      const revisar = (campo, valor, original, entero) => {
+        if (valor == null) return;
+        if (!(valor >= 0) || (entero && !Number.isInteger(valor))) { invalidos += 1; return; }
+        if (valor !== (original ?? null)) cambios[campo] = valor;
+      };
+      if (l.tienda) revisar('cerrados', numero(col(fila, 'frascos cerrados', 'cerrados', 'stock')), l.cerrados, true);
+      if (l.decant) {
+        revisar('abiertos', numero(col(fila, 'frascos abiertos', 'abiertos')), l.abiertos, true);
+        revisar('ml', numero(col(fila, 'ml en frasco abierto', 'ml restantes')), l.ml, false);
+      }
+      if (Object.keys(cambios).length) CAMBIOS_CONTEO.set(l.clave, cambios);
+    });
+    // Que se vean todas las filas con cambios
+    const busqueda = document.getElementById('inventario-busqueda');
+    if (busqueda) busqueda.value = '';
+    inventarioChip = 'todos';
+    if (!MODO_CONTEO) entrarModoConteo(); else renderInventario();
+    const n = CAMBIOS_CONTEO.size;
+    const avisos = [];
+    if (noEncontrados.length) avisos.push(`${noEncontrados.length} fila(s) no coinciden con ningún perfume: ${noEncontrados.slice(0, 5).join(', ')}${noEncontrados.length > 5 ? '…' : ''}`);
+    if (invalidos) avisos.push(`${invalidos} número(s) inválidos se ignoraron`);
+    mostrarToast(n
+      ? `Excel leído: ${n} perfume${n === 1 ? '' : 's'} con cambios (resaltados). Revisa y pulsa "Guardar conteo".${avisos.length ? ` ${avisos.join('. ')}` : ''}`
+      : `El Excel no tiene cambios respecto al stock actual.${avisos.length ? ` ${avisos.join('. ')}` : ''}`, avisos.length && !n ? 'error' : undefined);
+  } catch (err) {
+    mostrarToast(`No se pudo leer el Excel: ${err.message}`, 'error');
+  }
 }
 
 // Hoja para el conteo físico: lo que dice el sistema y columnas vacías para anotar lo que se

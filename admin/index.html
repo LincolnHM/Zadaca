@@ -175,7 +175,9 @@
           <div><h1>Inventario</h1><div class="sub">Cuántos frascos tienes de cada perfume: <strong>cerrados</strong> (se venden en tienda) y <strong>abiertos</strong> (se usan para decants).</div></div>
           <div class="row-actions">
             <button class="btn btn-ghost btn-sm" id="btn-imprimir-conteo" title="Hoja para contar a mano en la tienda">Imprimir hoja</button>
-            <button class="btn btn-ghost btn-sm" id="btn-exportar-inventario">Excel</button>
+            <button class="btn btn-ghost btn-sm" id="btn-exportar-inventario" title="Descarga todo tu stock en Excel">Descargar Excel</button>
+            <button class="btn btn-ghost btn-sm" id="btn-importar-inventario" title="Sube el Excel con los números corregidos: verás los cambios antes de guardar">Subir Excel</button>
+            <input type="file" id="input-importar-inventario" accept=".xlsx,.xls,.csv" hidden />
             <button class="btn btn-outline btn-sm" id="btn-modo-conteo" title="Escribe lo que contaste de cada perfume y guarda todo junto">Hacer conteo</button>
             <button class="btn btn-primary btn-sm" id="btn-ingreso-mercaderia" title="Llegó mercadería: suma frascos de varios perfumes a la vez">+ Ingreso de mercadería</button>
           </div>
