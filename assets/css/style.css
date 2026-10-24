@@ -668,6 +668,8 @@ h1, h2, h3, h4 {
 .product-price-row { margin-top: auto; padding-top: 10px; display: flex; align-items: baseline; gap: 8px; }
 .price-current { font-weight: 700; color: var(--color-text); }
 .price-old { font-size: 0.82rem; color: var(--color-text-faint); text-decoration: line-through; }
+/* Perfume entero con el precio oculto (ver PRECIOS_ENTEROS_VISIBLES en api.js). */
+.price-whatsapp { font-size: 0.82rem; font-weight: 600; color: var(--color-gold); }
 
 /* ---------- Feature strip ---------- */
 .feature-strip { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-bg-alt); }

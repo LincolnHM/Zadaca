@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const params = new URLSearchParams(window.location.search);
+  // Precios ocultos (ver PRECIOS_ENTEROS_VISIBLES en api.js): ordenar por precio los delataría.
+  if (!PRECIOS_ENTEROS_VISIBLES) document.querySelectorAll('#orden-select option[value^="precio_"]').forEach((o) => o.remove());
   generoActivo = params.get('genero') || '';
   const busquedaInicial = (params.get('busqueda') || '').trim();
   if (busquedaInicial) document.querySelector('#filter-form input[name="busqueda"]').value = busquedaInicial;
@@ -176,7 +178,7 @@ async function cargarSugerencias(texto) {
 function renderSugerencias(lista, texto) {
   const panel = document.getElementById('search-suggest');
   const filas = lista.map((p) => {
-    const precio = formatoMoneda(p.precio_consolidado_fijo);
+    const precio = PRECIOS_ENTEROS_VISIBLES ? formatoMoneda(p.precio_consolidado_fijo) : '';
     const miniatura = p.imagen_url
       ? `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
       : `<span class="fallback-icon">${ICONS.box}</span>`;
@@ -444,7 +446,7 @@ function renderBarraAvion() {
     <div class="avion-barra-inner">
       <span class="avion-barra-icono">${ICONS.plane}</span>
       <div class="avion-barra-texto">
-        <strong>${unidades} unidad${unidades === 1 ? '' : 'es'}</strong><span class="solo-desktop"> en tu Carrito de Avión</span> · ${formatoMoneda(totalCarritoAvion(items))}
+        <strong>${unidades} unidad${unidades === 1 ? '' : 'es'}</strong><span class="solo-desktop"> en tu Carrito de Avión</span>${PRECIOS_ENTEROS_VISIBLES ? ` · ${formatoMoneda(totalCarritoAvion(items))}` : ''}
         <span class="avion-barra-sub">${faltan ? `Te falta${faltan === 1 ? '' : 'n'} ${faltan} para el mínimo de ${MINIMO_UNIDADES}` : '¡Pedido mínimo completo!'}</span>
       </div>
       <a href="${SITE_ROOT}carrito-avion/" class="btn ${faltan ? 'btn-outline' : 'btn-primary'} btn-sm">Ver carrito</a>

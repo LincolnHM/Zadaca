@@ -115,13 +115,15 @@ function renderCarritoAvion() {
         <aside class="summary-panel">
           <h3 class="avion-title" style="font-size:1.1rem; margin-bottom:16px;">${ICONS.plane} Resumen</h3>
           <div class="summary-line"><span>Unidades</span><span>${unidades}</span></div>
+          ${PRECIOS_ENTEROS_VISIBLES ? `
           <div class="summary-line"><span>Subtotal (precio consolidado)</span><span>${formatoMoneda(subtotal)}</span></div>
           ${descuento > 0 ? `<div class="summary-line"><span>Descuento por volumen (estimado)</span><span style="color:var(--color-success);">-${formatoMoneda(descuento)}</span></div>` : ''}
-          <div class="summary-total"><span>Total estimado</span><span>${formatoMoneda(totalEstimado)}</span></div>
+          <div class="summary-total"><span>Total estimado</span><span>${formatoMoneda(totalEstimado)}</span></div>`
+          : '<div class="summary-total"><span>Total</span><span>Por WhatsApp</span></div>'}
           ${RESERVADAS_EN_CAMPANA ? `<p class="form-hint" style="margin:-8px 0 12px;">Ya tienes ${RESERVADAS_EN_CAMPANA} unidad${RESERVADAS_EN_CAMPANA === 1 ? '' : 'es'} reservada${RESERVADAS_EN_CAMPANA === 1 ? '' : 's'} en esta campaña: cuentan para el mínimo.</p>` : ''}
           ${htmlProgresoAvion(unidadesParaMinimo, MINIMO)}
           ${htmlCierre(items, faltan)}
-          <p class="form-hint" style="margin:14px 0 0;">Llega en <span data-cfg="envio_dias_texto">7 a 14</span> días aprox. después del cierre de la campaña. El precio final se confirma al reservar.</p>
+          <p class="form-hint" style="margin:14px 0 0;">Llega en <span data-cfg="envio_dias_texto">7 a 14</span> días aprox. después del cierre de la campaña. ${PRECIOS_ENTEROS_VISIBLES ? 'El precio final se confirma al reservar.' : 'El precio te lo pasamos por WhatsApp.'}</p>
         </aside>
       </div>
     </div>`;
@@ -147,8 +149,10 @@ function filaCarritoAvion(item) {
       <div class="cr-media">${imagenProducto(item)}</div>
       <div>
         <p class="cr-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}</p>
+        ${PRECIOS_ENTEROS_VISIBLES ? `
         <span class="cr-meta">${item.mililitros && item.mililitros > 1 ? `${item.mililitros} ml · ` : ''}${formatoMoneda(item.precio)} c/u</span>
-        <div class="cr-subtotal">Subtotal: <strong>${formatoMoneda(item.precio * item.cantidad)}</strong></div>
+        <div class="cr-subtotal">Subtotal: <strong>${formatoMoneda(item.precio * item.cantidad)}</strong></div>`
+        : `<span class="cr-meta">${item.mililitros && item.mililitros > 1 ? `${item.mililitros} ml · ` : ''}${TEXTO_PRECIO_WHATSAPP}</span>`}
       </div>
       <div class="cr-qty">
         <button type="button" class="avion-menos" aria-label="Una unidad menos">${ICONS.minus}</button>
@@ -170,13 +174,24 @@ function htmlCierre(items, faltan) {
   if (!CAMPANA) {
     return `
       ${aviso}
-      <div class="avion-campana">Ahora mismo no hay una campaña abierta para reservar en la web. <strong>Envíanos tu Carrito de Avión por WhatsApp</strong> y te confirmamos el precio final y la fecha de la próxima salida.</div>
+      <div class="avion-campana">Ahora mismo no hay una campaña abierta para reservar en la web. <strong>Envíanos tu Carrito de Avión por WhatsApp</strong> y te ${PRECIOS_ENTEROS_VISIBLES ? 'confirmamos el precio final' : 'pasamos el precio'} y la fecha de la próxima salida.</div>
       <div class="avion-acciones">${botonWhatsapp}</div>`;
   }
 
   const { cierre, texto } = calcularTiempoRestanteConsolidado(CAMPANA.fecha_cierre_programada);
   const cierreTexto = cierre.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
   const campana = `<div class="avion-campana">Campaña abierta: <strong>${escapeHtml(CAMPANA.codigo_campana)}</strong> · cierra el ${escapeHtml(cierreTexto)} (<strong>${escapeHtml(texto.toLowerCase())}</strong>).</div>`;
+
+  // Precios ocultos (ver PRECIOS_ENTEROS_VISIBLES en api.js): no se reserva en la web con un
+  // precio guardado que puede estar viejo. El pedido va por WhatsApp y el admin lo registra en
+  // Pedidos → Registrar Pedido → Consolidado con el precio acordado.
+  if (!PRECIOS_ENTEROS_VISIBLES) {
+    return `
+      ${aviso}
+      ${campana}
+      <div class="avion-campana"><strong>Envíanos tu Carrito de Avión por WhatsApp</strong> y te pasamos el precio para reservar en esta campaña.</div>
+      <div class="avion-acciones">${botonWhatsapp}</div>`;
+  }
   const retorno = encodeURIComponent(`${SITE_ROOT}carrito-avion/`);
 
   let reservar;

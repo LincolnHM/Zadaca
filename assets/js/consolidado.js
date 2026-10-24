@@ -85,7 +85,7 @@ async function renderResumenAvion() {
   mount.innerHTML = `
     ${items.length ? `
       <div class="summary-line"><span>Perfumes en tu carrito</span><span>${items.length}</span></div>
-      <div class="summary-line"><span>Subtotal consolidado</span><span>${formatoMoneda(totalCarritoAvion(items))}</span></div>
+      ${PRECIOS_ENTEROS_VISIBLES ? `<div class="summary-line"><span>Subtotal consolidado</span><span>${formatoMoneda(totalCarritoAvion(items))}</span></div>` : ''}
       ${htmlProgresoAvion(unidades, minimo)}` : '<p class="form-hint" style="margin-bottom:16px;">Tu Carrito de Avión está vacío.</p>'}
     <div class="avion-acciones">
       <a class="btn ${items.length ? 'btn-outline' : 'btn-primary'}" href="${SITE_ROOT}catalogo-consolidado/">Agregar perfumes</a>

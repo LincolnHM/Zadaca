@@ -82,7 +82,10 @@ function renderDetalle(data) {
     ? (precioTallaDecant(p, TALLA_SELECCIONADA) ?? 0)
     : modoConsolidado ? Number(p.precio_consolidado_fijo)
     : esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje);
-  const tieneDescuento = !modoConsolidado && !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
+  // Perfume entero con precios ocultos (ver PRECIOS_ENTEROS_VISIBLES en api.js): ni precio ni
+  // descuento en la ficha, el precio se pide por WhatsApp.
+  const conPrecio = precioVisible(p);
+  const tieneDescuento = conPrecio && !modoConsolidado && !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
   // "estado" es un campo que el admin llena a mano y en la práctica nunca usa para el catálogo
   // normal (ningún producto real está marcado "Agotado" hoy) -- stock_disponible es el número
   // que sí se mantiene al día automáticamente (columna generada, ver schema.sql), así que ESE
@@ -104,7 +107,8 @@ function renderDetalle(data) {
   const cantidadMaxima = p.es_decant ? 20 : Math.max(p.stock_disponible, unidadMinima);
 
   // Datos estructurados Product -- lo que le permite a Google mostrar precio directo en el
-  // resultado de búsqueda (rich result) en vez de solo título y descripción.
+  // resultado de búsqueda (rich result) en vez de solo título y descripción. Sin precio visible
+  // no se publica la oferta: Google mostraría el precio guardado, que puede estar desactualizado.
   const productoLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -113,14 +117,16 @@ function renderDetalle(data) {
     sku: p.slug,
     brand: { '@type': 'Brand', name: p.marca },
     image: imagenPagina,
-    offers: {
+  };
+  if (conPrecio) {
+    productoLd.offers = {
       '@type': 'Offer',
       url: urlProducto,
       priceCurrency: 'PEN',
       price: final.toFixed(2),
       availability: agotado ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
-    },
-  };
+    };
+  }
   document.getElementById('product-jsonld').textContent = JSON.stringify(productoLd);
 
   document.getElementById('detalle-mount').innerHTML = `
@@ -130,7 +136,7 @@ function renderDetalle(data) {
         <span class="pd-brand">${escapeHtml(p.marca)}</span>
         <h1 class="pd-name">${escapeHtml(p.nombre)}</h1>
         <div class="pd-price">
-          <span class="price-current">${formatoMoneda(final)}</span>
+          ${conPrecio ? `<span class="price-current">${formatoMoneda(final)}</span>` : `<span class="price-whatsapp">${TEXTO_PRECIO_WHATSAPP}</span>`}
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
           ${esLiquidacion ? '<span class="badge badge-liquidacion">Liquidación</span>' : ''}
           ${p.es_decant ? '<span class="badge badge-decant">Decant</span>' : ''}
@@ -150,7 +156,7 @@ function renderDetalle(data) {
             ? `<div class="pd-consolidado-note">Precio de liquidación — por mayor y por unidad. ${unidadMinima > 1 ? `Compra mínima: <strong>${unidadMinima} unidades</strong>.` : 'Puedes llevar desde 1 unidad.'}</div>`
             : p.es_decant || !CONSOLIDADOS_ACTIVOS
               ? ''
-              : `<div class="pd-consolidado-note pd-avion-note">${ICONS.plane}<span>${agotado ? 'Sin stock ahora: ' : 'O '}tráelo por <strong>consolidado</strong> a <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> c/u (pedido mínimo <span data-cfg="consolidado_minimo_unidades">4</span> unidades, pueden ser perfumes distintos). <button type="button" class="link-arrow" id="btn-avion-ficha">Agregar al Carrito de Avión</button></span></div>`}
+              : `<div class="pd-consolidado-note pd-avion-note">${ICONS.plane}<span>${agotado ? 'Sin stock ahora: ' : 'O '}tráelo por <strong>consolidado</strong>${PRECIOS_ENTEROS_VISIBLES ? ` a <strong>${formatoMoneda(p.precio_consolidado_fijo)}</strong> c/u` : ''} (pedido mínimo <span data-cfg="consolidado_minimo_unidades">4</span> unidades, pueden ser perfumes distintos). <button type="button" class="link-arrow" id="btn-avion-ficha">Agregar al Carrito de Avión</button></span></div>`}
         ${htmlOtraPresentacion(p, data.otraPresentacion)}
 
         <div class="pd-meta-row">
@@ -178,7 +184,9 @@ function renderDetalle(data) {
           `}
           ${agotado && !modoConsolidado && (p.es_decant || !CONSOLIDADOS_ACTIVOS) ? `<a class="btn btn-outline" href="${enlaceWhatsappConsolidado(`${p.marca} ${p.nombre}${p.es_decant ? ' (decant)' : ''}`)}" target="_blank" rel="noopener">${ICONS.plane} Pídelo por encargo</a>` : ''}
           <button class="heart-toggle" id="btn-favorito" aria-label="Agregar a favoritos" aria-pressed="false">${ICONS.heart}</button>
-          <a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera consultar sobre ${p.marca} ${p.nombre}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Consultar</a>
+          ${conPrecio
+            ? `<a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera consultar sobre ${p.marca} ${p.nombre}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Consultar</a>`
+            : `<a class="btn btn-whatsapp" href="https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(`Hola, quisiera el precio de ${p.marca} ${p.nombre}${p.mililitros ? ` (${p.mililitros} ml)` : ''}${modoConsolidado ? ' por consolidado' : ''}`)}" target="_blank" rel="noopener">${ICONS.whatsapp} Pedir precio</a>`}
         </div>
 
         ${agotado && !modoConsolidado && !p.es_decant && !CONSOLIDADOS_ACTIVOS ? `<p class="pd-encargo-note">Sin stock por ahora: te lo traemos por <strong>consolidado</strong> (importación por encargo, a mejor precio). Escríbenos al WhatsApp <strong>${formatoWhatsapp()}</strong> y te cotizamos precio y tiempo de llegada.</p>` : ''}
@@ -242,7 +250,7 @@ function htmlOtraPresentacion(p, otra) {
     const precio = otra.es_liquidacion ? Number(otra.precio_liquidacion) : precioFinal(otra.precio_tienda_regular, otra.descuento_tienda_porcentaje);
     return `<a class="pd-otra-presentacion" href="${SITE_ROOT}producto/?slug=${otra.slug}">
       <span><strong>¿Te gustó? Llévalo en frasco completo</strong><small>${otra.mililitros} ml · en stock</small></span>
-      <span class="pd-otra-precio">${formatoMoneda(precio)} &rarr;</span>
+      <span class="pd-otra-precio">${precioVisible(otra) ? formatoMoneda(precio) : 'Ver'} &rarr;</span>
     </a>`;
   }
   const tallas = tallasDecant(otra);

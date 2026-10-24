@@ -10,6 +10,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const params = new URLSearchParams(window.location.search);
+  // Con los precios de los perfumes enteros ocultos (ver PRECIOS_ENTEROS_VISIBLES en api.js),
+  // filtrar u ordenar por precio dejaría adivinarlos: se sacan el filtro y esos dos órdenes, y
+  // se ignora un ?precio= de un link viejo.
+  if (!PRECIOS_ENTEROS_VISIBLES) {
+    document.getElementById('dd-precio').style.display = 'none';
+    document.querySelectorAll('#orden-select option[value^="precio_"]').forEach((o) => o.remove());
+    params.delete('precio');
+  }
   generoActivo = params.get('genero') || '';
   document.querySelectorAll('.pill[data-genero]').forEach((p) => {
     p.classList.toggle('active', p.dataset.genero === generoActivo);
@@ -205,7 +213,7 @@ async function cargarSugerencias(texto) {
 function renderSugerencias(lista, texto) {
   const panel = document.getElementById('search-suggest');
   const filas = lista.map((p) => {
-    const precio = formatoMoneda(precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje));
+    const precio = precioVisible(p) ? formatoMoneda(precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje)) : '';
     const miniatura = p.imagen_url
       ? `<img src="${new URL(p.imagen_url, SITE_ROOT).href}" alt="" loading="lazy" onerror="manejarErrorImagenProducto(this)" />`
       : `<span class="fallback-icon">${ICONS.box}</span>`;

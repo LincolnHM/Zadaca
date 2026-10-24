@@ -16,6 +16,20 @@ const SITE_ROOT = 'https://madisonzadaca.com/';
 // oculto y se destapa si esto es true, ver aplicarVisibilidadConsolidados).
 const CONSOLIDADOS_ACTIVOS = true;
 
+// Precios de los perfumes ENTEROS (tienda, liquidaciones y consolidado) OCULTOS: cambian
+// seguido, así que el cliente elige cuántos quiere y el precio se le pasa por WhatsApp. Los
+// decants sí muestran su precio. Con precios ocultos, un carrito con perfumes enteros (o el
+// Carrito de Avión) no crea pedido en la web: se manda por WhatsApp y el admin lo registra en
+// Pedidos → Registrar Pedido con el precio acordado. Para volver a mostrarlos, poner esto en
+// true y subir el cambio (no hay que tocar la base: los precios siguen guardados).
+const PRECIOS_ENTEROS_VISIBLES = false;
+const TEXTO_PRECIO_WHATSAPP = 'Precio por WhatsApp';
+
+// p: fila de perfumes o línea del carrito de tienda (traen es_decant).
+function precioVisible(p) {
+  return PRECIOS_ENTEROS_VISIBLES || !!p?.es_decant;
+}
+
 function aplicarVisibilidadConsolidados(raiz = document) {
   raiz.querySelectorAll('[data-consolidado]').forEach((el) => { el.hidden = !CONSOLIDADOS_ACTIVOS; });
   raiz.querySelectorAll('[data-sin-consolidado]').forEach((el) => { el.hidden = CONSOLIDADOS_ACTIVOS; });
@@ -516,7 +530,7 @@ async function obtenerFavoritos() {
   if (!session) return [];
   const { data, error } = await supabaseClient
     .from('favoritos')
-    .select('id_producto, perfumes(slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado)')
+    .select('id_producto, perfumes(slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado, es_decant, precio_3ml, precio_5ml, precio_10ml)')
     .eq('id_cliente', session.user.id);
   if (error) return [];
   return data.map((f) => f.perfumes);
@@ -801,6 +815,9 @@ async function intentarResumirCheckoutPendiente() {
   try {
     await fusionarCarritoInvitadoConCuenta();
     const idDireccion = await crearDireccion(pendiente);
+    // Si mientras tanto sumó perfumes enteros sin precio, ese carrito ya no se cierra en la web
+    // (se pide por WhatsApp desde el carrito, ver PRECIOS_ENTEROS_VISIBLES).
+    if ((await obtenerCarrito()).some((i) => !precioVisible(i))) return null;
     return await crearPedido(idDireccion);
   } catch (err) {
     console.error(err);
@@ -1091,18 +1108,20 @@ async function reservarCarritoAvion(idConsolidado, items, idDireccion) {
 // Pedido completo listo para pegar en WhatsApp (el admin lo registra tal cual en el panel →
 // Pedidos → Registrar pedido → Consolidado).
 function mensajeWhatsappCarritoAvion(items, { nombre, campana, minimo } = {}) {
-  const lineas = items.map((i) => `• ${i.cantidad} × ${i.marca} — ${i.nombre}${i.mililitros ? ` (${i.mililitros} ml)` : ''} — ${formatoMoneda(i.precio)} c/u`);
+  const lineas = items.map((i) => `• ${i.cantidad} × ${i.marca} — ${i.nombre}${i.mililitros ? ` (${i.mililitros} ml)` : ''}${PRECIOS_ENTEROS_VISIBLES ? ` — ${formatoMoneda(i.precio)} c/u` : ''}`);
   const unidades = unidadesCarritoAvion(items);
   const partes = [
     `Hola Maison Zadaca! Quiero hacer este pedido por CONSOLIDADO (Carrito de Avión)${campana ? ` — campaña ${campana}` : ''}:`,
     '',
     ...lineas,
     '',
-    `Total: ${unidades} unidad${unidades === 1 ? '' : 'es'} — ${formatoMoneda(totalCarritoAvion(items))} (precio de consolidado referencial)`,
+    PRECIOS_ENTEROS_VISIBLES
+      ? `Total: ${unidades} unidad${unidades === 1 ? '' : 'es'} — ${formatoMoneda(totalCarritoAvion(items))} (precio de consolidado referencial)`
+      : `Total: ${unidades} unidad${unidades === 1 ? '' : 'es'}`,
   ];
   if (minimo && unidades < minimo) partes.push(`(Sé que el mínimo es de ${minimo} unidades.)`);
   if (nombre) partes.push(`Mi nombre: ${nombre}`);
-  partes.push('¿Me confirman disponibilidad, precio final y fecha de llegada?');
+  partes.push(PRECIOS_ENTEROS_VISIBLES ? '¿Me confirman disponibilidad, precio final y fecha de llegada?' : '¿Me pasan el precio, la disponibilidad y la fecha de llegada?');
   return partes.join('\n');
 }
 
@@ -1238,6 +1257,26 @@ function enlaceWhatsappConfirmarPedido({ idPedido, items, montoTotal }) {
     '',
     `Total a pagar: ${formatoMoneda(montoTotal)}`,
     'Te mando la captura del pago apenas me confirmes los datos.',
+  ];
+  return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(lineas.join('\n'))}`;
+}
+
+// Carrito de tienda con perfumes enteros y precios ocultos (ver PRECIOS_ENTEROS_VISIBLES): no
+// se crea pedido, se manda la lista por WhatsApp para que el negocio pase los precios. Los
+// decants van con su precio, que sí es fijo.
+function enlaceWhatsappPedirPrecios(items) {
+  const totalUnidades = items.reduce((acc, i) => acc + i.cantidad, 0);
+  const lineas = [
+    `Hola Maison Zadaca! Quiero hacer este pedido (${totalUnidades} producto${totalUnidades === 1 ? '' : 's'}):`,
+    '',
+    ...items.map((i) => {
+      const detalle = i.es_decant
+        ? ` (decant ${i.talla_ml} ml) — ${formatoMoneda(precioTallaDecant(i, i.talla_ml) ?? 0)} c/u`
+        : i.mililitros ? ` (${i.mililitros} ml)` : '';
+      return `- ${i.cantidad} x ${i.marca} — ${i.nombre}${detalle}`;
+    }),
+    '',
+    '¿Me pasan el precio y la disponibilidad?',
   ];
   return `https://wa.me/${WHATSAPP_NUMERO}?text=${encodeURIComponent(lineas.join('\n'))}`;
 }

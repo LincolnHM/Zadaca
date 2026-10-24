@@ -547,6 +547,7 @@ async function cargarCarritoDropdown() {
       return;
     }
     let total = 0;
+    const hayPrecioOculto = items.some((item) => !precioVisible(item));
     mount.innerHTML = items.map((item) => {
       // Mismo cálculo que precioFinalItem() en carrito.js (no se puede llamar directo desde
       // acá: ese archivo no se carga en páginas sin carrito.html) -- sin esto, un decant o una
@@ -561,11 +562,11 @@ async function cargarCarritoDropdown() {
           <div class="cart-drop-media">${imagenProducto(item)}</div>
           <div class="cart-drop-info">
             <span class="cart-drop-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}</span>
-            <span class="cart-drop-meta">${item.cantidad} &times; ${formatoMoneda(final)}</span>
+            <span class="cart-drop-meta">${item.cantidad} &times; ${precioVisible(item) ? formatoMoneda(final) : TEXTO_PRECIO_WHATSAPP}</span>
           </div>
         </div>`;
     }).join('');
-    document.getElementById('cart-dropdown-subtotal').textContent = formatoMoneda(total);
+    document.getElementById('cart-dropdown-subtotal').textContent = hayPrecioOculto ? 'Por WhatsApp' : formatoMoneda(total);
     foot.hidden = false;
   } catch (err) {
     mount.innerHTML = `<div class="notif-empty">${err.message}</div>`;
@@ -649,12 +650,12 @@ function renderAvionDropdown() {
       <div class="cart-drop-media">${imagenProducto(item)}</div>
       <div class="cart-drop-info">
         <span class="cart-drop-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}</span>
-        <span class="cart-drop-meta">${item.cantidad} &times; ${formatoMoneda(item.precio)}</span>
+        <span class="cart-drop-meta">${item.cantidad} &times; ${PRECIOS_ENTEROS_VISIBLES ? formatoMoneda(item.precio) : TEXTO_PRECIO_WHATSAPP}</span>
       </div>
     </div>`).join('') + (resto > 0 ? `<div class="avion-drop-mas">y ${resto} perfume${resto === 1 ? '' : 's'} más</div>` : '');
   foot.innerHTML = `
     ${htmlProgresoAvion(unidadesCarritoAvion(items), MINIMO_AVION)}
-    <div class="cart-dropdown-total"><span>Subtotal consolidado</span><span>${formatoMoneda(totalCarritoAvion(items))}</span></div>
+    ${PRECIOS_ENTEROS_VISIBLES ? `<div class="cart-dropdown-total"><span>Subtotal consolidado</span><span>${formatoMoneda(totalCarritoAvion(items))}</span></div>` : ''}
     <a href="${SITE_ROOT}carrito-avion/" class="btn btn-primary btn-block btn-sm">${ICONS.plane} Ver Carrito de Avión</a>`;
 }
 
@@ -789,6 +790,7 @@ function iniciarBuscadorGlobal() {
           const tallas = p.es_decant ? tallasDecant(p) : [];
           const precio = p.es_decant
             ? (tallas.length ? `Desde ${formatoMoneda(precioTallaDecant(p, tallas[0]))}` : '')
+            : !precioVisible(p) ? ''
             : formatoMoneda(p.es_liquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje));
           return `
             <a class="global-search-item" href="${SITE_ROOT}producto/?slug=${p.slug}">
@@ -1033,7 +1035,8 @@ function tarjetaProducto(p) {
   // "Desde S/X" con la talla más barata que tenga precio cargado.
   const tallas = p.es_decant ? tallasDecant(p) : null;
   const final = p.es_decant ? (precioTallaDecant(p, tallas[0]) ?? 0) : (esLiquidacion ? Number(p.precio_liquidacion) : precioFinal(p.precio_tienda_regular, p.descuento_tienda_porcentaje));
-  const tieneDescuento = !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
+  const conPrecio = precioVisible(p);
+  const tieneDescuento = conPrecio && !esLiquidacion && !p.es_decant && Number(p.descuento_tienda_porcentaje) > 0;
   // "estado" es un campo manual que el admin no mantiene al día (ver misma nota en
   // producto.js) -- stock_disponible es el dato real, así que la badge "Agotado" también
   // tiene que mirarlo, o quedan productos sin stock mostrándose como disponibles en la
@@ -1059,7 +1062,7 @@ function tarjetaProducto(p) {
         <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.es_decant ? (tallas.length ? ` · ${tallas.join('/')} ml` : '') : (p.mililitros ? ` · ${p.mililitros} ml` : '')}</span>
         ${p.inspirado_en ? `<span class="product-inspirado" title="Inspirado en ${escapeHtml(p.inspirado_en)}">Inspirado en ${escapeHtml(p.inspirado_en)}</span>` : ''}
         <div class="product-price-row">
-          <span class="price-current">${p.es_decant ? 'Desde ' : ''}${formatoMoneda(final)}</span>
+          ${conPrecio ? `<span class="price-current">${p.es_decant ? 'Desde ' : ''}${formatoMoneda(final)}</span>` : `<span class="price-whatsapp">${TEXTO_PRECIO_WHATSAPP}</span>`}
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
         </div>
         ${esLiquidacion ? `<div class="liq-unidad-note">${p.liquidacion_unidad_minima > 1 ? `Solo por mayor · mínimo ${p.liquidacion_unidad_minima} unidades` : 'Por unidad o por mayor'}</div>` : ''}
@@ -1089,8 +1092,10 @@ function tarjetaProductoConsolidado(p, enCarrito = 0) {
         <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.mililitros && p.mililitros > 1 ? `${p.concentracion ? ' · ' : ''}${p.mililitros} ml` : ''}</span>
         ${p.inspirado_en ? `<span class="product-inspirado" title="Inspirado en ${escapeHtml(p.inspirado_en)}">Inspirado en ${escapeHtml(p.inspirado_en)}</span>` : ''}
         <div class="product-price-row">
-          <span class="price-current">${formatoMoneda(p.precio_consolidado_fijo)}</span>
-          <span class="avion-precio-nota">c/u</span>
+          ${PRECIOS_ENTEROS_VISIBLES
+            ? `<span class="price-current">${formatoMoneda(p.precio_consolidado_fijo)}</span>
+          <span class="avion-precio-nota">c/u</span>`
+            : `<span class="price-whatsapp">${TEXTO_PRECIO_WHATSAPP}</span>`}
         </div>
         <div class="avion-add">
           <div class="qty-mini" role="group" aria-label="Cantidad">

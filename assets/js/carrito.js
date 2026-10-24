@@ -31,16 +31,20 @@ function renderCarrito() {
   }
 
   const total = CARRITO_ITEMS.reduce((acc, i) => acc + i.cantidad * precioFinalItem(i), 0);
+  // Con perfumes enteros y precios ocultos (ver PRECIOS_ENTEROS_VISIBLES en api.js) no se crea
+  // pedido en la web: el carrito se manda por WhatsApp y ahí se le pasa el precio al cliente.
+  const sinPrecio = CARRITO_ITEMS.some((i) => !precioVisible(i));
 
   mount.innerHTML = `
     <div class="container cart-layout">
       <div>${CARRITO_ITEMS.map(filaCarrito).join('')}</div>
       <aside class="summary-panel">
         <h3 style="font-size:1.1rem; margin-bottom:20px;">Resumen del Pedido</h3>
+        ${sinPrecio ? htmlResumenPorWhatsapp() : `
         <div class="summary-line"><span>Subtotal</span><span>${formatoMoneda(total)}</span></div>
         <div class="summary-line"><span>Envío</span><span>Se coordina al despacho</span></div>
         <div class="summary-total"><span>Total</span><span>${formatoMoneda(total)}</span></div>
-        <div id="direccion-mount"><div class="loading-state">Cargando direcciones…</div></div>
+        <div id="direccion-mount"><div class="loading-state">Cargando direcciones…</div></div>`}
       </aside>
     </div>
     <div class="container" id="checkout-invitado-wrap"></div>
@@ -56,7 +60,23 @@ function renderCarrito() {
     document.getElementById(`eliminar-${item.id}`).addEventListener('click', () => eliminarItem(item.id));
   });
 
-  cargarDirecciones();
+  if (!sinPrecio) cargarDirecciones();
+}
+
+// Resumen de un carrito con perfumes enteros sin precio: cuántos productos lleva, lo que suman
+// los decants (esos sí tienen precio fijo) y el botón que manda la lista por WhatsApp.
+function htmlResumenPorWhatsapp() {
+  const unidades = CARRITO_ITEMS.reduce((acc, i) => acc + i.cantidad, 0);
+  const decants = CARRITO_ITEMS.filter((i) => precioVisible(i));
+  const totalDecants = decants.reduce((acc, i) => acc + i.cantidad * precioFinalItem(i), 0);
+  return `
+    <div class="summary-line"><span>Productos</span><span>${unidades}</span></div>
+    ${decants.length ? `<div class="summary-line"><span>Decants</span><span>${formatoMoneda(totalDecants)}</span></div>` : ''}
+    <div class="summary-line"><span>Envío</span><span>Se coordina al despacho</span></div>
+    <div class="summary-total"><span>Total</span><span>Por WhatsApp</span></div>
+    <p class="form-hint" style="margin-bottom:14px;">Los precios de los perfumes te los pasamos por WhatsApp. Envíanos tu pedido y te respondemos con el precio y la disponibilidad.</p>
+    <a class="btn btn-whatsapp btn-block" href="${enlaceWhatsappPedirPrecios(CARRITO_ITEMS)}" target="_blank" rel="noopener">${ICONS.whatsapp} Pedir precios por WhatsApp</a>
+  `;
 }
 
 function precioFinalItem(item) {
@@ -72,7 +92,7 @@ function filaCarrito(item) {
       <div class="cr-media">${imagenProducto(item)}</div>
       <div>
         <p class="cr-name">${escapeHtml(item.marca)} — ${escapeHtml(item.nombre)}${item.es_liquidacion ? ' <span class="badge badge-liquidacion">Liquidación</span>' : ''}${item.es_decant ? ' <span class="badge badge-decant">Decant</span>' : ''}</p>
-        <span class="cr-meta">${item.es_decant ? item.talla_ml : item.mililitros} ml &middot; ${formatoMoneda(final)} c/u${minimo > 1 ? ` &middot; mínimo ${minimo} uds.` : ''}</span>
+        <span class="cr-meta">${item.es_decant ? item.talla_ml : item.mililitros} ml &middot; ${precioVisible(item) ? `${formatoMoneda(final)} c/u` : TEXTO_PRECIO_WHATSAPP}${minimo > 1 ? ` &middot; mínimo ${minimo} uds.` : ''}</span>
       </div>
       <div class="cr-qty">
         <button type="button" id="menos-${item.id}">${ICONS.minus}</button>

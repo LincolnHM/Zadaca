@@ -4,6 +4,24 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## Precios de perfumes enteros ocultos (24 oct 2026)
+
+Los precios de los perfumes enteros cambian seguido, así que la web ya no los muestra: el
+cliente elige cuántos quiere y el precio se le pasa por WhatsApp. **Los decants siguen con su
+precio.** Todo depende de un solo interruptor, `PRECIOS_ENTEROS_VISIBLES` al inicio de
+`assets/js/api.js` (hoy en `false`). Para volver a mostrarlos, ponerlo en `true` y subir el
+cambio. No hay que tocar la base: los precios siguen guardados.
+
+- Tienda, Liquidaciones, Consolidado, ficha del producto, buscador y mini-carritos dicen
+  "Precio por WhatsApp" en vez del monto. Se quitaron el filtro de precio y los órdenes por
+  precio (delatarían el precio), y la ficha ya no le pasa el precio a Google.
+- **Carrito de tienda con algún perfume entero:** no crea pedido. El botón "Pedir precios por
+  WhatsApp" manda la lista (cantidades y decants con su precio). Tú registras la venta en
+  Pedidos → Registrar Pedido con el precio acordado. Un carrito **solo de decants** sigue con el
+  checkout normal.
+- **Carrito de Avión:** solo se envía por WhatsApp, aunque haya una campaña abierta. Se
+  registra en Pedidos → Registrar Pedido → Consolidado.
+
 ## Maizon Zadaca Courier (USA → Perú) y fotos del anuncio (1 oct 2026)
 
 **Courier** en `courier/`, armado a partir de los wireframes de Claude Design (ronda 3). Es una
