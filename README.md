@@ -4,6 +4,30 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## Consolidado: perfumes de Crist Fragances (29 oct 2026)
+
+**SQL:** `supabase/datos/cargar_consolidado_cristfragances_29oct2026.sql`. Correrlo **después**
+del push (las fotos tienen que estar publicadas). Se puede volver a correr sin duplicar nada.
+
+Se cargan **1294 perfumes** del mayorista wholesale.cristfragances.com que no estaban en el
+Catálogo Consolidado, con su foto y **sin precio**.
+- Quedan como `Bajo_Pedido`: salen solo en el Catálogo Consolidado, nunca en la tienda (igual
+  que "+ Perfume" en Panel → Consolidados).
+- La columna de precio no acepta vacío, así que llevan **S/ 1 de relleno**. Hoy no se ve porque
+  los precios de perfumes enteros están ocultos. Si algún día se vuelven a mostrar, antes hay que
+  ponerles precio (Panel → Productos → Solo consolidado).
+- Fotos del proveedor en WebP de 600 px: `assets/img/perfumes/consolidado/` (24 MB en total).
+- Quedaron fuera los sets, testers, cajas dañadas, minis y muestras, packs por mayor, cremas y
+  mists, copias "inspiradas en" y los productos sin una marca clara. La lista completa, con el
+  motivo de cada uno, está en `_fuentes/cristfragances_29oct2026.csv` (se abre con Excel).
+- Cada perfume entra una vez. Si el proveedor lo tiene en varios tamaños, se tomó el de 100 ml
+  o el más cercano. Cuando el proveedor no dice el tamaño (472 casos, marcados en el SQL), se
+  usó el habitual de la marca, 100 ml en las casas árabes, o "sin tamaño" (1 ml, que la web no
+  muestra). El mensaje de WhatsApp del Carrito de Avión tampoco muestra ese "1 ml".
+- No se agregaron 6 perfumes que ya tienes ocultos con frascos en stock (Glacier Bold, Hawas
+  Fire, Hawas Tropical, Club de Nuit Maleka, Club de Nuit Precieux IV, Odyssey Spectra). Al
+  ponerles precio y activarlos salen solos en la tienda y en el consolidado.
+
 ## Precios de perfumes enteros ocultos (24 oct 2026)
 
 Los precios de los perfumes enteros cambian seguido, así que la web ya no los muestra: el

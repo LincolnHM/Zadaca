@@ -1108,7 +1108,8 @@ async function reservarCarritoAvion(idConsolidado, items, idDireccion) {
 // Pedido completo listo para pegar en WhatsApp (el admin lo registra tal cual en el panel →
 // Pedidos → Registrar pedido → Consolidado).
 function mensajeWhatsappCarritoAvion(items, { nombre, campana, minimo } = {}) {
-  const lineas = items.map((i) => `• ${i.cantidad} × ${i.marca} — ${i.nombre}${i.mililitros ? ` (${i.mililitros} ml)` : ''}${PRECIOS_ENTEROS_VISIBLES ? ` — ${formatoMoneda(i.precio)} c/u` : ''}`);
+  // mililitros = 1 es "sin tamaño" (igual que en la tarjeta y en el carrito: no se muestra).
+  const lineas = items.map((i) => `• ${i.cantidad} × ${i.marca} — ${i.nombre}${i.mililitros > 1 ? ` (${i.mililitros} ml)` : ''}${PRECIOS_ENTEROS_VISIBLES ? ` — ${formatoMoneda(i.precio)} c/u` : ''}`);
   const unidades = unidadesCarritoAvion(items);
   const partes = [
     `Hola Maison Zadaca! Quiero hacer este pedido por CONSOLIDADO (Carrito de Avión)${campana ? ` — campaña ${campana}` : ''}:`,
