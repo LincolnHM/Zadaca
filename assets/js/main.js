@@ -74,27 +74,98 @@ async function iniciarLayout(activo) {
 // estorbaría (carritos, cuenta, reclamos y políticas). Cualquier fallo se ignora: es un
 // adorno, no puede romper la página.
 const PAGINAS_SIN_ANUNCIO = ['carrito', 'carrito-avion', 'cuenta', 'admin', 'libro-de-reclamaciones', 'politica-privacidad', 'terminos-condiciones', 'cambios-y-devoluciones'];
+// Al entrar sale UNA sola ventana: el anuncio del panel si hay uno vigente que todavía no se
+// vio en esta visita; si no, la invitación al canal de WhatsApp.
 async function cargarPublicidadPopup() {
   try {
     const seccion = window.location.pathname.split('/').filter(Boolean)[0] || '';
     if (PAGINAS_SIN_ANUNCIO.includes(seccion)) return;
-    const promo = await obtenerPublicidadPopup();
-    if (!promo?.activo || !publicidadEnFechas(promo)) return;
-    if (promo.mostrar_en === 'inicio' && seccion !== '') return;
-    const clave = `promo-popup-visto-${promo.actualizado_en}`;
-    try {
-      if (sessionStorage.getItem(clave)) return;
-    } catch { /* sessionStorage bloqueado (modo privado, etc.) -- se muestra igual */ }
-    // Las fotos se piden recién ahora (pueden pesar) y solo se muestran las que cargan.
-    const fotos = await fotosQueCargan((await obtenerFotosPublicidad()).map(fuenteImagenSegura).filter(Boolean));
-    const anuncio = { ...promo, imagenes: fotos, imagen_url: null };
-    if (!publicidadVigente(anuncio)) return;
-    mostrarPublicidadPopup(anuncio, {
-      alCerrar: () => { try { sessionStorage.setItem(clave, '1'); } catch { /* no pasa nada si no se puede recordar */ } },
-    });
+    if (await mostrarAnuncioDelPanel(seccion)) return;
+    mostrarInvitacionCanal();
   } catch (err) {
     console.error(err);
   }
+}
+
+// Devuelve true si mostró el anuncio del panel.
+async function mostrarAnuncioDelPanel(seccion) {
+  const promo = await obtenerPublicidadPopup();
+  if (!promo?.activo || !publicidadEnFechas(promo)) return false;
+  if (promo.mostrar_en === 'inicio' && seccion !== '') return false;
+  const clave = `promo-popup-visto-${promo.actualizado_en}`;
+  if (leerDelNavegador('sessionStorage', clave)) return false;
+  // Las fotos se piden recién ahora (pueden pesar) y solo se muestran las que cargan.
+  const fotos = await fotosQueCargan((await obtenerFotosPublicidad()).map(fuenteImagenSegura).filter(Boolean));
+  const anuncio = { ...promo, imagenes: fotos, imagen_url: null };
+  if (!publicidadVigente(anuncio)) return false;
+  mostrarPublicidadPopup(anuncio, { alCerrar: () => recordarEnNavegador('sessionStorage', clave) });
+  return true;
+}
+
+// sessionStorage/localStorage pueden estar bloqueados (modo privado, etc.): si no se puede
+// leer, la ventana se muestra igual; si no se puede guardar, no pasa nada.
+function leerDelNavegador(almacen, clave) {
+  try { return window[almacen].getItem(clave); } catch { return null; }
+}
+function recordarEnNavegador(almacen, clave) {
+  try { window[almacen].setItem(clave, '1'); } catch { /* no se pudo recordar */ }
+}
+
+// Invitación al canal de WhatsApp (CANAL_WHATSAPP_URL en api.js). Si el visitante toca
+// "Unirme" no vuelve a salir en ese navegador; si la cierra, sale otra vez en su próxima
+// visita (no en cada página que abra).
+const CLAVE_CANAL_UNIDO = 'canal-whatsapp-unido';
+const CLAVE_CANAL_VISTO = 'canal-whatsapp-visto';
+
+function mostrarInvitacionCanal() {
+  if (leerDelNavegador('localStorage', CLAVE_CANAL_UNIDO) || leerDelNavegador('sessionStorage', CLAVE_CANAL_VISTO)) return;
+  if (document.querySelector('.promo-popup-overlay')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'promo-popup-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'canal-wa-titulo');
+  overlay.setAttribute('aria-describedby', 'canal-wa-texto');
+  overlay.innerHTML = `
+    <div class="promo-popup-box canal-wa" tabindex="-1">
+      <button type="button" class="promo-popup-close" aria-label="Cerrar">&times;</button>
+      <div class="promo-popup-body">
+        <span class="canal-wa-icono">${ICONS.whatsapp}</span>
+        <span class="eyebrow">Canal oficial de WhatsApp</span>
+        <h3 id="canal-wa-titulo">Únete al canal de Maison Zadaca</h3>
+        <p id="canal-wa-texto">Grupo de perfumes por mayor: ofertas, nuevos ingresos y campañas de consolidado antes que nadie.</p>
+        <ul class="canal-wa-puntos">
+          <li>Gratis, sales cuando quieras</li>
+          <li>Tu número no se muestra a nadie</li>
+        </ul>
+        <a class="btn canal-wa-btn" href="${CANAL_WHATSAPP_URL}" target="_blank" rel="noopener">${ICONS.whatsapp} Unirme al canal</a>
+        <button type="button" class="canal-wa-luego">Ahora no</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.body.classList.add('popup-abierto');
+  const focoAnterior = document.activeElement;
+  // El foco va a la ventana (no al botón) para que no salga el anillo de foco sobre el botón verde;
+  // con Tab se llega a la X, al botón y a "Ahora no".
+  overlay.querySelector('.canal-wa').focus({ preventScroll: true });
+
+  function cerrar() {
+    overlay.remove();
+    document.body.classList.remove('popup-abierto');
+    document.removeEventListener('keydown', alTeclear);
+    recordarEnNavegador('sessionStorage', CLAVE_CANAL_VISTO);
+    if (focoAnterior && typeof focoAnterior.focus === 'function') focoAnterior.focus({ preventScroll: true });
+  }
+  function alTeclear(e) { if (e.key === 'Escape') cerrar(); }
+  overlay.querySelector('.promo-popup-close').addEventListener('click', cerrar);
+  overlay.querySelector('.canal-wa-luego').addEventListener('click', cerrar);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
+  overlay.querySelector('.canal-wa-btn').addEventListener('click', () => {
+    recordarEnNavegador('localStorage', CLAVE_CANAL_UNIDO);
+    cerrar();
+  });
+  document.addEventListener('keydown', alTeclear);
 }
 
 // Trae la fila única de configuracion_sitio (panel admin → Configuración del Sitio) y llena
@@ -357,7 +428,7 @@ function conectarValidacionContrasena(prefix, submitId) {
 }
 
 // Departamento -> Provincia -> Distrito en cascada. Con 1874 distritos en la tabla ubigeo
-// (ver supabase/carga_ubigeo_completo.sql) un solo <select> con todos sería inmanejable --
+// (ver supabase/datos/carga_ubigeo_completo.sql) un solo <select> con todos sería inmanejable --
 // esto reduce cada paso a una lista corta (24 departamentos, ~5-20 provincias, ~5-30 distritos).
 // Usado por "Mis Direcciones" (cuenta.js) y el checkout de invitado (carrito.js).
 function iniciarSelectsUbigeoCascada(ubigeos) {
@@ -954,6 +1025,7 @@ function renderFooter() {
             <a href="${SITE_ROOT}contacto/#tiendas" id="footer-dir-chiclayo">Tienda Chiclayo: Av. Los Incas 1090, La Victoria</a>
             ${CONSOLIDADOS_ACTIVOS ? `<a href="${SITE_ROOT}contacto/#tiendas" id="footer-dir-lima">Almacén Lima: Jr. Ávila Godoy 664, SMP</a>` : ''}
             <a href="https://wa.me/${WHATSAPP_NUMERO}" target="_blank" rel="noopener">WhatsApp: ${formatoWhatsapp()}</a>
+            <a href="${CANAL_WHATSAPP_URL}" target="_blank" rel="noopener">Canal de WhatsApp (por mayor)</a>
             <p id="footer-envio-texto">Envíos vía Shalom / Olva a todo el Perú</p>
             <p id="footer-pago-texto">Pagos: Yape, Plin, transferencia y tarjeta</p>
           </div>

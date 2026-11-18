@@ -1,4 +1,7 @@
 const WHATSAPP_NUMERO = '51990278017';
+// Canal de WhatsApp "MAISON ZADACA - Grupo de perfumes por mayor" (invitación al entrar a la
+// página, ver mostrarInvitacionCanal en main.js, y link en el footer).
+const CANAL_WHATSAPP_URL = 'https://whatsapp.com/channel/0029Vb8KUWQ9Bb5x4T2azC2g';
 
 // Cada página vive ahora en su propia carpeta (cuenta/, catalogo/, etc. en vez de cuenta.html,
 // catalogo.html) a distintas profundidades, así que un link relativo simple ("catalogo.html")
