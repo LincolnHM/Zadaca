@@ -28,7 +28,8 @@ async function obtenerEstadisticasDashboard() {
     supabaseClient.from('consolidados').select('id', { count: 'exact' }).eq('estado', 'Abierto'),
     supabaseClient.from('detalle_consolidado').select('id', { count: 'exact' }).eq('estado_item', 'Reservado'),
     supabaseClient.from('solicitudes_cotizacion').select('id', { count: 'exact' }).eq('estado', 'Pendiente'),
-    supabaseClient.from('resenas').select('id', { count: 'exact' }).eq('aprobado', false),
+    // Reseñas nuevas = las que el admin todavía no revisó (migración 0024).
+    supabaseClient.from('resenas').select('id', { count: 'exact', head: true }).eq('revisada', false),
     obtenerStockBajoDashboard(1000),
     supabaseClient.from('perfumes').select('id', { count: 'exact', head: true }).eq('margen_aplicado', false).eq('activo', true),
     supabaseClient.from('pedidos').select('id, envios!inner(estado_envio)', { count: 'exact', head: true }).eq('tipo_pedido', 'Directo_Tienda').eq('cancelado', false).eq('envios.estado_envio', 'Preparando'),
@@ -1068,21 +1069,64 @@ async function responderReclamoAdmin(id, { respuesta, estado }) {
 
 /* ================= RESEÑAS ================= */
 
-async function obtenerResenasAdmin({ soloPendientes } = {}) {
-  let query = supabaseClient.from('resenas').select('*, perfiles(nombres, apellidos), perfumes(nombre, marca)').order('fecha_creacion', { ascending: false });
-  if (soloPendientes) query = query.eq('aprobado', false);
+// filtro: nuevas (sin revisar) | publicadas | ocultas | todas. El admin ve todas las columnas,
+// incluido quién la escribió (nombre completo, correo y teléfono) para poder contactarlo.
+async function obtenerResenasAdmin({ filtro = 'nuevas', tipo = '' } = {}) {
+  let query = supabaseClient.from('resenas')
+    .select('id, tipo, id_cliente, id_producto, calificacion, comentario, aprobado, revisada, nombre_publico, compra_verificada, fecha_creacion, fecha_actualizacion, perfiles(nombres, apellidos, correo, telefono), perfumes(nombre, marca, slug, imagen_url, es_decant)')
+    .order('fecha_creacion', { ascending: false })
+    .limit(1000);
+  if (filtro === 'nuevas') query = query.eq('revisada', false);
+  if (filtro === 'publicadas') query = query.eq('aprobado', true);
+  if (filtro === 'ocultas') query = query.eq('aprobado', false);
+  if (tipo) query = query.eq('tipo', tipo);
   const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return data.map((r) => ({ ...r, cliente: r.perfiles ? `${r.perfiles.nombres} ${r.perfiles.apellidos}` : '—', producto: r.perfumes ? `${r.perfumes.marca} — ${r.perfumes.nombre}` : 'General' }));
+  if (error) {
+    if (/revisada|tipo|nombre_publico/.test(error.message)) throw new Error('Falta correr la migración 0024 (supabase/migrations/0024_opiniones_clientes.sql) en Supabase → SQL Editor.');
+    throw new Error(error.message);
+  }
+  return data.map((r) => ({
+    ...r,
+    cliente: r.perfiles ? `${r.perfiles.nombres || ''} ${r.perfiles.apellidos || ''}`.trim() || '—' : '—',
+    producto: r.tipo === 'Consolidado' ? 'Servicio de consolidado' : (r.perfumes ? `${r.perfumes.marca} — ${r.perfumes.nombre}${r.perfumes.es_decant ? ' (decant)' : ''}` : 'Perfume eliminado'),
+  }));
 }
 
-async function aprobarResena(id) {
-  const { error } = await supabaseClient.from('resenas').update({ aprobado: true }).eq('id', id);
+async function contarResenasNuevas() {
+  const { count, error } = await supabaseClient.from('resenas').select('id', { count: 'exact', head: true }).eq('revisada', false);
+  if (error) return 0;
+  return count || 0;
+}
+
+// cambios: { aprobado?, revisada? } -- la base no deja que el admin cambie el texto del cliente.
+async function moderarResena(id, cambios) {
+  const { data, error } = await supabaseClient.from('resenas').update(cambios).eq('id', id).select('id');
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('No se pudo actualizar la reseña (¿sigue existiendo?)');
+}
+
+async function marcarResenasRevisadas(ids) {
+  if (!ids.length) return;
+  const { error } = await supabaseClient.from('resenas').update({ revisada: true }).in('id', ids);
   if (error) throw new Error(error.message);
 }
 
+// Antes no había permiso de borrar y el botón "no hacía nada" sin avisar: ahora se confirma que
+// de verdad se borró una fila.
 async function eliminarResena(id) {
-  const { error } = await supabaseClient.from('resenas').delete().eq('id', id);
+  const { data, error } = await supabaseClient.from('resenas').delete().eq('id', id).select('id');
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('No se pudo eliminar. Corre la migración 0024 en Supabase (da el permiso de borrar reseñas).');
+}
+
+async function obtenerModoResenas() {
+  const { data, error } = await supabaseClient.from('configuracion_sitio').select('resenas_requieren_aprobacion').eq('id', 1).maybeSingle();
+  if (error) return null;
+  return !!data?.resenas_requieren_aprobacion;
+}
+
+async function guardarModoResenas(requiereAprobacion) {
+  const { error } = await supabaseClient.from('configuracion_sitio').update({ resenas_requieren_aprobacion: !!requiereAprobacion, actualizado_en: new Date().toISOString() }).eq('id', 1);
   if (error) throw new Error(error.message);
 }
 

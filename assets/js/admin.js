@@ -200,15 +200,16 @@ async function cargarDashboard() {
       <div class="stat-card"><div class="stat-value">${s.consolidadosAbiertos}</div><div class="stat-label">Consolidados Abiertos</div></div>
       <div class="stat-card"><div class="stat-value">${s.reservasPendientes}</div><div class="stat-label">Reservas Pendientes</div></div>` : ''}
       <div class="stat-card ${s.cotizacionesPendientes ? 'warn' : ''}"><div class="stat-value">${s.cotizacionesPendientes}</div><div class="stat-label">Cotizaciones Pendientes</div></div>
-      <div class="stat-card ${s.resenasPendientes ? 'warn' : ''}"><div class="stat-value">${s.resenasPendientes}</div><div class="stat-label">Reseñas por Moderar</div></div>
+      <button type="button" class="stat-card stat-click ${s.resenasPendientes ? 'warn' : ''}" id="dashboard-resenas"><div class="stat-value">${s.resenasPendientes}</div><div class="stat-label">Reseñas nuevas por revisar</div></button>
       <div class="stat-card ${s.productosSinMargen ? 'warn' : ''}"><div class="stat-value">${s.productosSinMargen}</div><div class="stat-label">Productos sin Margen Aplicado</div></div>
     `;
+    document.getElementById('dashboard-resenas')?.addEventListener('click', () => irASeccion('resenas'));
     document.getElementById('dashboard-por-cobrar')?.addEventListener('click', () => {
       irASeccion('contabilidad');
       cambiarVistaConta('cobrar');
     });
   } catch (err) {
-    kpiMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    kpiMount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
     secundariasMount.innerHTML = '';
   }
 
@@ -227,7 +228,7 @@ async function cargarDashboard() {
       </div>
     `).join('') : '<div class="admin-empty">Sin pedidos todavía.</div>';
   } catch (err) {
-    pedidosMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    pedidosMount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
   }
 
   try {
@@ -242,7 +243,7 @@ async function cargarDashboard() {
       </div>
     `).join('') : '<div class="admin-empty">Nada por acabarse: todo lo que tiene stock está por encima del mínimo.</div>';
   } catch (err) {
-    stockMount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    stockMount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
   }
 
   cargarGraficosDashboard();
@@ -978,7 +979,7 @@ async function cargarMargenes() {
       tbody.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="7" class="admin-empty">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="admin-empty">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -3205,7 +3206,7 @@ async function cargarConsolidados() {
     mount.innerHTML = consolidados.length ? consolidados.map(tarjetaConsolidadoAdmin).join('') : '<div class="admin-empty">No hay consolidados aún.</div>';
     conectarEventosConsolidados(consolidados);
   } catch (err) {
-    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -3348,7 +3349,7 @@ function conectarEventosConsolidados(consolidados) {
           });
         });
       } catch (err) {
-        panel.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+        panel.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
       }
     });
   });
@@ -4331,7 +4332,7 @@ async function cargarContabilidadConsolidados() {
       consolidados.map((c) => `<option value="${c.id}">${escapeHtml(c.codigo_campana)} — ${ESTADOS_CONSOLIDADO_LABEL[c.estado] || c.estado}</option>`).join('');
     if (valorPrevio) select.value = valorPrevio;
   } catch (err) {
-    document.getElementById('contabilidad-contenido').innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    document.getElementById('contabilidad-contenido').innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
     return;
   }
   if (CONTABILIDAD_CONSOLIDADO_ACTUAL) renderContabilidadConsolidado();
@@ -4417,7 +4418,7 @@ async function renderContabilidadConsolidado() {
       }
     });
   } catch (err) {
-    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -4532,7 +4533,7 @@ async function cargarTodasLasReservas() {
       });
     });
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="8" class="admin-empty">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="admin-empty">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -4582,7 +4583,7 @@ async function cargarClientes() {
       });
     });
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="6" class="admin-empty">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="admin-empty">${escapeHtml(err.message)}</td></tr>`;
   }
 }
 
@@ -4698,7 +4699,14 @@ async function guardarRespuestaReclamo(e) {
 
 /* ================= RESEÑAS ================= */
 
-let resenasFiltro = 'pendientes';
+// Opiniones de clientes (migración 0024): se publican al instante (salvo "Aprobar antes de
+// publicar") y aquí el admin las supervisa. "Nuevas" = todavía no revisadas (incluye las que el
+// cliente editó después). El texto del cliente no se puede editar: solo publicar, ocultar o borrar.
+let resenasFiltro = 'nuevas';
+let RESENAS_CARGADAS = [];
+const ESTRELLAS_TEXTO = (n) => `${'★'.repeat(n)}${'☆'.repeat(5 - n)}`;
+const ETIQUETA_CALIFICACION = ['', 'Malo', 'Regular', 'Bueno', 'Muy bueno', 'Excelente'];
+
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#resenas-tabs .admin-tab').forEach((tab) => {
     tab.addEventListener('click', () => {
@@ -4708,45 +4716,139 @@ document.addEventListener('DOMContentLoaded', () => {
       cargarResenas();
     });
   });
+  document.getElementById('resenas-tipo')?.addEventListener('change', () => cargarResenas());
+  document.getElementById('resenas-estrellas')?.addEventListener('change', pintarResenas);
+  let timer = null;
+  document.getElementById('resenas-buscar')?.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(pintarResenas, 200); });
+  document.getElementById('btn-resenas-revisar-todas')?.addEventListener('click', async () => {
+    const ids = filtrarResenasCargadas().filter((r) => !r.revisada).map((r) => r.id);
+    if (!ids.length || !confirm(`¿Marcar ${ids.length} reseña${ids.length === 1 ? '' : 's'} como revisada${ids.length === 1 ? '' : 's'}? Las publicadas siguen publicadas.`)) return;
+    try {
+      await marcarResenasRevisadas(ids);
+      mostrarToast('Listo, quedaron revisadas');
+      cargarResenas();
+      actualizarBadgesNav();
+    } catch (err) { mostrarToast(err.message, 'error'); }
+  });
+  document.getElementById('resenas-requieren-aprobacion')?.addEventListener('change', async (e) => {
+    const activar = e.target.checked;
+    try {
+      await guardarModoResenas(activar);
+      mostrarToast(activar ? 'Las opiniones nuevas esperarán tu aprobación antes de publicarse' : 'Las opiniones nuevas se publican al instante');
+    } catch (err) {
+      e.target.checked = !activar;
+      mostrarToast(err.message, 'error');
+    }
+  });
 });
+
+function filtrarResenasCargadas() {
+  const texto = (document.getElementById('resenas-buscar')?.value || '').trim().toLowerCase();
+  const estrellas = document.getElementById('resenas-estrellas')?.value || '';
+  return RESENAS_CARGADAS.filter((r) => {
+    if (estrellas === 'bajas' && r.calificacion > 2) return false;
+    if (estrellas && estrellas !== 'bajas' && r.calificacion !== Number(estrellas)) return false;
+    if (!texto) return true;
+    return [r.cliente, r.perfiles?.correo, r.perfiles?.telefono, r.nombre_publico, r.producto, r.comentario]
+      .some((v) => String(v || '').toLowerCase().includes(texto));
+  });
+}
 
 async function cargarResenas() {
   const mount = document.getElementById('resenas-lista');
+  mount.innerHTML = '<div class="admin-empty">Cargando…</div>';
+  const modo = document.getElementById('resenas-requieren-aprobacion');
+  obtenerModoResenas().then((v) => { if (modo && v !== null) modo.checked = v; });
+  contarResenasNuevas().then((n) => {
+    const el = document.getElementById('resenas-count-nuevas');
+    if (el) el.textContent = n ? `(${n})` : '';
+  });
   try {
-    const resenas = await obtenerResenasAdmin({ soloPendientes: resenasFiltro === 'pendientes' });
-    mount.innerHTML = resenas.length ? resenas.map((r) => `
-      <div class="admin-card" data-id="${r.id}" style="margin-bottom:12px;">
-        <div class="admin-card-top" style="justify-content:space-between; align-items:flex-start;">
-          <div>
-            <span class="admin-card-sub">${escapeHtml(r.cliente)} &middot; ${escapeHtml(r.producto)}</span>
-            <div class="stars" style="margin:4px 0;">${'★'.repeat(r.calificacion)}${'☆'.repeat(5 - r.calificacion)}</div>
-            <p style="font-size:0.85rem; color:var(--color-text-muted);">${escapeHtml(r.comentario || '')}</p>
+    RESENAS_CARGADAS = await obtenerResenasAdmin({ filtro: resenasFiltro, tipo: document.getElementById('resenas-tipo')?.value || '' });
+    pintarResenas();
+  } catch (err) {
+    RESENAS_CARGADAS = [];
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function estadoResenaAdmin(r) {
+  const tags = [];
+  if (!r.revisada) tags.push('<span class="status-tag tag-nueva">Nueva</span>');
+  if (r.aprobado) tags.push('<span class="status-tag pago-completado">Publicada</span>');
+  else tags.push(r.revisada ? '<span class="status-tag tag-anulado">Oculta</span>' : '<span class="status-tag pago-pendiente">Esperando aprobación</span>');
+  if (r.compra_verificada) tags.push('<span class="status-tag tag-verificada">Compra verificada</span>');
+  if (r.fecha_actualizacion) tags.push('<span class="status-tag tag-editada">Editada</span>');
+  return tags.join('');
+}
+
+function pintarResenas() {
+  const mount = document.getElementById('resenas-lista');
+  const lista = filtrarResenasCargadas();
+  const conteo = document.getElementById('resenas-conteo');
+  if (conteo) conteo.textContent = `${lista.length} reseña${lista.length === 1 ? '' : 's'}`;
+  const btnTodas = document.getElementById('btn-resenas-revisar-todas');
+  if (btnTodas) btnTodas.hidden = !lista.some((r) => !r.revisada);
+
+  if (!lista.length) {
+    const vacio = { nuevas: 'No hay reseñas nuevas por revisar. 🎉', publicadas: 'No hay reseñas publicadas.', ocultas: 'No hay reseñas ocultas.', todas: 'Todavía no hay reseñas.' };
+    mount.innerHTML = `<div class="admin-empty">${RESENAS_CARGADAS.length ? 'Ninguna reseña coincide con la búsqueda.' : vacio[resenasFiltro]}</div>`;
+    return;
+  }
+
+  mount.innerHTML = `<div class="resenas-admin-lista">${lista.map((r) => {
+    const fecha = fechaDB(r.fecha_creacion);
+    const ficha = r.tipo === 'Producto' && r.perfumes?.slug ? `${SITE_ROOT}producto/?slug=${encodeURIComponent(r.perfumes.slug)}#opiniones` : `${SITE_ROOT}consolidados/#opiniones`;
+    const tel = String(r.perfiles?.telefono || '').replace(/\D/g, '');
+    const telWa = tel ? (tel.length === 9 ? `51${tel}` : tel) : '';
+    return `
+      <article class="admin-card resena-admin${r.aprobado ? '' : ' is-oculta'}${r.revisada ? '' : ' is-nueva'}" data-id="${r.id}">
+        <div class="resena-admin-top">
+          <div class="admin-card-thumb">${r.tipo === 'Consolidado' ? '<span class="resena-admin-icono">✈</span>' : (r.perfumes?.imagen_url ? `<img src="${new URL(r.perfumes.imagen_url, SITE_ROOT).href}" alt="" loading="lazy" />` : '')}</div>
+          <div class="resena-admin-objeto">
+            <span class="admin-card-sub">${r.tipo === 'Consolidado' ? 'Consolidado' : 'Perfume'}</span>
+            <a class="admin-card-title" href="${ficha}" target="_blank" rel="noopener" title="Ver en la web">${escapeHtml(r.producto)} ↗</a>
           </div>
-          ${r.aprobado ? '<span class="status-tag">Publicada</span>' : '<span class="status-tag" style="background:rgba(196,106,95,0.15); color:var(--color-danger);">Pendiente</span>'}
+          <div class="resena-admin-tags">${estadoResenaAdmin(r)}</div>
+        </div>
+        <div class="resena-admin-cuerpo">
+          <div class="resena-admin-estrellas" aria-label="${r.calificacion} de 5"><span>${ESTRELLAS_TEXTO(r.calificacion)}</span> ${ETIQUETA_CALIFICACION[r.calificacion]}</div>
+          ${r.comentario ? `<p>${escapeHtml(r.comentario)}</p>` : '<p class="resena-admin-vacia">Sin comentario (solo estrellas).</p>'}
+        </div>
+        <div class="resena-admin-meta">
+          <span><strong>${escapeHtml(r.cliente)}</strong> · se muestra como “${escapeHtml(r.nombre_publico || 'Cliente')}”</span>
+          ${r.perfiles?.correo ? `<span>${escapeHtml(r.perfiles.correo)}</span>` : ''}
+          ${telWa ? `<a href="https://wa.me/${telWa}" target="_blank" rel="noopener">WhatsApp ${escapeHtml(r.perfiles.telefono)}</a>` : ''}
+          <span>${fecha.toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })}${r.fecha_actualizacion ? ` · editada ${fechaDB(r.fecha_actualizacion).toLocaleDateString('es-PE')}` : ''}</span>
         </div>
         <div class="admin-card-actions">
-          ${!r.aprobado ? '<button class="btn btn-outline btn-sm btn-aprobar-resena">Aprobar</button>' : ''}
-          <button class="btn btn-danger btn-sm btn-eliminar-resena">Eliminar</button>
+          ${!r.aprobado ? '<button type="button" class="btn btn-primary btn-sm" data-accion-resena="publicar">Publicar</button>' : ''}
+          ${r.aprobado && !r.revisada ? '<button type="button" class="btn btn-outline btn-sm" data-accion-resena="revisada">✓ Está bien</button>' : ''}
+          ${r.aprobado ? '<button type="button" class="btn btn-outline btn-sm" data-accion-resena="ocultar">Ocultar</button>' : ''}
+          <button type="button" class="btn btn-danger btn-sm" data-accion-resena="eliminar">Eliminar</button>
         </div>
-      </div>
-    `).join('') : '<div class="admin-empty">No hay reseñas.</div>';
+      </article>`;
+  }).join('')}</div>`;
 
-    mount.querySelectorAll('.btn-aprobar-resena').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const id = Number(btn.closest('.admin-card').dataset.id);
-        try { await aprobarResena(id); mostrarToast('Reseña aprobada'); cargarResenas(); actualizarBadgesNav(); } catch (err) { mostrarToast(err.message, 'error'); }
-      });
+  mount.querySelectorAll('[data-accion-resena]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = Number(btn.closest('[data-id]').dataset.id);
+      const accion = btn.dataset.accionResena;
+      if (accion === 'eliminar' && !confirm('¿Eliminar esta reseña? El cliente podrá escribir otra.')) return;
+      btn.disabled = true;
+      try {
+        if (accion === 'publicar') { await moderarResena(id, { aprobado: true, revisada: true }); mostrarToast('Reseña publicada'); }
+        if (accion === 'revisada') { await moderarResena(id, { revisada: true }); mostrarToast('Marcada como revisada'); }
+        if (accion === 'ocultar') { await moderarResena(id, { aprobado: false, revisada: true }); mostrarToast('Reseña oculta: ya no se ve en la web'); }
+        if (accion === 'eliminar') { await eliminarResena(id); mostrarToast('Reseña eliminada'); }
+        cargarResenas();
+        actualizarBadgesNav();
+      } catch (err) {
+        btn.disabled = false;
+        mostrarToast(err.message, 'error');
+      }
     });
-    mount.querySelectorAll('.btn-eliminar-resena').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('¿Eliminar esta reseña?')) return;
-        const id = Number(btn.closest('.admin-card').dataset.id);
-        try { await eliminarResena(id); mostrarToast('Reseña eliminada'); cargarResenas(); actualizarBadgesNav(); } catch (err) { mostrarToast(err.message, 'error'); }
-      });
-    });
-  } catch (err) {
-    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
-  }
+  });
 }
 
 /* ================= PREGUNTAS FRECUENTES ================= */
@@ -4819,7 +4921,7 @@ async function cargarFAQ() {
       });
     });
   } catch (err) {
-    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -5165,7 +5267,7 @@ async function cargarCotizaciones() {
       });
     });
   } catch (err) {
-    mount.innerHTML = `<div class="admin-empty">${err.message}</div>`;
+    mount.innerHTML = `<div class="admin-empty">${escapeHtml(err.message)}</div>`;
   }
 }
 

@@ -458,10 +458,35 @@
 
       <!-- Reseñas -->
       <section class="admin-section" id="section-resenas">
-        <div class="admin-page-header"><div><h1>Reseñas</h1><div class="sub">Modera lo que se publica en el sitio</div></div></div>
+        <div class="admin-page-header">
+          <div><h1>Reseñas</h1><div class="sub">Opiniones de clientes con cuenta sobre los perfumes y el consolidado. Revisa lo nuevo y oculta o elimina lo que no corresponda.</div></div>
+          <label class="resenas-modo" title="Apagado: se publican al instante y tú las revisas después. Encendido: ninguna se ve en la web hasta que la apruebes.">
+            <span class="switch"><input type="checkbox" id="resenas-requieren-aprobacion" /><span class="switch-track"></span></span>
+            <span>Aprobar antes de publicar</span>
+          </label>
+        </div>
         <div class="admin-tabs" id="resenas-tabs">
-          <button class="admin-tab active" data-filtro="pendientes">Pendientes</button>
+          <button class="admin-tab active" data-filtro="nuevas">Nuevas <span class="count" id="resenas-count-nuevas"></span></button>
+          <button class="admin-tab" data-filtro="publicadas">Publicadas</button>
+          <button class="admin-tab" data-filtro="ocultas">Ocultas</button>
           <button class="admin-tab" data-filtro="todas">Todas</button>
+        </div>
+        <div class="admin-toolbar">
+          <input type="search" id="resenas-buscar" placeholder="Buscar cliente, perfume o texto…" />
+          <select id="resenas-tipo">
+            <option value="">Perfumes y consolidado</option>
+            <option value="Producto">Solo perfumes</option>
+            <option value="Consolidado">Solo consolidado</option>
+          </select>
+          <select id="resenas-estrellas">
+            <option value="">Todas las estrellas</option>
+            <option value="bajas">1 y 2 estrellas</option>
+            <option value="5">5 estrellas</option>
+            <option value="4">4 estrellas</option>
+            <option value="3">3 estrellas</option>
+          </select>
+          <span class="admin-toolbar-count" id="resenas-conteo"></span>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-resenas-revisar-todas" hidden>Marcar todas como revisadas</button>
         </div>
         <div id="resenas-lista"><div class="admin-empty">Cargando…</div></div>
       </section>

@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     iniciarFiltrosDecants();
     aplicarFiltrosDecants();
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 });
 

@@ -24,6 +24,17 @@
     .status-tag { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 3px 9px; border-radius: 12px; background: rgba(122,32,48,0.15); color: var(--color-gold); }
     .direccion-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 18px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: start; gap: 12px; }
     .fav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    /* En celular las tablas (pedidos, reservas, cotizaciones) se deslizan hacia el costado en vez
+       de apretar las columnas hasta volverlas ilegibles. */
+    @media (max-width: 700px) {
+      .data-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .data-table th, .data-table tr:not(.order-detail-row) > td { white-space: nowrap; }
+      .dash-nav { position: relative; flex-direction: row; overflow-x: auto; gap: 6px; padding-bottom: 6px; -webkit-overflow-scrolling: touch; }
+      .dash-nav > div:first-child { display: none; }
+      .dash-nav button { flex-shrink: 0; white-space: nowrap; padding: 9px 14px; border: 1px solid var(--color-border); border-radius: 20px; }
+      .dash-nav button.active { border-left: 1px solid var(--color-gold); border-color: var(--color-gold); }
+      .dash-nav #btn-logout { margin-top: 0 !important; }
+    }
     @media (max-width: 700px) { .fav-grid { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
@@ -46,6 +57,7 @@
   <script src="https://madisonzadaca.com/assets/js/supabase-config.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/api.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/main.js" defer></script>
+  <script src="https://madisonzadaca.com/assets/js/resenas.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/cuenta.js" defer></script>
 </body>
 </html>

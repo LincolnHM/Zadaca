@@ -515,17 +515,6 @@ async function obtenerProductoPorSlug(slug) {
   };
 }
 
-async function obtenerResenasDestacadas() {
-  const { data, error } = await supabaseClient
-    .from('resenas')
-    .select('calificacion, comentario, fecha_creacion, perfiles(nombres), perfumes(nombre)')
-    .eq('aprobado', true)
-    .order('fecha_creacion', { ascending: false })
-    .limit(6);
-  if (error) return [];
-  return data.map((r) => ({ ...r, nombres: r.perfiles?.nombres || 'Cliente', producto: r.perfumes?.nombre }));
-}
-
 /* ---------------- Favoritos ---------------- */
 
 async function obtenerFavoritos() {
@@ -533,10 +522,10 @@ async function obtenerFavoritos() {
   if (!session) return [];
   const { data, error } = await supabaseClient
     .from('favoritos')
-    .select('id_producto, perfumes(slug, nombre, marca, genero, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado, es_decant, precio_3ml, precio_5ml, precio_10ml)')
+    .select('id_producto, perfumes(id, slug, nombre, marca, genero, concentracion, mililitros, precio_tienda_regular, descuento_tienda_porcentaje, imagen_url, estado, es_decant, es_liquidacion, precio_liquidacion, precio_3ml, precio_5ml, precio_10ml, inventario(stock_disponible))')
     .eq('id_cliente', session.user.id);
   if (error) return [];
-  return data.map((f) => f.perfumes);
+  return data.map((f) => (f.perfumes ? normalizarProducto(f.perfumes) : null)).filter(Boolean);
 }
 
 async function alternarFavorito(idProducto, activo) {

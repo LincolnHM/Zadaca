@@ -396,7 +396,7 @@ async function cargarProductos(filtrosIniciales) {
     renderPaginacion(totalPaginas);
   } catch (err) {
     if (idSolicitud !== cargaProductosSeq) return;
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 

@@ -94,12 +94,21 @@
   <main>
     <div class="page-header">
       <div class="container">
-        <div class="breadcrumb"><a href="https://madisonzadaca.com/">Inicio</a> / <a href="https://madisonzadaca.com/catalogo/">Catálogo</a> / <span id="crumb-nombre">Producto</span></div>
+        <div class="breadcrumb"><a href="https://madisonzadaca.com/">Inicio</a> / <a href="https://madisonzadaca.com/catalogo/" id="crumb-seccion">Tienda</a> / <span id="crumb-nombre">Producto</span></div>
       </div>
     </div>
 
     <section class="section" id="detalle-mount">
       <div class="container"><div class="loading-state">Cargando producto…</div></div>
+    </section>
+
+    <section class="section resenas-section" id="opiniones" hidden aria-labelledby="opiniones-titulo">
+      <div class="container">
+        <div class="section-header">
+          <div><span class="eyebrow">Opiniones de clientes</span><h2 id="opiniones-titulo">¿Qué opinan de este perfume?</h2></div>
+        </div>
+        <div id="opiniones-mount"></div>
+      </div>
     </section>
 
     <section class="section reveal" style="padding-top:0; display:none;" id="relacionados-section">
@@ -116,6 +125,7 @@
   <script src="https://madisonzadaca.com/assets/js/supabase-config.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/api.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/main.js" defer></script>
+  <script src="https://madisonzadaca.com/assets/js/resenas.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/producto.js" defer></script>
 </body>
 </html>

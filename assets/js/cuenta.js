@@ -56,7 +56,7 @@ function renderAuthForms() {
           <div class="auth-visual-content">
             <span class="brand-icon-lg">${LOGO_IMG}</span>
             <h2>La casa de tus fragancias favoritas</h2>
-            <p>Crea tu cuenta para ${CONSOLIDADOS_ACTIVOS ? 'reservar en consolidados, ' : ''}guardar favoritos y seguir tus pedidos.</p>
+            <p>Crea tu cuenta para ${CONSOLIDADOS_ACTIVOS ? 'reservar en consolidados, ' : ''}guardar favoritos, seguir tus pedidos y opinar sobre tus perfumes.</p>
             <div class="auth-perks">
               <div class="auth-perk"><span>${ICONS.shield}</span> Perfumes 100% originales importados</div>
               <div class="auth-perk"><span>${ICONS.truck}</span> Envíos a todo el Perú</div>
@@ -143,6 +143,12 @@ function renderAuthForms() {
   });
 
   document.getElementById('btn-olvide-contrasena').addEventListener('click', renderRecuperarForm);
+
+  // "Crear cuenta" desde otra página (ej. para dejar una opinión): abre directo esa pestaña.
+  if (PARAMS.get('registro') === '1') document.querySelector('.form-tab[data-tab="registro"]')?.click();
+  if (RETORNO && /#opinar$/.test(RETORNO)) {
+    document.getElementById('alert-mount').innerHTML = '<div class="alert alert-success">Ingresa o crea tu cuenta para dejar tu opinión. Al terminar te llevamos de vuelta.</div>';
+  }
 
   conectarValidacionContrasena('registro', 'registro-submit');
 
@@ -271,6 +277,7 @@ async function renderDashboard() {
     ...(CONSOLIDADOS_ACTIVOS ? [{ id: 'reservas', label: 'Mis Reservas' }] : []),
     { id: 'direcciones', label: 'Mis Direcciones' },
     { id: 'favoritos', label: 'Favoritos' },
+    { id: 'opiniones', label: 'Mis Opiniones' },
     { id: 'cotizaciones', label: 'Cotizaciones' },
     { id: 'notificaciones', label: 'Notificaciones' },
     { id: 'seguridad', label: 'Seguridad' },
@@ -300,6 +307,11 @@ async function renderDashboard() {
   });
   document.getElementById('btn-logout').addEventListener('click', cerrarSesion);
 
+  // En celular las pestañas son una fila que se desliza: la activa tiene que quedar a la vista.
+  const navDash = document.querySelector('.dash-nav');
+  const activa = navDash?.querySelector('button.active');
+  if (navDash && activa && navDash.scrollWidth > navDash.clientWidth) navDash.scrollLeft = Math.max(activa.offsetLeft - 24, 0);
+
   cargarTab();
 }
 
@@ -308,6 +320,7 @@ function cargarTab() {
   if (TAB_ACTIVA === 'reservas') return cargarReservas();
   if (TAB_ACTIVA === 'direcciones') return cargarDirecciones();
   if (TAB_ACTIVA === 'favoritos') return cargarFavoritos();
+  if (TAB_ACTIVA === 'opiniones') return cargarMisOpiniones();
   if (TAB_ACTIVA === 'cotizaciones') return cargarCotizaciones();
   if (TAB_ACTIVA === 'notificaciones') return cargarNotificacionesTab();
   if (TAB_ACTIVA === 'seguridad') return cargarSeguridad();
@@ -377,7 +390,7 @@ async function cargarPedidos() {
       document.querySelector(`[data-ver-pedido="${PEDIDO_A_RESALTAR}"]`)?.scrollIntoView({ block: 'center' });
     }
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -425,7 +438,7 @@ async function cargarDetallePedido(id) {
       </div>
     `;
   } catch (err) {
-    fila.querySelector('td').innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+    fila.querySelector('td').innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -467,7 +480,7 @@ async function cargarReservas() {
       </table>
     `;
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -503,7 +516,7 @@ async function cargarNotificacionesTab() {
       });
     });
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -594,7 +607,7 @@ async function cargarDirecciones() {
       }
     });
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -604,11 +617,75 @@ async function cargarFavoritos() {
   mount.innerHTML = '<div class="loading-state">Cargando favoritos…</div>';
   try {
     const favoritos = await obtenerFavoritos();
-    mount.innerHTML = favoritos.length
-      ? `<div class="fav-grid">${favoritos.map(tarjetaProducto).join('')}</div>`
+    const lista = favoritos.filter(Boolean);
+    mount.innerHTML = lista.length
+      ? `<div class="fav-grid">${lista.map(tarjetaProducto).join('')}</div>`
       : `<div class="empty-state">Aún no tienes favoritos. <a href="${SITE_ROOT}catalogo/" class="link-arrow">Explorar catálogo</a></div>`;
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+/* ---- Mis opiniones (resenas.js) ---- */
+async function cargarMisOpiniones() {
+  const mount = document.getElementById('tab-content');
+  mount.innerHTML = '<div class="loading-state">Cargando tus opiniones…</div>';
+  try {
+    const [mias, compras] = await Promise.all([obtenerMisResenas(), obtenerComprasParaOpinar().catch(() => ({ productos: [], usoConsolidado: false }))]);
+    const yaOpinados = new Set(mias.filter((r) => r.tipo === 'Producto').map((r) => r.id_producto));
+    const porOpinar = compras.productos.filter((p) => !yaOpinados.has(p.id)).slice(0, 12);
+    const faltaConsolidado = CONSOLIDADOS_ACTIVOS && compras.usoConsolidado && !mias.some((r) => r.tipo === 'Consolidado');
+    const estadoResena = (r) => {
+      if (r.aprobado) return '<span class="status-tag" style="background:rgba(127,174,131,0.15); color:var(--color-success);">Publicada</span>';
+      if (!r.revisada) return '<span class="status-tag">En revisión</span>';
+      return '<span class="status-tag" style="background:rgba(196,106,95,0.15); color:var(--color-danger);">No visible</span>';
+    };
+    const enlace = (r) => (r.tipo === 'Consolidado'
+      ? `${SITE_ROOT}consolidados/#opinar`
+      : `${SITE_ROOT}producto/?slug=${encodeURIComponent(r.perfumes?.slug || '')}#opinar`);
+
+    mount.innerHTML = `
+      ${porOpinar.length || faltaConsolidado ? `
+        <h3 class="cuenta-subtitulo">¿Qué te parecieron?</h3>
+        <p class="form-hint" style="margin:-6px 0 16px;">Tu opinión ayuda a otros clientes a elegir. Toma menos de un minuto.</p>
+        <div class="por-opinar-grid">
+          ${faltaConsolidado ? `<a class="por-opinar" href="${SITE_ROOT}consolidados/#opinar"><span class="fallback-icon">${ICONS.plane}</span><span><small>Servicio</small>Consolidado</span><span class="btn btn-outline btn-sm">Opinar</span></a>` : ''}
+          ${porOpinar.map((p) => `
+            <a class="por-opinar" href="${SITE_ROOT}producto/?slug=${encodeURIComponent(p.slug)}#opinar">
+              ${imagenProducto(p)}
+              <span><small>${escapeHtml(p.marca)}</small>${escapeHtml(p.nombre)}${p.es_decant ? ' (decant)' : ''}</span>
+              <span class="btn btn-outline btn-sm">Opinar</span>
+            </a>`).join('')}
+        </div>` : ''}
+      <h3 class="cuenta-subtitulo">Mis opiniones</h3>
+      ${mias.length ? `<div class="mis-opiniones">
+        ${mias.map((r) => `
+          <article class="mi-opinion" data-id="${r.id}">
+            <div class="mi-opinion-media">${r.tipo === 'Consolidado' ? ICONS.plane : (r.perfumes ? imagenProducto(r.perfumes) : ICONS.box)}</div>
+            <div>
+              <h4>${r.tipo === 'Consolidado' ? 'Servicio de consolidado' : `${escapeHtml(r.perfumes?.marca || '')} — ${escapeHtml(r.perfumes?.nombre || 'Perfume')}${r.perfumes?.es_decant ? ' (decant)' : ''}`}</h4>
+              <div class="mi-opinion-meta">${estrellasHtml(r.calificacion, { clase: 'estrellas-sm' })}${estadoResena(r)}<span>${escapeHtml(haceCuanto(r.fecha_creacion))}${r.fecha_actualizacion ? ' · editada' : ''}</span>${r.compra_verificada ? `<span class="resena-verificada">${ICONS.check} Compra verificada</span>` : ''}</div>
+              ${r.comentario ? `<p>${escapeHtml(r.comentario)}</p>` : ''}
+              <div class="mi-opinion-acciones">
+                <a class="link-arrow" href="${enlace(r)}">Editar</a>
+                <button type="button" class="link-arrow" data-borrar-opinion="${r.id}" style="color:var(--color-danger);">Eliminar</button>
+              </div>
+            </div>
+          </article>`).join('')}
+      </div>` : `<div class="empty-state" style="padding:32px 20px;">Todavía no has dejado opiniones. Entra a cualquier perfume y baja hasta <strong>"Opiniones de clientes"</strong>.</div>`}
+    `;
+    mount.querySelectorAll('[data-borrar-opinion]').forEach((btn) => btn.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar esta opinión? No se puede deshacer.')) return;
+      try {
+        await borrarResena(Number(btn.dataset.borrarOpinion));
+        mostrarToast('Tu opinión se eliminó');
+        cargarMisOpiniones();
+      } catch (err) {
+        mostrarToast(err.message, 'error');
+      }
+    }));
+  } catch (err) {
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -627,6 +704,6 @@ async function cargarCotizaciones() {
         : '<div class="empty-state">No has enviado solicitudes de cotización aún.</div>'}
     `;
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }

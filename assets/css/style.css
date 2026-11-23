@@ -1368,3 +1368,210 @@ body.con-barra-avion .toast-stack { bottom: 92px; }
   .courier-promo-btn { flex: 1 1 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .courier-promo-afiche, .courier-promo-afiche:hover { transform: none; transition: none; } }
+
+/* ==========================================================
+   Arreglos generales (nov 2026)
+   ========================================================== */
+/* Menú de escritorio sobre el header oscuro: el burdeos de la página activa casi no se veía
+   (contraste ~2:1). Ahora la activa va en blanco con una línea burdeos-plata debajo. */
+@media (min-width: 901px) {
+  .main-nav a { padding: 6px 0; }
+  .main-nav a:hover, .main-nav a.active { color: #fff; }
+  .main-nav a.active::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--color-red-light), var(--color-silver));
+  }
+  .main-nav a.nav-courier.active::after { background: #ffc08f; }
+  .site-header .icon-btn:hover { color: var(--color-silver-light); }
+  .nav-solo-movil { display: none !important; }
+}
+/* Menú de celular: cerrado no debe poder recibir el foco del teclado (estaba fuera de la
+   pantalla pero sus links seguían ahí), y ahora incluye el acceso a "Mi cuenta", que en
+   celular no tenía ningún botón en el encabezado. */
+@media (max-width: 900px) {
+  .main-nav { visibility: hidden; transition: transform 0.25s ease, visibility 0.25s; }
+  .main-nav.open { visibility: visible; }
+  .main-nav a.active { color: var(--color-red); font-weight: 600; }
+  .main-nav .nav-cuenta { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 18px; border-top: 1px solid var(--color-border); width: 100%; }
+  .main-nav .nav-cuenta svg { width: 18px; height: 18px; }
+}
+/* Un <button> con estilo de link (ej. "¿Olvidaste tu contraseña?") mostraba el recuadro gris
+   del navegador. */
+button.link-arrow { background: none; border: 0; border-bottom: 1px solid transparent; padding: 0; cursor: pointer; font-family: inherit; }
+/* Avisos "vacío"/"cargando" dentro de una grilla: ocupaban una sola columna y el texto quedaba
+   apretado a la izquierda. */
+.product-grid > .empty-state, .product-grid > .loading-state,
+.consolidado-grid > .empty-state, .consolidado-grid > .loading-state,
+.fav-grid > .empty-state, .fav-grid > .loading-state { grid-column: 1 / -1; }
+/* Dos bandas "tight" seguidas sumaban 80px de hueco (catálogos). */
+.section-tight + .section-tight { padding-top: 0; }
+.section-tight > .container > .pill-row:last-child { margin-bottom: 0; }
+/* Foco visible para quien navega con teclado. */
+:where(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid var(--color-red); outline-offset: 2px; }
+.site-header :where(a, button):focus-visible { outline-color: var(--color-silver-light); }
+
+/* ==========================================================
+   OPINIONES DE CLIENTES (resenas.js, migración 0024)
+   ========================================================== */
+.estrellas { position: relative; display: inline-block; line-height: 0; vertical-align: middle; flex-shrink: 0; }
+.estrellas-base, .estrellas-relleno { display: inline-flex; gap: 2px; white-space: nowrap; }
+.estrellas-relleno { position: absolute; top: 0; left: 0; bottom: 0; overflow: hidden; }
+.estrellas svg { width: 16px; height: 16px; flex-shrink: 0; }
+.estrellas-base svg { fill: #e6dfd2; }
+.estrellas-relleno svg { fill: var(--color-red); }
+.estrellas-xs svg { width: 12px; height: 12px; }
+.estrellas-xs .estrellas-base, .estrellas-xs .estrellas-relleno { gap: 1px; }
+.estrellas-sm svg { width: 14px; height: 14px; }
+.estrellas-lg svg { width: 22px; height: 22px; }
+
+/* Línea de estrellas bajo el nombre del perfume (ficha) y en las tarjetas */
+.pd-rating { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--color-text-muted); margin: 0 0 14px; }
+.pd-rating strong { color: var(--color-text); }
+.pd-rating:hover .pd-rating-link { text-decoration: underline; }
+.pd-rating-link { color: var(--color-red); font-weight: 600; }
+.card-rating { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--color-text-faint); margin-top: 4px; }
+
+.resenas-section { border-top: 1px solid var(--color-border); background: linear-gradient(180deg, var(--color-bg-alt) 0, var(--color-bg) 320px); scroll-margin-top: 90px; }
+.resenas-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 48px; align-items: start; }
+@media (max-width: 860px) { .resenas-layout { grid-template-columns: 1fr; gap: 26px; } }
+.resenas-resumen {
+  position: sticky; top: 110px; display: flex; flex-direction: column; gap: 18px;
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 24px;
+}
+@media (max-width: 860px) { .resenas-resumen { position: static; } }
+.resenas-promedio { display: flex; align-items: center; gap: 14px; }
+.resenas-promedio-num { font-family: var(--font-heading); font-size: 3.1rem; line-height: 1; font-weight: 600; color: var(--color-text); }
+.resenas-total { display: block; font-size: 0.8rem; color: var(--color-text-faint); margin-top: 6px; }
+.resenas-barras { display: flex; flex-direction: column; gap: 2px; }
+.resenas-barra {
+  display: grid; grid-template-columns: 34px 1fr 28px; align-items: center; gap: 10px; width: calc(100% + 12px);
+  background: none; border: none; padding: 5px 6px; margin: 0 -6px; border-radius: var(--radius);
+  font-size: 0.78rem; color: var(--color-text-muted); text-align: left; transition: background 0.15s;
+}
+.resenas-barra > span:first-child { display: inline-flex; align-items: center; gap: 3px; font-variant-numeric: tabular-nums; }
+.resenas-barra svg { width: 11px; height: 11px; fill: var(--color-red); }
+.resenas-barra:hover:not(:disabled), .resenas-barra.activa { background: rgba(122, 32, 48, 0.07); color: var(--color-text); }
+.resenas-barra.activa { box-shadow: inset 2px 0 0 var(--color-red); }
+.resenas-barra:disabled { cursor: default; opacity: 0.5; }
+.resenas-barra-pista { height: 8px; background: #eee7da; border-radius: 10px; overflow: hidden; }
+.resenas-barra-pista span { display: block; height: 100%; background: var(--color-red); border-radius: 10px; }
+.resenas-barra-num { text-align: right; font-variant-numeric: tabular-nums; }
+.resenas-vacio { text-align: center; padding: 4px 0; }
+.resenas-vacio p { font-size: 0.88rem; color: var(--color-text-muted); margin: 12px 0 0; line-height: 1.55; }
+.resena-login { border-top: 1px solid var(--color-border); padding-top: 18px; text-align: center; }
+.resena-login-icono { width: 40px; height: 40px; border-radius: 50%; background: rgba(122, 32, 48, 0.08); color: var(--color-red); display: inline-flex; align-items: center; justify-content: center; }
+.resena-login-icono svg { width: 18px; height: 18px; }
+.resena-login p { font-size: 0.84rem; color: var(--color-text-muted); margin: 10px 0 14px; line-height: 1.55; }
+.resena-login-botones { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.resenas-cuerpo { min-width: 0; }
+.resenas-toolbar {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding-bottom: 12px; border-bottom: 1px solid var(--color-border); font-size: 0.82rem; color: var(--color-text-muted);
+}
+.resenas-orden { display: inline-flex; align-items: center; gap: 8px; font-size: 0.76rem; color: var(--color-text-faint); }
+.resenas-orden select { border: 1px solid var(--color-border); background: var(--color-bg-card); padding: 7px 10px; border-radius: var(--radius); font-size: 0.8rem; color: var(--color-text); }
+.resenas-quitar-filtro { background: none; border: none; color: var(--color-red); font-weight: 600; text-decoration: underline; padding: 0; margin-left: 6px; font-size: inherit; }
+.resenas-lista { display: flex; flex-direction: column; }
+.resena-card { padding: 20px 0; border-bottom: 1px solid var(--color-border); }
+.resena-card-head { display: flex; align-items: flex-start; gap: 12px; }
+.resena-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(122, 32, 48, 0.14), rgba(188, 186, 194, 0.35)); color: var(--color-red);
+  font-family: var(--font-heading); font-weight: 700; font-size: 1rem;
+}
+.resena-autor { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; flex: 1; min-width: 0; }
+.resena-autor strong { font-size: 0.9rem; }
+.resena-verificada { display: inline-flex; align-items: center; gap: 4px; font-size: 0.66rem; font-weight: 700; color: #3d7346; text-transform: uppercase; letter-spacing: 0.05em; }
+.resena-verificada svg { width: 12px; height: 12px; }
+.resena-fecha { flex-basis: 100%; font-size: 0.74rem; color: var(--color-text-faint); }
+.resena-card-head .estrellas { margin-top: 4px; }
+.resena-variante { display: inline-block; margin: 10px 0 0 50px; font-size: 0.66rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-faint); border: 1px solid var(--color-border); padding: 2px 8px; border-radius: 20px; }
+.resena-texto { margin: 10px 0 0 50px; font-size: 0.92rem; line-height: 1.65; color: var(--color-text); white-space: pre-line; overflow-wrap: anywhere; }
+.resena-sin-texto { color: var(--color-text-faint); font-style: italic; font-size: 0.84rem; }
+@media (max-width: 520px) { .resena-texto, .resena-variante { margin-left: 0; } }
+.resenas-mas { margin-top: 20px; }
+.resenas-invita { font-size: 0.9rem; color: var(--color-text-muted); padding: 28px; border: 1px dashed var(--color-border); border-radius: var(--radius); text-align: center; margin: 0; line-height: 1.6; }
+.resenas-error { color: var(--color-text-faint); font-size: 0.88rem; }
+.resena-mia { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-left: 3px solid var(--color-red); border-radius: var(--radius); padding: 14px 20px 2px; margin-bottom: 24px; }
+.resena-mia-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.resena-mia-acciones { display: flex; gap: 18px; }
+.resena-mia-acciones .link-arrow { font-size: 0.72rem; }
+.resena-mia-acciones .resena-borrar { color: var(--color-danger); }
+.resena-mia-aviso { font-size: 0.8rem; color: #7a4f14; background: rgba(210, 154, 58, 0.14); padding: 8px 12px; border-radius: var(--radius); margin: 10px 0 0; }
+.resena-card-mia { border-bottom: none; padding-top: 14px; }
+.resena-form {
+  background: var(--color-bg-card); border: 1px solid var(--color-border); border-top: 3px solid var(--color-red);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 28px; box-shadow: var(--shadow-card);
+}
+.resena-form h3 { font-size: 1.2rem; margin-bottom: 16px; }
+.estrellas-input { border: none; padding: 0; margin: 0 0 16px; min-width: 0; }
+.estrellas-input legend { font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 8px; padding: 0; }
+.estrellas-input-fila { display: inline-flex; flex-direction: row-reverse; gap: 2px; vertical-align: middle; }
+.estrellas-input-fila input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.estrellas-input-fila label { cursor: pointer; padding: 3px; line-height: 0; border-radius: 4px; }
+.estrellas-input-fila label svg { width: 34px; height: 34px; fill: #e6dfd2; transition: fill 0.12s, transform 0.12s; }
+.estrellas-input-fila input:checked ~ label svg { fill: var(--color-red); }
+.estrellas-input-fila:hover input ~ label svg { fill: #e6dfd2; }
+.estrellas-input-fila:hover label:hover svg, .estrellas-input-fila:hover label:hover ~ label svg { fill: var(--color-red-light); }
+.estrellas-input-fila label:hover svg { transform: scale(1.1); }
+.estrellas-input-fila input:focus-visible + label { outline: 2px solid var(--color-red); outline-offset: 1px; }
+.estrellas-input-texto { display: inline-block; vertical-align: middle; margin-left: 12px; font-size: 0.86rem; font-weight: 600; color: var(--color-text-muted); }
+.estrellas-input.falta .estrellas-input-texto { color: var(--color-danger); }
+.estrellas-input.falta .estrellas-input-fila label svg { fill: rgba(176, 71, 58, 0.25); }
+@media (prefers-reduced-motion: reduce) { .estrellas-input-fila label svg { transition: none; } .estrellas-input-fila label:hover svg { transform: none; } }
+.resena-form .form-group textarea { min-height: 110px; resize: vertical; line-height: 1.55; }
+.resena-contador { text-align: right; font-size: 0.7rem; color: var(--color-text-faint); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.opcional { text-transform: none; letter-spacing: 0; color: var(--color-text-faint); }
+.resena-aviso { margin: 0; line-height: 1.5; }
+.resena-form-botones { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+/* Inicio: opiniones recientes */
+.opiniones-home-resumen { display: inline-flex; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--color-text-muted); }
+.opiniones-home-resumen strong { font-family: var(--font-heading); font-size: 1.5rem; color: var(--color-text); }
+.opiniones-home-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 960px) { .opiniones-home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .opiniones-home-grid { grid-template-columns: 1fr; } }
+.opinion-home { position: relative; display: flex; flex-direction: column; gap: 14px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 24px 22px 20px; }
+.opinion-home::before { content: '\201C'; position: absolute; top: 4px; right: 18px; font-family: var(--font-heading); font-size: 4.2rem; line-height: 1; color: rgba(122, 32, 48, 0.12); }
+.opinion-home blockquote { margin: 0; font-size: 0.92rem; line-height: 1.65; color: var(--color-text); display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.opinion-home-autor { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--color-text-muted); }
+.opinion-home-autor .resena-avatar { width: 32px; height: 32px; font-size: 0.85rem; }
+.opinion-home-producto { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--color-border); font-size: 0.76rem; color: var(--color-text-muted); }
+.opinion-home-producto img, .opinion-home-producto .fallback-icon { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; color: var(--color-text-faint); }
+.opinion-home-producto > svg { width: 36px; height: 36px; padding: 8px; flex-shrink: 0; color: var(--color-red); background: rgba(122, 32, 48, 0.07); border-radius: 50%; }
+.opinion-home-producto .fallback-icon svg { width: 100%; height: 100%; }
+.opinion-home-producto span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.opinion-home-producto:hover span { color: var(--color-red); }
+
+/* Mi cuenta → Mis opiniones */
+.mis-opiniones { display: flex; flex-direction: column; gap: 14px; }
+.mi-opinion { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 16px; }
+.mi-opinion-media { width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; background: var(--color-bg-alt); border-radius: var(--radius); color: var(--color-red); }
+.mi-opinion-media img { max-width: 90%; max-height: 90%; object-fit: contain; }
+.mi-opinion-media svg { width: 26px; height: 26px; }
+.mi-opinion h4 { font-family: var(--font-body); font-size: 0.9rem; font-weight: 600; margin: 0 0 4px; }
+.mi-opinion p { font-size: 0.86rem; color: var(--color-text-muted); margin: 8px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.mi-opinion-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.74rem; color: var(--color-text-faint); }
+.mi-opinion-acciones { display: flex; gap: 16px; margin-top: 10px; }
+.mi-opinion-acciones .link-arrow { font-size: 0.72rem; }
+.por-opinar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.por-opinar { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 14px 12px; }
+.por-opinar img, .por-opinar .fallback-icon { width: 70px; height: 70px; object-fit: contain; color: var(--color-text-faint); }
+.por-opinar span { font-size: 0.78rem; line-height: 1.35; }
+.por-opinar small { display: block; font-size: 0.66rem; color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+.cuenta-subtitulo { font-size: 1.05rem; margin: 30px 0 14px; }
+.cuenta-subtitulo:first-child { margin-top: 0; }
+
+/* Catálogo Consolidado: la tarjeta ahora abre la ficha (descripción, notas y opiniones) */
+.card-avion .product-media { cursor: pointer; }
+.card-avion-ficha { color: inherit; }
+.card-avion-ficha:hover { color: var(--color-red); text-decoration: underline; text-underline-offset: 3px; }
+.consolidado-opiniones-resumen {
+  display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; padding: 10px 18px;
+  border: 1px solid var(--color-border); border-radius: 30px; background: var(--color-bg-card);
+  font-size: 0.82rem; color: var(--color-text-muted); transition: border-color 0.2s, color 0.2s;
+}
+.consolidado-opiniones-resumen[hidden] { display: none; }
+.consolidado-opiniones-resumen:hover { border-color: var(--color-red); color: var(--color-text); }
+.consolidado-opiniones-resumen > svg { width: 16px; height: 16px; color: var(--color-red); }
+.consolidado-opiniones-resumen strong { color: var(--color-text); }

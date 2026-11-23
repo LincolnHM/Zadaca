@@ -3,5 +3,6 @@ Allow: /
 Disallow: /admin/
 Disallow: /cuenta/
 Disallow: /carrito/
+Disallow: /carrito-avion/
 
 Sitemap: https://madisonzadaca.com/sitemap.xml

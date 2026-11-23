@@ -19,7 +19,7 @@ async function cargarCarrito() {
     CARRITO_ITEMS = await obtenerCarrito();
     renderCarrito();
   } catch (err) {
-    mount.innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
+    mount.innerHTML = `<div class="container"><div class="empty-state">${escapeHtml(err.message)}</div></div>`;
   }
 }
 
@@ -175,7 +175,7 @@ async function cargarDirecciones() {
     `;
     document.getElementById('btn-checkout').addEventListener('click', confirmarPedido);
   } catch (err) {
-    mount.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+    mount.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -193,7 +193,7 @@ async function renderCheckoutInvitado(mount) {
   try {
     [ubigeos, cfg] = await Promise.all([obtenerUbigeos(), obtenerConfiguracionSitio()]);
   } catch (err) {
-    mount.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+    mount.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
     return;
   }
 

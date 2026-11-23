@@ -31,7 +31,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; overflow-x: clip; }
 body.cx {
   margin: 0;
   background: var(--cx-bg);
@@ -40,7 +40,10 @@ body.cx {
   font-size: 16px;
   line-height: 1.6;
   overflow-x: hidden;
+  overflow-x: clip;
 }
+/* (html también lleva overflow-x: clip) El menú de celular cerrado queda fuera de la pantalla: sin esto la página se podía arrastrar
+   hacia el costado (726px de ancho en un celular de 390px). */
 :where(.cx) img { max-width: 100%; display: block; }
 :where(.cx) a { color: var(--cx-blue); }
 :where(.cx) :is(h1, h2, h3, h4) { font-family: var(--cx-font-head); color: var(--cx-navy); line-height: 1.15; margin: 0 0 0.5em; letter-spacing: -0.01em; }
@@ -366,9 +369,10 @@ body.cx {
   .cx-nav {
     position: fixed; top: 0; right: 0; bottom: 0; width: min(320px, 86vw); z-index: 80; margin: 0;
     flex-direction: column; align-items: stretch; gap: 2px; padding: 84px 18px 24px; background: #fff;
-    box-shadow: -20px 0 40px rgba(4, 20, 60, 0.2); transform: translateX(105%); transition: transform 0.25s ease; overflow-y: auto;
+    box-shadow: -20px 0 40px rgba(4, 20, 60, 0.2); transform: translateX(105%); transition: transform 0.25s ease, visibility 0.25s; overflow-y: auto;
+    visibility: hidden;
   }
-  .cx-nav.abierto { transform: none; }
+  .cx-nav.abierto { transform: none; visibility: visible; }
   .cx-nav a { padding: 14px 12px; font-size: 1rem; border-radius: 10px; }
   .cx-nav a.activo { box-shadow: inset 4px 0 0 var(--cx-orange); background: var(--cx-sky); border-radius: 0 10px 10px 0; }
   .cx-nav .cx-btn { margin: 10px 0 0; }

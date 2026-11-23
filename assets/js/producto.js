@@ -3,9 +3,12 @@ let PRODUCTO_ACTUAL = null;
 // navega a otro producto (antes cada tamaño era una fila/slug distinto): el producto trae sus
 // 3 precios en la misma carga, así que la pastilla solo reacomoda el precio/cantidad in-place.
 let TALLA_SELECCIONADA = null;
+// Promedio y cantidad de opiniones (resenas.js): se pinta bajo el nombre y en los datos para Google.
+let RESUMEN_OPINIONES = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await iniciarLayout('catalogo/');
+  const desdeConsolidado = CONSOLIDADOS_ACTIVOS && new URLSearchParams(window.location.search).get('origen') === 'consolidado';
+  await iniciarLayout(desdeConsolidado ? 'catalogo-consolidado/' : 'catalogo/');
 
   if (!SUPABASE_CONFIGURADO) {
     document.getElementById('detalle-mount').innerHTML = '<div class="container"><div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div></div>';
@@ -29,8 +32,9 @@ async function cargarProducto(slug) {
     PRODUCTO_ACTUAL = data.producto;
     TALLA_SELECCIONADA = PRODUCTO_ACTUAL.es_decant ? tallasDecant(PRODUCTO_ACTUAL)[0] ?? null : null;
     renderDetalle(data);
+    cargarOpinionesProducto(data);
   } catch (err) {
-    mount.innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
+    mount.innerHTML = `<div class="container"><div class="empty-state">${escapeHtml(err.message)}</div></div>`;
   }
 }
 
@@ -67,6 +71,7 @@ function renderDetalle(data) {
   document.getElementById('og-url').setAttribute('content', urlProducto);
 
   document.getElementById('crumb-nombre').textContent = p.nombre;
+  marcarSeccionDelProducto(p);
 
   const esLiquidacion = !!p.es_liquidacion;
   // Llegar acá desde una tarjeta del catálogo de consolidado (ver tarjetaProductoConsolidado
@@ -127,6 +132,7 @@ function renderDetalle(data) {
       availability: agotado ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
     };
   }
+  agregarOpinionesAlJsonLd(productoLd);
   document.getElementById('product-jsonld').textContent = JSON.stringify(productoLd);
 
   document.getElementById('detalle-mount').innerHTML = `
@@ -135,6 +141,7 @@ function renderDetalle(data) {
       <div>
         <span class="pd-brand">${escapeHtml(p.marca)}</span>
         <h1 class="pd-name">${escapeHtml(p.nombre)}</h1>
+        <div id="pd-rating-mount">${htmlResumenOpinionesFicha()}</div>
         <div class="pd-price">
           ${conPrecio ? `<span class="price-current">${formatoMoneda(final)}</span>` : `<span class="price-whatsapp">${TEXTO_PRECIO_WHATSAPP}</span>`}
           ${tieneDescuento ? `<span class="price-old">${formatoMoneda(p.precio_tienda_regular)}</span>` : ''}
@@ -240,6 +247,76 @@ function renderDetalle(data) {
     document.getElementById('relacionados-section').style.display = '';
     document.getElementById('grid-relacionados').innerHTML = data.relacionados.map(tarjetaProducto).join('');
   }
+}
+
+// Ruta (breadcrumb) y menú según de dónde es el perfume: un decant vive en Decants, una
+// liquidación en Liquidaciones y uno visto desde el Catálogo Consolidado en Consolidado.
+function marcarSeccionDelProducto(p) {
+  const modoConsolidado = CONSOLIDADOS_ACTIVOS && new URLSearchParams(window.location.search).get('origen') === 'consolidado' && !p.es_decant && !p.es_liquidacion;
+  const [ruta, etiqueta] = p.es_decant ? ['decants/', 'Decants']
+    : p.es_liquidacion ? ['liquidaciones/', 'Liquidaciones']
+    : modoConsolidado ? ['catalogo-consolidado/', 'Catálogo Consolidado']
+    : ['catalogo/', 'Tienda'];
+  const crumb = document.getElementById('crumb-seccion');
+  if (crumb) { crumb.href = `${SITE_ROOT}${ruta}`; crumb.textContent = etiqueta; }
+  document.querySelectorAll('.main-nav a').forEach((a) => {
+    const activo = a.getAttribute('href') === `${SITE_ROOT}${ruta}`;
+    a.classList.toggle('active', activo);
+    if (activo) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+}
+
+// Opiniones de clientes (resenas.js). El frasco entero y su decant son el mismo perfume, así que
+// comparten opiniones; cada una dice sobre qué presentación se escribió.
+function cargarOpinionesProducto(data) {
+  const p = data.producto;
+  const otra = data.otraPresentacion;
+  const seccion = document.getElementById('opiniones');
+  if (!seccion || typeof montarOpiniones !== 'function') return;
+  seccion.hidden = false;
+  const variantes = {};
+  if (otra) variantes[otra.id] = otra.es_decant ? 'Opinión sobre el decant' : 'Opinión sobre el frasco completo';
+  montarOpiniones(document.getElementById('opiniones-mount'), {
+    tipo: 'Producto',
+    idProducto: p.id,
+    idsRelacionados: otra ? [otra.id] : [],
+    variantes,
+    nombre: `${p.marca} ${p.nombre}${p.es_decant ? ' (decant)' : ''}`,
+    alResumen: (resumen) => {
+      RESUMEN_OPINIONES = resumen;
+      const mount = document.getElementById('pd-rating-mount');
+      if (mount) mount.innerHTML = htmlResumenOpinionesFicha();
+      const ld = document.getElementById('product-jsonld');
+      try {
+        const datos = JSON.parse(ld.textContent || '{}');
+        agregarOpinionesAlJsonLd(datos);
+        ld.textContent = JSON.stringify(datos);
+      } catch { /* no es crítico */ }
+    },
+  });
+}
+
+function htmlResumenOpinionesFicha() {
+  const r = RESUMEN_OPINIONES;
+  if (!r || typeof estrellasHtml !== 'function') return '';
+  if (!r.total) return `<a href="#opiniones" class="pd-rating">${estrellasHtml(0, { clase: 'estrellas-sm' })}<span class="pd-rating-link">Sé el primero en opinar</span></a>`;
+  return `<a href="#opiniones" class="pd-rating">${estrellasHtml(r.promedio, { clase: 'estrellas-sm' })}<strong>${formatoPromedio(r.promedio)}</strong><span class="pd-rating-link">${textoOpiniones(r.total)}</span></a>`;
+}
+
+// Calificación para Google (estrellas en el resultado de búsqueda) solo si hay opiniones reales.
+function agregarOpinionesAlJsonLd(ld) {
+  const r = RESUMEN_OPINIONES;
+  delete ld.aggregateRating;
+  delete ld.review;
+  if (!r || !r.total) return;
+  ld.aggregateRating = { '@type': 'AggregateRating', ratingValue: Number(r.promedio.toFixed(1)), reviewCount: r.total, bestRating: 5, worstRating: 1 };
+  ld.review = r.resenas.slice(0, 5).map((x) => ({
+    '@type': 'Review',
+    author: { '@type': 'Person', name: x.nombre_publico || 'Cliente' },
+    reviewRating: { '@type': 'Rating', ratingValue: x.calificacion, bestRating: 5, worstRating: 1 },
+    ...(x.comentario ? { reviewBody: x.comentario } : {}),
+    datePublished: String(x.fecha_creacion).slice(0, 10),
+  }));
 }
 
 // "Pruébalo antes" (en la ficha del frasco entero) o "Llévalo completo" (en la ficha del

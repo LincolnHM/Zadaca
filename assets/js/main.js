@@ -498,7 +498,8 @@ function renderHeaderEstatico(activo) {
         </a>
         <div class="nav-backdrop" id="nav-backdrop" hidden></div>
         <nav class="main-nav" id="main-nav">
-          ${NAV_LINKS.map((l) => `<a href="${SITE_ROOT}${l.href}" class="${[activo === l.href ? 'active' : '', l.clase || ''].join(' ').trim()}">${l.clase === 'nav-courier' ? ICONS.plane : ''}${l.label}</a>`).join('')}
+          ${NAV_LINKS.map((l) => `<a href="${SITE_ROOT}${l.href}" class="${[activo === l.href ? 'active' : '', l.clase || ''].join(' ').trim()}"${activo === l.href ? ' aria-current="page"' : ''}>${l.clase === 'nav-courier' ? ICONS.plane : ''}${l.label}</a>`).join('')}
+          <a href="${SITE_ROOT}cuenta/" class="nav-solo-movil nav-cuenta${activo === 'cuenta/' ? ' active' : ''}">${ICONS.user}<span id="nav-account-label-movil">Ingresar o crear cuenta</span></a>
         </nav>
         <div class="header-actions">
           <button type="button" class="icon-btn search-toggle" id="search-toggle" aria-label="Buscar perfumes" aria-expanded="false">${ICONS.search}</button>
@@ -640,7 +641,7 @@ async function cargarCarritoDropdown() {
     document.getElementById('cart-dropdown-subtotal').textContent = hayPrecioOculto ? 'Por WhatsApp' : formatoMoneda(total);
     foot.hidden = false;
   } catch (err) {
-    mount.innerHTML = `<div class="notif-empty">${err.message}</div>`;
+    mount.innerHTML = `<div class="notif-empty">${escapeHtml(err.message)}</div>`;
     foot.hidden = true;
   }
 }
@@ -787,7 +788,7 @@ async function cargarNotificacionesDropdown() {
       });
     });
   } catch (err) {
-    mount.innerHTML = `<div class="notif-empty">${err.message}</div>`;
+    mount.innerHTML = `<div class="notif-empty">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -911,6 +912,8 @@ async function actualizarEstadoSesionHeader() {
   ]);
 
   if (label) label.textContent = session ? (perfil?.nombres?.split(' ')[0] || 'Mi cuenta') : 'Ingresar';
+  const labelMovil = document.getElementById('nav-account-label-movil');
+  if (labelMovil) labelMovil.textContent = session ? `Mi cuenta${perfil?.nombres ? ` (${perfil.nombres.split(' ')[0]})` : ''}` : 'Ingresar o crear cuenta';
 
   if (badge) {
     if (itemsCarrito) {
@@ -1116,7 +1119,7 @@ function tarjetaProducto(p) {
   // Disponible/Agotado del admin, ver migración 0016).
   const agotado = p.es_decant ? p.estado === 'Agotado' : (p.estado === 'Agotado' || p.stock_disponible <= 0);
   return `
-    <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="product-card">
+    <a href="${SITE_ROOT}producto/?slug=${p.slug}" class="product-card" data-id-producto="${p.id}">
       <div class="product-media">
         ${imagenProducto(p)}
         <div class="product-badges">
@@ -1150,17 +1153,17 @@ function tarjetaProducto(p) {
 // Los botones se manejan por delegación en catalogo-consolidado.js (data-accion).
 function tarjetaProductoConsolidado(p, enCarrito = 0) {
   return `
-    <article class="product-card card-avion" data-id="${p.id}">
-      <div class="product-media">
+    <article class="product-card card-avion" data-id="${p.id}" data-id-producto="${p.id}">
+      <a class="product-media" href="${SITE_ROOT}producto/?slug=${encodeURIComponent(p.slug)}&amp;origen=consolidado" tabindex="-1" aria-hidden="true">
         ${imagenProducto(p)}
         <div class="product-badges">
           ${p.es_nuevo ? '<span class="badge badge-new">Nuevo</span>' : ''}
           <span class="badge badge-consolidado">${ICONS.plane} Consolidado</span>
         </div>
-      </div>
+      </a>
       <div class="product-info">
         <span class="product-brand">${escapeHtml(p.marca)}</span>
-        <h3 class="product-name">${escapeHtml(p.nombre)}</h3>
+        <h3 class="product-name"><a class="card-avion-ficha" href="${SITE_ROOT}producto/?slug=${encodeURIComponent(p.slug)}&amp;origen=consolidado" title="Ver ficha y opiniones">${escapeHtml(p.nombre)}</a></h3>
         <span class="product-meta">${escapeHtml(p.concentracion || '')}${p.mililitros && p.mililitros > 1 ? `${p.concentracion ? ' · ' : ''}${p.mililitros} ml` : ''}</span>
         ${p.inspirado_en ? `<span class="product-inspirado" title="Inspirado en ${escapeHtml(p.inspirado_en)}">Inspirado en ${escapeHtml(p.inspirado_en)}</span>` : ''}
         <div class="product-price-row">

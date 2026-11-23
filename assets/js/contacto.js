@@ -33,7 +33,7 @@ async function cargarFAQ() {
       `).join('')
       : '<div class="empty-state">Todavía no hay preguntas frecuentes cargadas.</div>';
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 

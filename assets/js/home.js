@@ -29,7 +29,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   cargarMarcasMarquee();
   cargarClientesReales();
   activarLightbox();
+  cargarOpinionesHome();
 });
+
+// Últimas opiniones con comentario que dejaron los clientes (resenas.js). Sin opiniones todavía,
+// la sección no aparece.
+async function cargarOpinionesHome() {
+  const seccion = document.getElementById('seccion-opiniones');
+  if (!seccion || typeof obtenerOpinionesDestacadas !== 'function') return;
+  try {
+    const { resenas, total, promedio } = await obtenerOpinionesDestacadas(6);
+    if (!resenas.length) return;
+    document.getElementById('opiniones-home-resumen').innerHTML = `${estrellasHtml(promedio, { clase: 'estrellas-sm' })}<strong>${formatoPromedio(promedio)}</strong><span>de 5 · ${textoOpiniones(total)}</span>`;
+    document.getElementById('grid-opiniones').innerHTML = resenas.map((r) => {
+      const destino = r.tipo === 'Consolidado' || !r.perfumes
+        ? `<a class="opinion-home-producto" href="${SITE_ROOT}consolidados/#opiniones">${ICONS.plane}<span>Servicio de consolidado</span></a>`
+        : `<a class="opinion-home-producto" href="${SITE_ROOT}producto/?slug=${encodeURIComponent(r.perfumes.slug)}#opiniones">${imagenProducto(r.perfumes)}<span>${escapeHtml(r.perfumes.marca)} · ${escapeHtml(r.perfumes.nombre)}</span></a>`;
+      return `
+        <article class="opinion-home">
+          ${estrellasHtml(r.calificacion, { clase: 'estrellas-sm' })}
+          <blockquote>${escapeHtml(r.comentario)}</blockquote>
+          <div class="opinion-home-autor">
+            <span class="resena-avatar" aria-hidden="true">${escapeHtml(inicialNombre(r.nombre_publico))}</span>
+            <span><strong>${escapeHtml(r.nombre_publico || 'Cliente')}</strong>${r.compra_verificada ? ' · <span class="resena-verificada">Compra verificada</span>' : ''}<br><small>${escapeHtml(haceCuanto(r.fecha_creacion))}</small></span>
+          </div>
+          ${destino}
+        </article>`;
+    }).join('');
+    seccion.hidden = false;
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 // Fotos reales de 3 perfumes en stock (no una imagen fija -- el hero tenía antes una sola foto
 // fija de un producto puntual y se sacó porque no reflejaba el catálogo real, ver nota en
@@ -125,7 +156,7 @@ async function cargarNuevos() {
     if (!productos.length) { seccion.style.display = 'none'; return; }
     mount.innerHTML = productos.map(tarjetaProducto).join('');
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -143,7 +174,7 @@ async function cargarConsolidados() {
     if (!activos.length) { document.getElementById('seccion-consolidados').hidden = true; return; }
     mount.innerHTML = activos.map(tarjetaConsolidado).join('');
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -213,7 +244,7 @@ async function cargarExplorar() {
     mount.innerHTML = productos.length ? productos.map(tarjetaProducto).join('') : '<div class="empty-state">Aún no hay perfumes en stock. Vuelve pronto.</div>';
     renderPaginacionExplorar(totalPaginas);
   } catch (err) {
-    mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+    mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }
 }
 

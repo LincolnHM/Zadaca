@@ -58,6 +58,15 @@
         <div class="consolidado-grid reveal-grid" id="grid-consolidados"><div class="loading-state">Cargando consolidados…</div></div>
       </div>
     </section>
+
+    <section class="section resenas-section" id="opiniones" aria-labelledby="opiniones-titulo">
+      <div class="container">
+        <div class="section-header">
+          <div><span class="eyebrow">Opiniones de clientes</span><h2 id="opiniones-titulo">¿Cómo les fue con el consolidado?</h2></div>
+        </div>
+        <div id="opiniones-mount"></div>
+      </div>
+    </section>
   </main>
 
   <div id="site-footer"></div>
@@ -66,17 +75,23 @@
   <script src="https://madisonzadaca.com/assets/js/supabase-config.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/api.js" defer></script>
   <script src="https://madisonzadaca.com/assets/js/main.js" defer></script>
+  <script src="https://madisonzadaca.com/assets/js/resenas.js" defer></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       if (!CONSOLIDADOS_ACTIVOS) { window.location.replace(`${SITE_ROOT}catalogo/`); return; }
       await iniciarLayout('consolidados/');
       const mount = document.getElementById('grid-consolidados');
       if (!SUPABASE_CONFIGURADO) { mount.innerHTML = '<div class="empty-state">Configura Supabase en assets/js/supabase-config.js (ver README.md).</div>'; return; }
+      montarOpiniones(document.getElementById('opiniones-mount'), {
+        tipo: 'Consolidado',
+        nombre: 'nuestro servicio de consolidado',
+        placeholder: '¿Cómo te fue? Tiempo de llegada, atención, cómo llegaron tus perfumes…',
+      });
       try {
         const consolidados = (await obtenerConsolidados()).filter(consolidadoEstaAbierto);
         mount.innerHTML = consolidados.length ? consolidados.map(tarjetaConsolidado).join('') : '<div class="empty-state">No hay una campaña abierta en este momento. Igual puedes armar tu Carrito de Avión y enviárnoslo por WhatsApp: te confirmamos precio y fecha de la próxima salida.</div>';
       } catch (err) {
-        mount.innerHTML = `<div class="empty-state">${err.message}</div>`;
+        mount.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
       }
     });
   </script>

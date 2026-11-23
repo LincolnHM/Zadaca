@@ -4,6 +4,60 @@ Segunda línea web de Maison Zadaca: mismo modelo de negocio que el proyecto loc
 
 Diseño de referencia y fotos de producto tomadas de tu proyecto `PAGINA.WEB.MICHT` (solo las imágenes de los perfumes — nada de código, ni el logo/mascota de esa marca, ni sus credenciales).
 
+## Opiniones de clientes y arreglos generales (23 nov 2026)
+
+**SQL:** `supabase/migrations/0024_opiniones_clientes.sql` (ya corrida el 23 nov, antes del push).
+Se puede volver a correr sin problema. Si la web saliera sin ella, funciona igual pero las
+opiniones no aparecen.
+
+**Opiniones (estrellas de 1 a 5 + comentario):**
+- Solo clientes **con cuenta**. Sin sesión, la ficha muestra "Iniciar sesión / Crear cuenta" y
+  después de entrar el cliente vuelve al mismo perfume con el formulario abierto.
+- Sobre **cada perfume** (tienda, decants y Catálogo Consolidado: la tarjeta del consolidado ahora
+  abre su ficha) y sobre el **servicio de consolidado** (página Consolidados). Una opinión por
+  perfume y una sobre el consolidado; cada cliente la edita o la borra cuando quiera.
+- El frasco y su decant comparten opiniones (cada una dice sobre cuál se escribió).
+- Se muestran con el nombre corto ("Juan P."), nunca con correo ni teléfono. La marca **Compra
+  verificada** la pone la base solo si el cliente pagó un pedido con ese perfume (o su decant) o
+  tuvo una reserva de consolidado confirmada.
+- Dónde se ven: ficha del perfume (promedio, barras por estrellas, filtro y orden), estrellas en
+  las tarjetas del catálogo, sección "Lo que dicen nuestros clientes" en el inicio (aparece sola
+  cuando hay opiniones), Consolidados y Catálogo Consolidado (resumen), y **Mi cuenta → Mis
+  opiniones** (las suyas + los perfumes que compró y aún no calificó). Google recibe el promedio
+  (estrellas en el buscador) solo cuando hay opiniones reales.
+- Anti-abuso en la base: nadie puede opinar a nombre de otro, ni autopublicarse, ni cambiar su
+  nombre o la marca de compra; máximo 20 opiniones por día por cliente; hasta 1000 caracteres.
+
+**Panel → Reseñas (supervisión):**
+- Se publican **al instante** y llegan a la pestaña **Nuevas** (con número en el menú y en el
+  dashboard). Botones: **✓ Está bien**, **Ocultar** (deja de verse, no se borra), **Publicar** y
+  **Eliminar**. Si un cliente edita su opinión, vuelve a "Nuevas".
+- Interruptor **"Aprobar antes de publicar"**: encendido, ninguna opinión se ve hasta que la
+  publiques (y si el cliente la edita, se vuelve a esconder hasta revisarla).
+- Muestra quién la escribió (nombre completo, correo y WhatsApp) para poder contactarlo. El texto
+  del cliente no se puede editar desde el panel (solo publicar, ocultar o borrar).
+- Arreglo: antes **Eliminar** no borraba nada (faltaba el permiso en la base). Ahora sí, y si algo
+  falla, avisa.
+- Términos y Privacidad tienen ahora las reglas de las opiniones (qué se publica y qué se borra).
+
+**Arreglos y mejoras del sitio:**
+- Menú de PC: la página activa casi no se veía (burdeos sobre fondo oscuro). Ahora va en blanco
+  con una línea debajo.
+- Celular: el menú no tenía acceso a **Mi cuenta / Ingresar**; ahora sí. El menú cerrado ya no
+  recibe el foco del teclado.
+- Courier en celular: la página se podía arrastrar hacia el costado (el menú escondido sumaba
+  ancho). Arreglado en todas sus páginas.
+- "¿Olvidaste tu contraseña?" salía como un botón gris del navegador.
+- Catálogos: huecos de 80 px entre la introducción, las pastillas de género y los filtros.
+- "No hay campañas abiertas" (Consolidados) y otros avisos vacíos salían apretados en una
+  columna de la grilla.
+- Ficha de un decant, liquidación o perfume de consolidado: la ruta y el menú decían "Tienda".
+- Mi cuenta en celular: las 9 pestañas eran una lista larga antes del contenido; ahora es una
+  fila que se desliza. Las tablas (pedidos, reservas) se deslizan en vez de apretarse.
+- Favoritos: ahora muestran el stock real (antes nunca marcaban "Agotado").
+- Los mensajes de error que se pintan en pantalla se escapan (antes se insertaban como HTML).
+- Foco visible para quien navega con teclado; `robots.txt` excluye también el Carrito de Avión.
+
 ## Consolidado: perfumes de Crist Fragances (29 oct 2026)
 
 **SQL:** `supabase/datos/cargar_consolidado_cristfragances_29oct2026.sql`. Correrlo **después**

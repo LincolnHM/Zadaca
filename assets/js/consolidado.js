@@ -26,7 +26,7 @@ async function cargarConsolidado() {
     document.getElementById('og-description').setAttribute('content', `${estadoTexto} — compra grupal de perfumes importados a precio preferencial.`);
     renderConsolidado(c);
   } catch (err) {
-    document.getElementById('detalle-mount').innerHTML = `<div class="container"><div class="empty-state">${err.message}</div></div>`;
+    document.getElementById('detalle-mount').innerHTML = `<div class="container"><div class="empty-state">${escapeHtml(err.message)}</div></div>`;
   }
 }
 
